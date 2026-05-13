@@ -1,0 +1,11 @@
+:root {
+  --bg: #000000;
+  --fg: #ffffff;
+  --muted: #ffffff;
+  --link: #ffff00;
+  --focus: #ffff00;
+  --rule: #ffffff;
+  --code-bg: #000000;
+}
+html, body { background: var(--bg); color: var(--fg); }
+pre, code { border: 1px solid var(--fg); }
