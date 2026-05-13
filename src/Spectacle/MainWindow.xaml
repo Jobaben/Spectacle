@@ -1,0 +1,34 @@
+<Window x:Class="Spectacle.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:web="clr-namespace:Spectacle.Web"
+        xmlns:editor="clr-namespace:Spectacle.Editor"
+        Title="Spectacle"
+        Width="1100" Height="800"
+        Background="#1e1e1e"
+        Foreground="#d4d4d4"
+        UseLayoutRounding="True">
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding ReloadCommand}" />
+        <KeyBinding Key="R" Modifiers="Control" Command="{Binding ReloadCommand}" />
+        <KeyBinding Key="OemPlus" Modifiers="Control" Command="{Binding ZoomInCommand}" />
+        <KeyBinding Key="Add" Modifiers="Control" Command="{Binding ZoomInCommand}" />
+        <KeyBinding Key="OemMinus" Modifiers="Control" Command="{Binding ZoomOutCommand}" />
+        <KeyBinding Key="Subtract" Modifiers="Control" Command="{Binding ZoomOutCommand}" />
+        <KeyBinding Key="D0" Modifiers="Control" Command="{Binding ZoomResetCommand}" />
+        <KeyBinding Key="NumPad0" Modifiers="Control" Command="{Binding ZoomResetCommand}" />
+        <KeyBinding Key="F11" Command="{Binding FullscreenCommand}" />
+        <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
+    </Window.InputBindings>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="EditorColumn" Width="0" />
+            <ColumnDefinition x:Name="SplitterColumn" Width="0" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <editor:EditorHost x:Name="Editor" Grid.Column="0" />
+        <GridSplitter x:Name="Splitter" Grid.Column="1" Width="0" Visibility="Collapsed"
+                      HorizontalAlignment="Stretch" Background="#3c3c3c" />
+        <web:WebViewHost x:Name="Web" Grid.Column="2" />
+    </Grid>
+</Window>
