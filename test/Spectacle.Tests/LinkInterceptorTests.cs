@@ -14,6 +14,7 @@ public class LinkInterceptorTests
     [InlineData("https://spectacle.local/", "mailto:a@b.com", NavDecision.OpenInBrowser)]
     [InlineData("https://spectacle.local/", "file:///C:/x.md", NavDecision.OpenInBrowser)]
     [InlineData("https://spectacle.local/", "about:blank", NavDecision.AllowInPage)]
+    [InlineData("https://spectacle.local/", "data:text/html,<p>hi</p>", NavDecision.AllowInPage)]
     public void Decides_navigation(string currentUrl, string targetUrl, NavDecision expected) =>
         LinkInterceptor.Decide(currentUrl, targetUrl).Should().Be(expected);
 }

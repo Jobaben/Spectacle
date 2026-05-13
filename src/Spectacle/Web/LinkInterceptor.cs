@@ -6,7 +6,9 @@ public static class LinkInterceptor
 {
     public static NavDecision Decide(string currentUrl, string targetUrl)
     {
-        if (string.IsNullOrEmpty(targetUrl) || targetUrl.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(targetUrl)
+            || targetUrl.StartsWith("about:", StringComparison.OrdinalIgnoreCase)
+            || targetUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             return NavDecision.AllowInPage;
 
         if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out var current)
