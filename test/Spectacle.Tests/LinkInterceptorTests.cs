@@ -1,0 +1,19 @@
+using Xunit;
+using FluentAssertions;
+using Spectacle.Web;
+
+namespace Spectacle.Tests;
+
+public class LinkInterceptorTests
+{
+    [Theory]
+    [InlineData("https://spectacle.local/", "https://spectacle.local/#section", NavDecision.AllowInPage)]
+    [InlineData("https://spectacle.local/", "https://spectacle.local/", NavDecision.AllowInPage)]
+    [InlineData("https://spectacle.local/", "https://example.com/", NavDecision.OpenInBrowser)]
+    [InlineData("https://spectacle.local/", "http://example.com/", NavDecision.OpenInBrowser)]
+    [InlineData("https://spectacle.local/", "mailto:a@b.com", NavDecision.OpenInBrowser)]
+    [InlineData("https://spectacle.local/", "file:///C:/x.md", NavDecision.OpenInBrowser)]
+    [InlineData("https://spectacle.local/", "about:blank", NavDecision.AllowInPage)]
+    public void Decides_navigation(string currentUrl, string targetUrl, NavDecision expected) =>
+        LinkInterceptor.Decide(currentUrl, targetUrl).Should().Be(expected);
+}
