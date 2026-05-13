@@ -1,6 +1,6 @@
 # Spectacle — Markdown Viewer (Design Spec)
 
-**Status:** Approved 2026-05-13
+**Status:** Approved 2026-05-13 (revised 2026-05-13: dark-only theme with explicit accessibility commitments)
 **Scope:** v1 — read-only Markdown viewer for Windows, architected so an editor can be added later without restructuring the shell.
 
 ## 1. Problem and Goal
@@ -98,16 +98,34 @@ Explicitly **not** doing in v1: building unused code paths, declaring an `IEdito
 | `PreviewPipeline` | Subscribes to `Document.Changed`, runs render, pushes HTML into `WebViewHost`. Decoupled from file vs. buffer source. |
 | `WebViewHost` | WPF `UserControl` wrapping `WebView2`. Intercepts navigation: in-page anchors stay; everything else opens in default browser via `ShellExecute`. |
 | `EditorHost` | Empty `UserControl` placeholder in v1. Lives in the grid, width 0. Exists so adding an editor is a "fill this control" task, not a "rewrite the shell" task. |
-| `ThemeWatcher` | Reads Windows light/dark on startup and on `WM_SETTINGCHANGE`. Reapplies CSS theme. |
+| `HighContrastWatcher` | Detects Windows High Contrast / Contrast Themes (`SystemParameters.HighContrast`) on startup and on `WM_SETTINGCHANGE`. When active, swaps in the high-contrast CSS variant. Does **not** switch to light — Spectacle is dark-only. |
 | `FileAssocInstaller` | `--register` / `--unregister` writes/removes per-user `HKCU\Software\Classes` entries for `.md` / `.markdown` → `Spectacle.MarkdownFile` ProgID → `Spectacle.exe "%1"`. No admin needed. |
 
 ## 6. Rendering Parity with VS Code Preview
 
 - **Markdig pipeline:** `UseAdvancedExtensions()` (tables, task lists, autolinks, footnotes, pipe tables, emphasis extras) + `UseEmojiAndSmiley()` + `UseAutoIdentifiers()`. Soft-line-break-as-hard-line-break stays **off** to match VS Code's default.
-- **CSS:** stripped-down port of VS Code's `markdown.css` plus Dark+/Light+ token colors. Both themes embedded as resources, switched by a `data-theme` attribute on `<html>`.
-- **Code highlighting:** Prism.js embedded (no CDN) with VS Code Dark+/Light+ token colors. Bundled languages: `cs`, `ps`, `js`, `ts`, `json`, `yaml`, `sql`, `bash`, `html`, `css`, `xml`, `md`. Covers ~95% of common cases without bloating the binary.
+- **CSS:** stripped-down port of VS Code's `markdown.css` using the **Dark+** palette only. No light theme exists. Two embedded variants:
+  - `dark.css` (default) — VS Code Dark+ background `#1e1e1e` on foreground `#d4d4d4` (contrast ratio ≈ 11.6:1, exceeds WCAG AAA 7:1).
+  - `hc.css` (high contrast) — pure black `#000000` on white `#ffffff`, used when Windows High Contrast / Contrast Themes is active.
+- **Code highlighting:** Prism.js embedded (no CDN) with VS Code Dark+ token colors. Bundled languages: `cs`, `ps`, `js`, `ts`, `json`, `yaml`, `sql`, `bash`, `html`, `css`, `xml`, `md`. Covers ~95% of common cases without bloating the binary.
 - **Local images:** resolved relative to the Markdown file via `<base href="file:///{BaseDirectory}/">`.
 - **Math, Mermaid:** out of scope for v1.
+
+## 6.1 Accessibility Commitments
+
+Dark theme is the only theme, but accessibility is non-negotiable. v1 must satisfy:
+
+| Requirement | How it's met |
+|---|---|
+| **WCAG 2.1 AA contrast** (4.5:1 body, 3:1 large/UI) | Dark palette computed contrast ≈ 11.6:1 for body, validated for every token color in `dark.css`. CI test (or commented manual check in `MdRendererTests`) asserts contrast pairs for the palette constants. |
+| **WCAG AAA where feasible** (7:1) | Body text and code blocks meet 7:1 in the default palette. Inline links use `#4ea1ff` on `#1e1e1e` (≈ 7.0:1). |
+| **Windows High Contrast / Contrast Themes** | `HighContrastWatcher` detects active state and swaps to `hc.css`. CSS also includes `@media (forced-colors: active)` rules as a defense-in-depth fallback inside WebView2. |
+| **Visible focus** | `:focus-visible` rules apply a 2 px outline at `#7cb7ff` on every interactive element (links, the WebView itself). Native WPF focus visuals remain on app chrome. |
+| **Scalable text** | Body font size `16px` baseline. Zoom keys (Ctrl+= / Ctrl+- / Ctrl+0) scale the whole document via WebView2's `ZoomFactor`. Last zoom level is persisted per session in window state. |
+| **No motion sensitivity hazards** | No animations or transitions in CSS. If any are added later, gate them on `@media (prefers-reduced-motion: no-preference)`. |
+| **Keyboard accessible** | Every command in §7 has a key binding. No mouse-only paths. Tab order in the WebView is the document's natural order. |
+| **Screen reader compatible** | WebView2 exposes the rendered DOM to UIA / Narrator by default. Semantic HTML is preserved by Markdig (`<h1>`–`<h6>`, `<table>`, `<ul>`, `<code>`). Images keep their `alt` text. The main `<body>` is wrapped in `<main role="main">` for landmark navigation. |
+| **No color-only meaning** | Syntax highlighting and task-list ticks use weight/shape in addition to color. Links are underlined, not color-only. |
 
 ## 7. Keyboard Shortcuts (v1)
 
@@ -156,11 +174,11 @@ Spectacle/
       Render/MdRenderer.cs
       Render/PreviewHtml.cs
       Render/PreviewPipeline.cs
-      Render/Assets/{preview.css, dark.css, light.css, prism.min.js}
+      Render/Assets/{preview.css, dark.css, hc.css, prism.min.js}
       Web/WebViewHost.xaml(.cs)
       Web/LinkInterceptor.cs
       Editor/EditorHost.xaml(.cs)      # empty placeholder, v1
-      Theme/ThemeWatcher.cs
+      Theme/HighContrastWatcher.cs
       Install/FileAssocInstaller.cs
       Spectacle.csproj
   test/
@@ -188,15 +206,19 @@ Spectacle/
 ## 12. Testing Strategy
 
 - **Unit:** `CliArgs` (argv parsing), `FileGuard` (allowlist), `MdRenderer` (snapshot tests against curated fixtures: tables, code blocks, task lists, nested lists, blockquotes, footnotes, images).
+- **Unit (accessibility):** `PaletteContrastTests` — asserts every foreground/background pair in `dark.css` and `hc.css` meets WCAG AA (4.5:1) and body+code meet AAA (7:1). Uses the WCAG relative-luminance formula in test code.
 - **Unit (filesystem):** `FileDocument` (temp-file roundtrip with the file watcher).
 - **Unit (registry):** `FileAssocInstaller` against a temp `HKCU\Software\Classes\Spectacle.Tests.<guid>` subtree to avoid polluting real associations.
 - **Manual smoke:**
-  1. Launch on a sample doc covering all GFM features.
-  2. Toggle Windows light/dark and observe theme switch.
-  3. Save the file and observe auto-reload.
-  4. Click an external link and confirm it opens in the default browser.
-  5. Attempt to open a `.txt` file and confirm rejection with exit code 2.
-  6. Run `--register`, double-click a `.md` from Explorer, confirm Spectacle launches.
+  1. Launch on a sample doc covering all GFM features. Confirm dark theme renders.
+  2. Toggle Windows light/dark and confirm the app **stays dark** (no theme switch).
+  3. Enable a Windows Contrast Theme (Settings → Accessibility → Contrast themes) and confirm `hc.css` engages.
+  4. Tab through links and confirm visible focus outlines.
+  5. Run Narrator and confirm headings, lists, and tables are announced with semantics.
+  6. Save the file and observe auto-reload.
+  7. Click an external link and confirm it opens in the default browser.
+  8. Attempt to open a `.txt` file and confirm rejection with exit code 2.
+  9. Run `--register`, double-click a `.md` from Explorer, confirm Spectacle launches.
 
 ## 13. Non-Goals (v1)
 
@@ -226,7 +248,9 @@ Spectacle/
 | Math / Mermaid in v1? | No |
 | Installer (MSI) in v1? | No |
 | Self-contained .exe? | No — framework-dependent (smaller) |
-| Theme source? | Follow Windows system theme |
+| Theme | **Dark only.** No light theme. Windows light/dark setting is ignored. |
+| High Contrast respected? | Yes — `hc.css` engages when Windows High Contrast / Contrast Themes is active |
+| Contrast target | WCAG AA minimum, AAA where feasible (body + code) |
 | External links | Open in default browser |
 | Convenience PS function name | `spectacle` |
 | Allowed extensions | `.md`, `.markdown` (case-insensitive) |
