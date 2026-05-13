@@ -1,0 +1,7 @@
+# Snapshot test fixtures compare against Markdig's LF output.
+# Pin them to LF so Windows core.autocrlf=true doesn't break the assertions.
+test/Spectacle.Tests/Fixtures/*.md   text eol=lf
+test/Spectacle.Tests/Fixtures/*.html text eol=lf
+
+# Vendored Prism is minified — leave bytes alone.
+src/Spectacle/Render/Assets/prism.min.js -text
