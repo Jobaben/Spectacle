@@ -21,14 +21,33 @@
         <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
     </Window.InputBindings>
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="EditorColumn" Width="0" />
-            <ColumnDefinition x:Name="SplitterColumn" Width="0" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <editor:EditorHost x:Name="Editor" Grid.Column="0" />
-        <GridSplitter x:Name="Splitter" Grid.Column="1" Width="0" Visibility="Collapsed"
-                      HorizontalAlignment="Stretch" Background="#3c3c3c" />
-        <web:WebViewHost x:Name="Web" Grid.Column="2" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Border x:Name="TopBar" Grid.Row="0"
+                Background="#252526" BorderBrush="#3c3c3c" BorderThickness="0,0,0,1"
+                Padding="10,6" Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Copy revision plan" Command="{Binding CopyRevisionPlanCommand}"
+                        Padding="10,4" Margin="0,0,8,0" Background="#4ea1ff" Foreground="#0a0a0a"
+                        BorderThickness="0" />
+                <Button Content="Export revision plan…" Command="{Binding ExportRevisionPlanCommand}"
+                        Padding="10,4" Margin="0,0,16,0" Background="#1c1c1c" Foreground="#d4d4d4"
+                        BorderBrush="#3c3c3c" BorderThickness="1" />
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="#9aa0a6" Text="" />
+            </StackPanel>
+        </Border>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="EditorColumn" Width="0" />
+                <ColumnDefinition x:Name="SplitterColumn" Width="0" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <editor:EditorHost x:Name="Editor" Grid.Column="0" />
+            <GridSplitter x:Name="Splitter" Grid.Column="1" Width="0" Visibility="Collapsed"
+                          HorizontalAlignment="Stretch" Background="#3c3c3c" />
+            <web:WebViewHost x:Name="Web" Grid.Column="2" />
+        </Grid>
     </Grid>
 </Window>

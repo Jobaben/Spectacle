@@ -1,5 +1,9 @@
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
+using Microsoft.Win32;
 using Spectacle.Annotations;
 using Spectacle.Documents;
 using Spectacle.Render;
@@ -13,6 +17,7 @@ public partial class MainWindow : Window, IPreviewSink
     private readonly AnnotationStore _store;
     private readonly PreviewPipeline _pipeline;
     private readonly HighContrastWatcher _hcWatcher = new();
+    private readonly string _sourcePath;
     private double _zoom = 1.0;
     private WindowState _preFullScreenState;
     private WindowStyle _preFullScreenStyle;
@@ -23,11 +28,14 @@ public partial class MainWindow : Window, IPreviewSink
     public ICommand ZoomResetCommand { get; }
     public ICommand FullscreenCommand { get; }
     public ICommand CloseCommand { get; }
+    public ICommand CopyRevisionPlanCommand { get; }
+    public ICommand ExportRevisionPlanCommand { get; }
 
     public MainWindow(string filePath)
     {
         InitializeComponent();
 
+        _sourcePath = Path.GetFullPath(filePath);
         _document = FileDocument.Open(filePath);
         _store = new AnnotationStore(filePath);
         Title = $"{System.IO.Path.GetFileName(filePath)} — Spectacle";
@@ -45,8 +53,17 @@ public partial class MainWindow : Window, IPreviewSink
         FullscreenCommand = new RelayCommand(_ => ToggleFullscreen());
         CloseCommand = new RelayCommand(_ => Close());
 
+        CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan());
+        ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan());
+
+        Web.HostMessageReceived += (_, json) => Dispatcher.Invoke(() =>
+        {
+            _pipeline.HandleHostMessage(json);
+            UpdateTopBar();
+        });
+
         DataContext = this;
-        Loaded += (_, _) => _pipeline.Start();
+        Loaded += (_, _) => { _pipeline.Start(); UpdateTopBar(); };
         Closed += (_, _) =>
         {
             _pipeline.Dispose();
@@ -77,6 +94,51 @@ public partial class MainWindow : Window, IPreviewSink
             WindowStyle = WindowStyle.None;
             WindowState = WindowState.Maximized;
         }
+    }
+
+    private void UpdateTopBar()
+    {
+        var matched = _pipeline.SnapshotMatched();
+        var loaded = _store.Load();
+        var orphanCount = loaded.Comments.Count - matched.Count;
+
+        if (matched.Count + orphanCount == 0)
+        {
+            TopBar.Visibility = System.Windows.Visibility.Collapsed;
+            StatusText.Text = "";
+            return;
+        }
+        TopBar.Visibility = System.Windows.Visibility.Visible;
+        StatusText.Text = orphanCount > 0
+            ? $"{matched.Count} comment(s) • {orphanCount} orphaned"
+            : $"{matched.Count} comment(s)";
+    }
+
+    private string BuildRevisionPlan()
+    {
+        var matched = _pipeline.SnapshotMatched();
+        var content = File.ReadAllText(_sourcePath);
+        var sha = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
+        return RevisionPlanExporter.Build(_sourcePath, sha, DateTime.UtcNow, matched);
+    }
+
+    private void CopyRevisionPlan()
+    {
+        var text = BuildRevisionPlan();
+        System.Windows.Clipboard.SetText(text);
+    }
+
+    private void ExportRevisionPlan()
+    {
+        var text = BuildRevisionPlan();
+        var dlg = new SaveFileDialog
+        {
+            FileName = Path.GetFileNameWithoutExtension(_sourcePath) + ".revisions.md",
+            Filter = "Markdown (*.md)|*.md|All files (*.*)|*.*",
+            InitialDirectory = Path.GetDirectoryName(_sourcePath)
+        };
+        if (dlg.ShowDialog() == true)
+            File.WriteAllText(dlg.FileName, text);
     }
 }
 
