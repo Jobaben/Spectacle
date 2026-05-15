@@ -102,6 +102,39 @@ public class AnnotationStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_writes_corruption_message_to_stderr()
+    {
+        var store = new AnnotationStore(_sourceFile, sidecarRoot: _root);
+        Directory.CreateDirectory(store.SidecarDirectory);
+        File.WriteAllText(store.SidecarPath, "{ not valid json");
+
+        var stderr = Console.Error;
+        using var sw = new StringWriter();
+        Console.SetError(sw);
+        try { store.Load(); }
+        finally { Console.SetError(stderr); }
+
+        sw.ToString().Should().Contain("Corrupt sidecar")
+                      .And.Contain(store.SidecarPath);
+    }
+
+    [Fact]
+    public void Load_rethrows_on_transient_io_failure()
+    {
+        var store = new AnnotationStore(_sourceFile, sidecarRoot: _root);
+        Directory.CreateDirectory(store.SidecarDirectory);
+
+        // Open the sidecar with an exclusive lock so File.ReadAllText hits a sharing violation.
+        using var fs = new FileStream(store.SidecarPath, FileMode.Create,
+            FileAccess.Write, FileShare.None);
+        fs.WriteByte((byte)'x');
+        fs.Flush();
+
+        Action act = () => store.Load();
+        act.Should().Throw<IOException>();
+    }
+
+    [Fact]
     public void Saved_json_uses_camelCase_keys_per_spec_section_6_2()
     {
         var store = new AnnotationStore(_sourceFile, sidecarRoot: _root);

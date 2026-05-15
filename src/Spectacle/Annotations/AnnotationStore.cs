@@ -35,7 +35,11 @@ public sealed class AnnotationStore
 
         string json;
         try { json = File.ReadAllText(SidecarPath); }
-        catch (IOException) { return Empty(); }
+        catch (IOException ex)
+        {
+            Console.Error.WriteLine($"[AnnotationStore] I/O error reading sidecar {SidecarPath}: {ex.Message}");
+            throw;
+        }
 
         try
         {
@@ -46,6 +50,8 @@ public sealed class AnnotationStore
         {
             var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
             var dest = SidecarPath + $".corrupt-{stamp}";
+            Console.Error.WriteLine(
+                $"[AnnotationStore] Corrupt sidecar at {SidecarPath}; renamed to {dest}");
             try { File.Move(SidecarPath, dest, overwrite: true); }
             catch (IOException) { /* best-effort */ }
             return Empty();
