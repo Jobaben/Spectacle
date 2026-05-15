@@ -11,6 +11,8 @@ public partial class WebViewHost : UserControl
     private string? _pendingHtml;
     private string? _virtualFolder;
 
+    public event EventHandler<string>? HostMessageReceived;
+
     public WebViewHost()
     {
         InitializeComponent();
@@ -24,6 +26,12 @@ public partial class WebViewHost : UserControl
         Web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
         Web.CoreWebView2.NewWindowRequested += OnNewWindow;
         Web.CoreWebView2.NavigationStarting += OnNavStarting;
+        Web.CoreWebView2.WebMessageReceived += (_, e) =>
+        {
+            var json = e.TryGetWebMessageAsString();
+            if (!string.IsNullOrEmpty(json))
+                HostMessageReceived?.Invoke(this, json);
+        };
         _ready = true;
         if (_pendingHtml is not null) DoSetHtml(_pendingHtml);
     }
