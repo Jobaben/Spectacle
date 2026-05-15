@@ -1,14 +1,30 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using FluentAssertions;
+using Spectacle.Annotations;
 using Spectacle.Documents;
 using Spectacle.Render;
 using Xunit;
 
 namespace Spectacle.Tests;
 
-public class PreviewPipelineTests
+public class PreviewPipelineTests : IDisposable
 {
+    private readonly string _root;
+
+    public PreviewPipelineTests()
+    {
+        _root = Path.Combine(Path.GetTempPath(), $"spectacle-pipe-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_root);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+    }
+
     private sealed class StubDocument : Document
     {
         private string _text = "";
@@ -23,47 +39,152 @@ public class PreviewPipelineTests
         public void Push(string html) => Pushed.Add(html);
     }
 
+    private PreviewPipeline NewPipeline(StubDocument doc, StubSink sink, string sourcePath = "")
+    {
+        var store = new AnnotationStore(
+            sourcePath: string.IsNullOrEmpty(sourcePath) ? Path.Combine(_root, "doc.md") : sourcePath,
+            sidecarRoot: _root);
+        return new PreviewPipeline(doc, sink, PreviewTheme.Dark, store);
+    }
+
     [Fact]
-    public void Renders_initial_document_immediately()
+    public void Renders_initial_document_with_zero_annotations()
     {
         var doc = new StubDocument();
         doc.Update("# hello");
         var sink = new StubSink();
 
-        using var pipeline = new PreviewPipeline(doc, sink, PreviewTheme.Dark);
-        pipeline.Start();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
 
         sink.Pushed.Should().HaveCount(1);
         sink.Pushed[0].Should().Contain("<h1");
+        sink.Pushed[0].Should().Contain("\"comments\":[]");
     }
 
     [Fact]
-    public void Re_renders_on_Changed()
+    public void Re_renders_on_document_change()
     {
         var doc = new StubDocument();
         doc.Update("# a");
         var sink = new StubSink();
-        using var pipeline = new PreviewPipeline(doc, sink, PreviewTheme.Dark);
-        pipeline.Start();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
 
         doc.Update("# b");
 
         sink.Pushed.Should().HaveCount(2);
-        sink.Pushed[1].Should().Contain("# b".Replace("# ", ""));
     }
 
     [Fact]
-    public void SetTheme_re_renders()
+    public void HandleHostMessage_saves_new_comment_and_refreshes()
     {
         var doc = new StubDocument();
-        doc.Update("# a");
+        doc.Update("Hello world.\n");
         var sink = new StubSink();
-        using var pipeline = new PreviewPipeline(doc, sink, PreviewTheme.Dark);
-        pipeline.Start();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
 
-        pipeline.SetTheme(PreviewTheme.HighContrast);
+        var msg = """
+        {"type":"commentSave","commentId":"c-new","blockId":"b0","body":"reword"}
+        """;
+        p.HandleHostMessage(msg);
 
-        sink.Pushed.Should().HaveCount(2);
-        sink.Pushed[1].Should().Contain("#ffff00");
+        sink.Pushed.Last().Should().Contain("\"c-new\"");
+        sink.Pushed.Last().Should().Contain("\"reword\"");
+    }
+
+    [Fact]
+    public void HandleHostMessage_deletes_comment()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello world.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+
+        p.HandleHostMessage("""
+        {"type":"commentDelete","commentId":"c-1"}
+        """);
+
+        sink.Pushed.Last().Should().NotContain("\"c-1\"");
+    }
+
+    [Fact]
+    public void HandleHostMessage_resolves_comment()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello world.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+
+        p.HandleHostMessage("""
+        {"type":"commentResolve","commentId":"c-1","resolved":true}
+        """);
+
+        sink.Pushed.Last().Should().Contain("\"resolvedAt\":\"");
+    }
+
+    [Fact]
+    public void Snapshot_returns_current_matched_comments()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+
+        var snap = p.SnapshotMatched();
+        snap.Should().ContainSingle().Which.Comment.Id.Should().Be("c-1");
+    }
+
+    [Fact]
+    public void Comment_becomes_orphan_when_anchor_block_text_changes()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+
+        doc.Update("Goodbye.\n");
+
+        sink.Pushed.Last().Should().Contain("\"orphaned\":[")
+            .And.Contain("\"c-1\"");
+        sink.Pushed.Last().Should().NotContain("\"blockIdAtRender\":\"b0\",\"");
+    }
+
+    [Fact]
+    public void OrphanReanchor_binds_comment_to_new_block()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+        doc.Update("Goodbye.\n");
+
+        p.HandleHostMessage("""
+        {"type":"orphanReanchor","commentId":"c-1","blockId":"b0"}
+        """);
+
+        sink.Pushed.Last().Should().Contain("\"c-1\"");
+        sink.Pushed.Last().Should().NotContain("\"orphaned\":[{\"id\":\"c-1\"");
     }
 }

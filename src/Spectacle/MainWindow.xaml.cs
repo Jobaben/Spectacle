@@ -9,6 +9,7 @@ namespace Spectacle;
 public partial class MainWindow : Window, IPreviewSink
 {
     private readonly FileDocument _document;
+    private readonly Spectacle.Annotations.AnnotationStore _store;
     private readonly PreviewPipeline _pipeline;
     private readonly HighContrastWatcher _hcWatcher = new();
     private double _zoom = 1.0;
@@ -27,11 +28,12 @@ public partial class MainWindow : Window, IPreviewSink
         InitializeComponent();
 
         _document = FileDocument.Open(filePath);
+        _store = new Spectacle.Annotations.AnnotationStore(filePath);
         Title = $"{System.IO.Path.GetFileName(filePath)} — Spectacle";
         Web.SetVirtualFolder(_document.BaseDirectory);
 
         var theme = _hcWatcher.IsActive ? PreviewTheme.HighContrast : PreviewTheme.Dark;
-        _pipeline = new PreviewPipeline(_document, this, theme);
+        _pipeline = new PreviewPipeline(_document, this, theme, _store);
         _hcWatcher.Changed += (_, _) => Dispatcher.Invoke(() =>
             _pipeline.SetTheme(_hcWatcher.IsActive ? PreviewTheme.HighContrast : PreviewTheme.Dark));
 
