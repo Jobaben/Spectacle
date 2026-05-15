@@ -109,4 +109,53 @@ public class BlockTaggerTests
 
         r.Blocks[0].OriginalText.Should().Be("Hello world.");
     }
+
+    [Fact]
+    public void Data_line_reflects_actual_source_line()
+    {
+        var r = Render("\n\n# Hi\n");
+
+        r.Blocks[0].Line.Should().Be(3);
+        r.Html.Should().Contain("data-line=\"3\"");
+    }
+
+    [Fact]
+    public void Data_text_hash_attribute_in_html_matches_block_hash()
+    {
+        var r = Render("# Hello\n");
+
+        r.Html.Should().Contain($"data-text-hash=\"{r.Blocks[0].TextHash}\"");
+    }
+
+    [Fact]
+    public void Empty_input_yields_no_blocks_and_does_not_throw()
+    {
+        var r = Render(string.Empty);
+
+        r.Blocks.Should().BeEmpty();
+        r.Html.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Html_block_is_recorded_as_html_kind_but_not_attributed_in_output()
+    {
+        // Markdig renders HtmlBlock content verbatim; HtmlAttributes attached
+        // to it do not surface in the rendered HTML. The block is still tracked
+        // in r.Blocks so annotations can target it via its block-id.
+        var r = Render("<div>raw</div>\n");
+
+        r.Blocks.Should().ContainSingle().Which.Kind.Should().Be("html");
+        r.Html.Should().NotContain("data-kind=\"html\"");
+    }
+
+    [Fact]
+    public void Nested_list_items_are_not_tagged_by_outer_walk()
+    {
+        // Document the current contract: only items belonging to top-level lists
+        // are tagged via TagListItems; nested sub-list items are not visited.
+        var r = Render("- outer\n  - inner1\n  - inner2\n");
+
+        r.Blocks.Where(b => b.Kind == "list-item").Should().ContainSingle()
+            .Which.OriginalText.Should().StartWith("- outer");
+    }
 }
