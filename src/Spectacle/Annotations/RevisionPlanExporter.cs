@@ -21,7 +21,9 @@ public static class RevisionPlanExporter
         sb.AppendLine();
         sb.Append("Source file: ").Append(sourcePath)
           .Append(" (SHA-256: ").Append(sourceSha256).AppendLine(")");
-        sb.Append("Generated: ").Append(generatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")).AppendLine();
+        sb.Append("Generated: ")
+          .Append(generatedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
+          .AppendLine();
         sb.AppendLine();
         sb.AppendLine("Apply each revision below to the source file. Quote each \"Original\" block");
         sb.AppendLine("verbatim from the source before replacing it; leave all other content");
@@ -36,11 +38,16 @@ public static class RevisionPlanExporter
         {
             sb.Append("## Revision ").Append(i).Append(" — ")
               .Append(m.Comment.BlockAnchor.Kind).Append(" at line ")
-              .Append(m.CurrentBlock.Line).AppendLine();
+              .Append(m.CurrentBlock.Line);
+
+            if (m.Comment.BlockAnchor.Kind == "heading")
+                sb.Append(" (\"").Append(m.Comment.OriginalText.Replace("\"", "\\\"")).Append("\")");
+
+            sb.AppendLine();
             sb.AppendLine();
             sb.AppendLine("**Original (verbatim from source):**");
             sb.AppendLine();
-            foreach (var line in m.Comment.OriginalText.Split('\n'))
+            foreach (var line in m.Comment.OriginalText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
                 sb.Append("> ").AppendLine(line);
             sb.AppendLine();
             sb.AppendLine("**Instruction:**");
