@@ -87,10 +87,12 @@ Block identity is the load-bearing technical decision. If a comment binds to the
 
 Each rendered block carries:
 
-- `kind`: one of `paragraph | heading | list-item | code | blockquote | table | hr | html`.
+- `kind`: one of `paragraph | heading | list-item | code | blockquote | table | hr`.
 - `line`: 1-based source line of the block (Markdig exposes this via `Block.Line`).
 - `textHash`: SHA-256 of the block's source markdown text (the slice from `Block.Span`).
 - `leadingText`: first 80 chars of the block's source text, for debugging / orphan display only — **never** used to silently re-attach.
+
+Raw HTML blocks (`HtmlBlock` in Markdig) are not commentable in v1. Markdig renders them verbatim and does not accept attribute injection, so they cannot be anchored from the rendered DOM. They are skipped by `BlockTagger`.
 
 ### 4.1 Matching Policy on Reload (Strict)
 

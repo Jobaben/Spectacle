@@ -137,14 +137,16 @@ public class BlockTaggerTests
     }
 
     [Fact]
-    public void Html_block_is_recorded_as_html_kind_but_not_attributed_in_output()
+    public void Html_block_is_not_tagged_or_recorded()
     {
-        // Markdig renders HtmlBlock content verbatim; HtmlAttributes attached
-        // to it do not surface in the rendered HTML. The block is still tracked
-        // in r.Blocks so annotations can target it via its block-id.
+        // Markdig's HtmlBlock renderer is verbatim passthrough and does not accept
+        // HtmlAttributes injection, so raw HTML cannot be anchored from the DOM.
+        // v1 contract: skip it entirely rather than leave a phantom Blocks entry
+        // that no DOM element can match.
         var r = Render("<div>raw</div>\n");
 
-        r.Blocks.Should().ContainSingle().Which.Kind.Should().Be("html");
+        r.Blocks.Should().BeEmpty();
+        r.Html.Should().NotContain("data-block-id");
         r.Html.Should().NotContain("data-kind=\"html\"");
     }
 

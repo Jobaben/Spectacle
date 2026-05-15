@@ -79,7 +79,6 @@ internal static class BlockTagger
         QuoteBlock => "blockquote",
         Markdig.Extensions.Tables.Table => "table",
         ThematicBreakBlock => "hr",
-        HtmlBlock => "html",
         _ => null
     };
 
