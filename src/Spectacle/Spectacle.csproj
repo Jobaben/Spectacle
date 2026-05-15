@@ -23,5 +23,6 @@
     <EmbeddedResource Include="Render\Assets\prism.min.js" />
     <EmbeddedResource Include="Render\Assets\prism.css" />
     <EmbeddedResource Include="Render\Assets\preview-annotations.css" />
+    <EmbeddedResource Include="Render\Assets\preview-annotations.js" />
   </ItemGroup>
 </Project>
