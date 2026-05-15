@@ -62,8 +62,10 @@ public partial class MainWindow : Window, IPreviewSink
             UpdateTopBar();
         });
 
+        _pipeline.Rendered += (_, _) => Dispatcher.Invoke(UpdateTopBar);
+
         DataContext = this;
-        Loaded += (_, _) => { _pipeline.Start(); UpdateTopBar(); };
+        Loaded += (_, _) => _pipeline.Start();
         Closed += (_, _) =>
         {
             _pipeline.Dispose();
@@ -98,11 +100,10 @@ public partial class MainWindow : Window, IPreviewSink
 
     private void UpdateTopBar()
     {
-        var matched = _pipeline.SnapshotMatched();
-        var loaded = _store.Load();
-        var orphanCount = loaded.Comments.Count - matched.Count;
+        var matchedCount = _pipeline.SnapshotMatched().Count;
+        var orphanCount = _pipeline.SnapshotOrphans().Count;
 
-        if (matched.Count + orphanCount == 0)
+        if (matchedCount + orphanCount == 0)
         {
             TopBar.Visibility = System.Windows.Visibility.Collapsed;
             StatusText.Text = "";
@@ -110,8 +111,8 @@ public partial class MainWindow : Window, IPreviewSink
         }
         TopBar.Visibility = System.Windows.Visibility.Visible;
         StatusText.Text = orphanCount > 0
-            ? $"{matched.Count} comment(s) • {orphanCount} orphaned"
-            : $"{matched.Count} comment(s)";
+            ? $"{matchedCount} comment(s) • {orphanCount} orphaned"
+            : $"{matchedCount} comment(s)";
     }
 
     private string BuildRevisionPlan()

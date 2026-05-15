@@ -25,6 +25,8 @@ public sealed class PreviewPipeline : IDisposable
     private RenderResult? _lastRender;
     private MatchResult? _lastMatch;
 
+    public event EventHandler? Rendered;
+
     public PreviewPipeline(Document document, IPreviewSink sink, PreviewTheme theme, AnnotationStore store)
     {
         _document = document;
@@ -59,6 +61,14 @@ public sealed class PreviewPipeline : IDisposable
         lock (_sync)
         {
             return _lastMatch?.Matched ?? Array.Empty<MatchedComment>();
+        }
+    }
+
+    public IReadOnlyList<Comment> SnapshotOrphans()
+    {
+        lock (_sync)
+        {
+            return _lastMatch?.Orphaned ?? Array.Empty<Comment>();
         }
     }
 
@@ -195,6 +205,7 @@ public sealed class PreviewPipeline : IDisposable
             _theme,
             _lastMatch);
         _sink.Push(html);
+        Rendered?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose()

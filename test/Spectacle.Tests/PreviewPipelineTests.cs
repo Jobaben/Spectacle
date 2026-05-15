@@ -252,6 +252,41 @@ public class PreviewPipelineTests : IDisposable
     }
 
     [Fact]
+    public void Rendered_event_fires_after_each_render()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+
+        var fireCount = 0;
+        p.Rendered += (_, _) => fireCount++;
+
+        p.Start();
+        doc.Update("World.\n");
+
+        fireCount.Should().Be(2);
+    }
+
+    [Fact]
+    public void SnapshotOrphans_returns_orphaned_after_anchor_block_text_changes()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+
+        doc.Update("Goodbye.\n");
+
+        p.SnapshotOrphans().Should().ContainSingle()
+            .Which.Id.Should().Be("c-1");
+    }
+
+    [Fact]
     public void HandleHostMessage_writes_sidecar_to_disk()
     {
         var sourcePath = Path.Combine(_root, "doc.md");
