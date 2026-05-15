@@ -1,4 +1,5 @@
 using Markdig;
+using Markdig.Syntax;
 
 namespace Spectacle.Render;
 
@@ -8,7 +9,17 @@ public sealed class MdRenderer
         .UseAdvancedExtensions()
         .UseEmojiAndSmiley()
         .UseAutoIdentifiers()
+        .UseGenericAttributes()
         .Build();
 
-    public string ToHtml(string markdown) => Markdown.ToHtml(markdown ?? string.Empty, _pipeline);
+    public RenderResult Render(string markdown)
+    {
+        var source = markdown ?? string.Empty;
+        var document = Markdown.Parse(source, _pipeline);
+        var blocks = BlockTagger.TagDocument(document, source);
+        var html = document.ToHtml(_pipeline);
+        return new RenderResult(html, blocks);
+    }
+
+    public string ToHtml(string markdown) => Render(markdown).Html;
 }

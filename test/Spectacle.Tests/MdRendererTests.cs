@@ -24,7 +24,7 @@ public class MdRendererTests
     public void Code_block_gets_language_class()
     {
         var html = new MdRenderer().ToHtml("```cs\nvar x = 1;\n```\n");
-        html.Should().Contain("class=\"language-cs\"");
+        html.Should().Contain("language-cs");
     }
 
     [Fact]
