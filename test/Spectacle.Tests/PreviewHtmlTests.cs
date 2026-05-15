@@ -35,4 +35,72 @@ public class PreviewHtmlTests
     [Fact]
     public void Includes_prism_script() =>
         PreviewHtml.Build("", "x", PreviewTheme.Dark).Should().Contain("Prism");
+
+    [Fact]
+    public void Build_with_match_result_embeds_annotations_css()
+    {
+        var matched = new Spectacle.Annotations.MatchResult(
+            System.Array.Empty<Spectacle.Annotations.MatchedComment>(),
+            System.Array.Empty<Spectacle.Annotations.Comment>());
+        var html = PreviewHtml.Build("<p>hi</p>", "https://h/", PreviewTheme.Dark, matched);
+
+        html.Should().Contain(".md-block");
+        html.Should().Contain(".sp-composer");
+    }
+
+    [Fact]
+    public void Build_with_match_result_embeds_annotations_js()
+    {
+        var matched = new Spectacle.Annotations.MatchResult(
+            System.Array.Empty<Spectacle.Annotations.MatchedComment>(),
+            System.Array.Empty<Spectacle.Annotations.Comment>());
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matched);
+
+        html.Should().Contain("__spectacleAnnotations__");
+        html.Should().Contain("postMessage");
+    }
+
+    [Fact]
+    public void Build_with_match_result_includes_matched_comments_in_payload()
+    {
+        var anchor = new Spectacle.Annotations.BlockAnchor("paragraph", 1, "h", 0, "lead");
+        var c = new Spectacle.Annotations.Comment("c1", anchor, "orig", "rev",
+            new System.DateTime(2026, 5, 15, 0, 0, 0, System.DateTimeKind.Utc), null);
+        var b = new Spectacle.Render.TaggedBlock("b0", "paragraph", 1, "h", 0, "orig");
+        var match = new Spectacle.Annotations.MatchedComment(c, b);
+        var matched = new Spectacle.Annotations.MatchResult(
+            new[] { match },
+            System.Array.Empty<Spectacle.Annotations.Comment>());
+
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matched);
+
+        html.Should().Contain("\"c1\"");
+        html.Should().Contain("\"blockIdAtRender\":\"b0\"");
+        html.Should().Contain("\"rev\"");
+    }
+
+    [Fact]
+    public void Payload_escapes_closing_script_tag_in_comment_body()
+    {
+        var anchor = new Spectacle.Annotations.BlockAnchor("paragraph", 1, "h", 0, "lead");
+        var c = new Spectacle.Annotations.Comment("c1", anchor, "orig",
+            "</script><script>alert('xss')</script>",
+            new System.DateTime(2026, 5, 15, 0, 0, 0, System.DateTimeKind.Utc), null);
+        var b = new Spectacle.Render.TaggedBlock("b0", "paragraph", 1, "h", 0, "orig");
+        var match = new Spectacle.Annotations.MatchedComment(c, b);
+        var matched = new Spectacle.Annotations.MatchResult(
+            new[] { match },
+            System.Array.Empty<Spectacle.Annotations.Comment>());
+
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matched);
+
+        // Defense in depth: JsonSerializer's default JavaScriptEncoder escapes '<' and
+        // '>' to \uXXXX so a `</script>` in user content cannot terminate the surrounding
+        // <script> tag. The additional `</` -> `<\/` replace covers the case where the
+        // encoder is ever relaxed. Either form is acceptable; the payload must not
+        // contain a raw `</script>`.
+        html.Should().NotContain("</script><script>alert");
+        // Confirm the user-supplied `<` is encoded (System.Text.Json emits <).
+        html.ToLowerInvariant().Should().Contain("\\u003c/script\\u003e");
+    }
 }

@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
+using Spectacle.Annotations;
 
 namespace Spectacle.Render;
 
@@ -14,10 +16,23 @@ public static class PreviewHtml
     private static readonly Lazy<string> HcCss = new(() => LoadAsset("hc.css"));
     private static readonly Lazy<string> PrismCss = new(() => LoadAsset("prism.css"));
     private static readonly Lazy<string> PrismJs = new(() => LoadAsset("prism.min.js"));
+    private static readonly Lazy<string> AnnotationsCss = new(() => LoadAsset("preview-annotations.css"));
+    private static readonly Lazy<string> AnnotationsJs = new(() => LoadAsset("preview-annotations.js"));
 
-    public static string Build(string bodyHtml, string baseHref, PreviewTheme theme)
+    private static readonly JsonSerializerOptions PayloadOpts = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    public static string Build(string bodyHtml, string baseHref, PreviewTheme theme) =>
+        Build(bodyHtml, baseHref, theme, matchResult: null);
+
+    public static string Build(
+        string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult)
     {
         var themeCss = theme == PreviewTheme.HighContrast ? HcCss.Value : DarkCss.Value;
+        var payloadJson = BuildPayload(matchResult);
+
         return $$"""
             <!DOCTYPE html>
             <html lang="en">
@@ -28,15 +43,66 @@ public static class PreviewHtml
               <style>{{themeCss}}</style>
               <style>{{PreviewCss.Value}}</style>
               <style>{{PrismCss.Value}}</style>
+              <style>{{AnnotationsCss.Value}}</style>
             </head>
             <body>
               <main role="main">
             {{bodyHtml}}
               </main>
               <script>{{PrismJs.Value}}</script>
+              <script>window.__spectacleAnnotations__ = {{payloadJson}};</script>
+              <script>{{AnnotationsJs.Value}}</script>
             </body>
             </html>
             """;
+    }
+
+    private static string BuildPayload(MatchResult? matchResult)
+    {
+        // NOTE: payload is injected inline as `window.__spectacleAnnotations__ = <json>;`
+        // inside a <script> tag. A user-supplied comment body containing `</script>`
+        // would terminate the tag early. Mitigation: escape `</` to `<\/` after
+        // serialization — the browser no longer sees a closing tag, while JSON
+        // parses `\/` back to `/` so the JS side reads the original string.
+        if (matchResult is null)
+        {
+            return JsonSerializer.Serialize(
+                new { comments = Array.Empty<object>(), orphaned = Array.Empty<object>() },
+                PayloadOpts).Replace("</", "<\\/");
+        }
+
+        var comments = matchResult.Matched.Select(m => new
+        {
+            id = m.Comment.Id,
+            body = m.Comment.Body,
+            originalText = m.Comment.OriginalText,
+            createdAt = m.Comment.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            resolvedAt = m.Comment.ResolvedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            blockAnchor = new
+            {
+                kind = m.Comment.BlockAnchor.Kind,
+                line = m.CurrentBlock.Line,
+                textHash = m.Comment.BlockAnchor.TextHash,
+                occurrenceIndex = m.Comment.BlockAnchor.OccurrenceIndex,
+                leadingText = m.Comment.BlockAnchor.LeadingText,
+                blockIdAtRender = m.CurrentBlock.BlockId
+            }
+        });
+
+        var orphans = matchResult.Orphaned.Select(c => new
+        {
+            id = c.Id,
+            body = c.Body,
+            blockAnchor = new
+            {
+                kind = c.BlockAnchor.Kind,
+                line = c.BlockAnchor.Line,
+                leadingText = c.BlockAnchor.LeadingText
+            }
+        });
+
+        return JsonSerializer.Serialize(new { comments, orphaned = orphans }, PayloadOpts)
+            .Replace("</", "<\\/");
     }
 
     private static string LoadAsset(string name)
