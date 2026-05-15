@@ -187,4 +187,88 @@ public class PreviewPipelineTests : IDisposable
         sink.Pushed.Last().Should().Contain("\"c-1\"");
         sink.Pushed.Last().Should().NotContain("\"orphaned\":[{\"id\":\"c-1\"");
     }
+
+    [Fact]
+    public void Reloads_sidecar_when_document_changes()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink, Path.Combine(_root, "doc.md"));
+        p.Start();
+
+        // Write a comment to the sidecar out-of-band (simulating another process
+        // or a manual edit).
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes("Hello."));
+        var hex = Convert.ToHexString(hash).ToLowerInvariant();
+        var sidecarStore = new AnnotationStore(Path.Combine(_root, "doc.md"), sidecarRoot: _root);
+        sidecarStore.Save(new AnnotationFile(
+            FileVersion: 1,
+            SourcePath: Path.Combine(_root, "doc.md"),
+            SourceHashAtWrite: "",
+            Comments: new[]
+            {
+                new Comment("c-external",
+                    new BlockAnchor("paragraph", 1, hex, 0, "Hello."),
+                    "Hello.", "external comment",
+                    new DateTime(2026, 5, 15, 0, 0, 0, DateTimeKind.Utc), null)
+            }));
+
+        // Trigger Document.Changed; pipeline must reload sidecar.
+        doc.Update("Hello.\n");
+
+        sink.Pushed.Last().Should().Contain("\"c-external\"");
+        sink.Pushed.Last().Should().Contain("external comment");
+    }
+
+    [Fact]
+    public void HandleHostMessage_swallows_malformed_json()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+        var pushedBefore = sink.Pushed.Count;
+
+        var stderr = Console.Error;
+        using var sw = new System.IO.StringWriter();
+        Console.SetError(sw);
+        try
+        {
+            // Each of these is a different shape of malformed input — should not throw.
+            p.HandleHostMessage("not json at all");
+            p.HandleHostMessage("{}"); // missing type
+            p.HandleHostMessage("{\"type\":\"commentSave\"}"); // missing fields
+            p.HandleHostMessage("{\"type\":\"unknownType\",\"x\":1}"); // unknown type (just returns)
+        }
+        finally { Console.SetError(stderr); }
+
+        // None of the malformed inputs should have triggered a re-render or persist.
+        sink.Pushed.Count.Should().Be(pushedBefore);
+        // Stderr should contain at least one error message for the truly malformed ones.
+        sw.ToString().Should().Contain("Malformed host message");
+    }
+
+    [Fact]
+    public void HandleHostMessage_writes_sidecar_to_disk()
+    {
+        var sourcePath = Path.Combine(_root, "doc.md");
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink, sourcePath);
+        p.Start();
+
+        p.HandleHostMessage("""
+        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+        """);
+
+        // Read the sidecar back via a fresh store instance.
+        var store = new AnnotationStore(sourcePath, sidecarRoot: _root);
+        var loaded = store.Load();
+        loaded.Comments.Should().ContainSingle()
+            .Which.Id.Should().Be("c-1");
+    }
 }

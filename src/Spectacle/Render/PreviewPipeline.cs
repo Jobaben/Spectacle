@@ -18,6 +18,7 @@ public sealed class PreviewPipeline : IDisposable
     private readonly IPreviewSink _sink;
     private readonly MdRenderer _renderer = new();
     private readonly AnnotationStore _store;
+    private readonly object _sync = new();
     private PreviewTheme _theme;
     private bool _started;
     private AnnotationFile _file;
@@ -35,39 +36,63 @@ public sealed class PreviewPipeline : IDisposable
 
     public void Start()
     {
-        if (_started) return;
-        _started = true;
-        _document.Changed += OnDocumentChanged;
-        Render();
+        lock (_sync)
+        {
+            if (_started) return;
+            _started = true;
+            _document.Changed += OnDocumentChanged;
+            Render();
+        }
     }
 
     public void SetTheme(PreviewTheme theme)
     {
-        _theme = theme;
-        if (_started) Render();
+        lock (_sync)
+        {
+            _theme = theme;
+            if (_started) Render();
+        }
     }
 
-    public IReadOnlyList<MatchedComment> SnapshotMatched() =>
-        _lastMatch?.Matched ?? Array.Empty<MatchedComment>();
+    public IReadOnlyList<MatchedComment> SnapshotMatched()
+    {
+        lock (_sync)
+        {
+            return _lastMatch?.Matched ?? Array.Empty<MatchedComment>();
+        }
+    }
 
     public void HandleHostMessage(string json)
     {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("type", out var typeEl)) return;
-        var type = typeEl.GetString();
-
-        switch (type)
+        lock (_sync)
         {
-            case "commentSave":    OnCommentSave(root); break;
-            case "commentDelete":  OnCommentDelete(root); break;
-            case "commentResolve": OnCommentResolve(root); break;
-            case "orphanReanchor": OnOrphanReanchor(root); break;
-            default: return;
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (!root.TryGetProperty("type", out var typeEl)) return;
+                var type = typeEl.GetString();
+
+                switch (type)
+                {
+                    case "commentSave":    OnCommentSave(root); break;
+                    case "commentDelete":  OnCommentDelete(root); break;
+                    case "commentResolve": OnCommentResolve(root); break;
+                    case "orphanReanchor": OnOrphanReanchor(root); break;
+                    default: return;
+                }
+                Persist();
+                Render();
+            }
+            catch (Exception ex) when (ex is JsonException || ex is KeyNotFoundException || ex is InvalidOperationException)
+            {
+                Console.Error.WriteLine($"[PreviewPipeline] Malformed host message; ignored: {ex.Message}. Payload: {Truncate(json, 200)}");
+            }
         }
-        Persist();
-        Render();
     }
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s.Substring(0, max) + "…";
 
     private void OnCommentSave(JsonElement root)
     {
@@ -151,7 +176,14 @@ public sealed class PreviewPipeline : IDisposable
 
     private void Persist() => _store.Save(_file);
 
-    private void OnDocumentChanged(object? sender, EventArgs e) => Render();
+    private void OnDocumentChanged(object? sender, EventArgs e)
+    {
+        lock (_sync)
+        {
+            _file = _store.Load();
+            Render();
+        }
+    }
 
     private void Render()
     {
@@ -165,5 +197,8 @@ public sealed class PreviewPipeline : IDisposable
         _sink.Push(html);
     }
 
-    public void Dispose() => _document.Changed -= OnDocumentChanged;
+    public void Dispose()
+    {
+        lock (_sync) { _document.Changed -= OnDocumentChanged; }
+    }
 }

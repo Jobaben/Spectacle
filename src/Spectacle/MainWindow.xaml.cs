@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using Spectacle.Annotations;
 using Spectacle.Documents;
 using Spectacle.Render;
 using Spectacle.Theme;
@@ -9,7 +10,7 @@ namespace Spectacle;
 public partial class MainWindow : Window, IPreviewSink
 {
     private readonly FileDocument _document;
-    private readonly Spectacle.Annotations.AnnotationStore _store;
+    private readonly AnnotationStore _store;
     private readonly PreviewPipeline _pipeline;
     private readonly HighContrastWatcher _hcWatcher = new();
     private double _zoom = 1.0;
@@ -28,7 +29,7 @@ public partial class MainWindow : Window, IPreviewSink
         InitializeComponent();
 
         _document = FileDocument.Open(filePath);
-        _store = new Spectacle.Annotations.AnnotationStore(filePath);
+        _store = new AnnotationStore(filePath);
         Title = $"{System.IO.Path.GetFileName(filePath)} — Spectacle";
         Web.SetVirtualFolder(_document.BaseDirectory);
 
