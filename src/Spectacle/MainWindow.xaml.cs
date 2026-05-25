@@ -53,8 +53,8 @@ public partial class MainWindow : Window, IPreviewSink
         FullscreenCommand = new RelayCommand(_ => ToggleFullscreen());
         CloseCommand = new RelayCommand(_ => Close());
 
-        CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan());
-        ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan());
+        CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan(), HasComments);
+        ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan(), HasComments);
 
         Web.HostMessageReceived += (_, json) => Dispatcher.Invoke(() =>
         {
@@ -107,13 +107,21 @@ public partial class MainWindow : Window, IPreviewSink
         {
             TopBar.Visibility = System.Windows.Visibility.Collapsed;
             StatusText.Text = "";
-            return;
         }
-        TopBar.Visibility = System.Windows.Visibility.Visible;
-        StatusText.Text = orphanCount > 0
-            ? $"{matchedCount} comment(s) • {orphanCount} orphaned"
-            : $"{matchedCount} comment(s)";
+        else
+        {
+            TopBar.Visibility = System.Windows.Visibility.Visible;
+            StatusText.Text = orphanCount > 0
+                ? $"{matchedCount} comment(s) • {orphanCount} orphaned"
+                : $"{matchedCount} comment(s)";
+        }
+
+        ((RelayCommand)CopyRevisionPlanCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)ExportRevisionPlanCommand).RaiseCanExecuteChanged();
     }
+
+    private bool HasComments()
+        => _pipeline.SnapshotMatched().Count + _pipeline.SnapshotOrphans().Count > 0;
 
     private string BuildRevisionPlan()
     {
@@ -146,10 +154,17 @@ public partial class MainWindow : Window, IPreviewSink
 internal sealed class RelayCommand : ICommand
 {
     private readonly Action<object?> _exec;
-    public RelayCommand(Action<object?> exec) => _exec = exec;
-    public bool CanExecute(object? p) => true;
+    private readonly Func<bool>? _canExecute;
+
+    public RelayCommand(Action<object?> exec, Func<bool>? canExecute = null)
+    {
+        _exec = exec;
+        _canExecute = canExecute;
+    }
+
+    public bool CanExecute(object? p) => _canExecute?.Invoke() ?? true;
     public void Execute(object? p) => _exec(p);
-#pragma warning disable CS0067 // Event required by ICommand but never raised (CanExecute always true)
+
     public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
