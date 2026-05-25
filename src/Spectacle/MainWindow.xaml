@@ -19,6 +19,8 @@
         <KeyBinding Key="NumPad0" Modifiers="Control" Command="{Binding ZoomResetCommand}" />
         <KeyBinding Key="F11" Command="{Binding FullscreenCommand}" />
         <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
+        <KeyBinding Key="C" Modifiers="Control+Shift" Command="{Binding CopyRevisionPlanCommand}" />
+        <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExportRevisionPlanCommand}" />
     </Window.InputBindings>
     <Grid>
         <Grid.RowDefinitions>
