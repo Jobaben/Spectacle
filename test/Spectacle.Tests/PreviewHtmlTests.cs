@@ -148,4 +148,23 @@ public class PreviewHtmlTests
         html.Should().Contain("preview-keynav.js — keyboard focus controller");
         html.Should().Contain("preview-keynav.css — focus indicators");
     }
+
+    [Fact]
+    public void Keynav_js_declares_single_keymap_constant()
+    {
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        // KEYMAP is the single source of truth; it must be declared exactly once
+        // (the dispatcher and the overlay both read from it).
+        var occurrences = System.Text.RegularExpressions.Regex
+            .Matches(html, @"\bvar KEYMAP\s*=\s*\{").Count;
+
+        occurrences.Should().Be(1, "KEYMAP must be declared exactly once in preview-keynav.js");
+        html.Should().Contain("preview-wide");
+        html.Should().Contain("on-block");
+        html.Should().Contain("on-card");
+        html.Should().Contain("on-orphan");
+        html.Should().Contain("in-composer");
+        html.Should().Contain("in-reanchor");
+    }
 }
