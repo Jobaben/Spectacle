@@ -139,6 +139,9 @@
     textarea.focus();
   }
 
+  // Exposed for preview-keynav.js. Stable API: (blockId, existingCommentOrNull).
+  window.__sp_startCompose = startCompose;
+
   function renderExistingComments() {
     var byBlock = {};
     (data.comments || []).forEach(function (c) {

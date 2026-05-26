@@ -165,9 +165,6 @@
     // Composer textarea owns its own keys (Esc, Ctrl+Enter).
     if (e.target && e.target.tagName === "TEXTAREA") return;
 
-    // Re-anchor mode and the help overlay are handled by their owners
-    // (Tasks 7 and 8). For now, only navigation keys are dispatched here.
-
     if (e.key === "ArrowDown") { e.preventDefault(); disarmG(); move(+1); return; }
     if (e.key === "ArrowUp")   { e.preventDefault(); disarmG(); move(-1); return; }
     if (e.key === "Home")      { e.preventDefault(); disarmG(); jumpFirst(); return; }
@@ -178,8 +175,22 @@
       armG();
       return;
     }
-    // Other keys: bail (no preventDefault), so the browser still does its thing
-    // and Task 4+ can layer on per-kind actions without conflict.
+
+    disarmG();
+
+    var focused = currentFocus();
+    var kind = kindOf(focused);
+
+    if (kind === "block") {
+      if (e.key === "Enter" || e.key === "c") {
+        e.preventDefault();
+        var blockId = focused.getAttribute("data-block-id");
+        if (blockId && window.__sp_startCompose) {
+          window.__sp_startCompose(blockId, null);
+        }
+        return;
+      }
+    }
   }
 
   // -------- Init --------
