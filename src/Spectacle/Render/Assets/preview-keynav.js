@@ -106,8 +106,10 @@
   function currentFocus() {
     var active = document.activeElement;
     if (active && kindOf(active)) return active;
-    var first = focusables()[0];
-    return first || null;
+    // No recognized focus yet (e.g., initial load with activeElement === body).
+    // Returning null lets move() interpret "no current" as index -1, so
+    // ArrowDown lands on the first focusable, not the second.
+    return null;
   }
 
   function move(delta) {
