@@ -1,2 +1,10 @@
 /* preview-keynav.css — focus indicators, overlay, hint toast.
-   Tasks 10-11 populate this. Empty in Task 1. */
+   Geometry per docs/superpowers/specs/2026-05-26-keyboard-navigation-design.md §7. */
+
+.md-block:focus-visible,
+.sp-card:focus-visible,
+.sp-orphan-row:focus-visible {
+  outline: 2px solid #4ea1ff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}

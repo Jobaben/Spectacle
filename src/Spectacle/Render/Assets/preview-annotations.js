@@ -232,12 +232,6 @@
         if (document.body.classList.contains("sp-reanchor-mode")) return;
         startCompose(b.getAttribute("data-block-id"), null);
       });
-      b.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          startCompose(b.getAttribute("data-block-id"), null);
-        }
-      });
     });
   }
 

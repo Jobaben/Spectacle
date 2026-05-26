@@ -6,12 +6,6 @@
   outline: none;
 }
 .md-block:hover { border-left-color: var(--accent, #4ea1ff); cursor: pointer; }
-.md-block:focus-visible {
-  border-left-color: var(--focus, #7cb7ff);
-  outline: 2px solid var(--focus, #7cb7ff);
-  outline-offset: 2px;
-  border-radius: 2px;
-}
 .md-block[data-has-comments="true"]::after {
   content: "💬 " attr(data-comment-count);
   position: absolute;
