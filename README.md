@@ -25,12 +25,56 @@ Spectacle.exe --version                 Show version
 
 ## Keyboard
 
+Spectacle can be operated entirely without a mouse. Press `?` inside the preview to see the full cheatsheet.
+
+### Window-level (anywhere)
+
 | Keys | Action |
 |---|---|
 | Ctrl+R / F5 | Reload from disk |
 | Ctrl+= / Ctrl+- / Ctrl+0 | Zoom in / out / reset |
 | F11 | Fullscreen |
-| Esc | Close window |
+| Esc | Close window (when no overlay / composer / re-anchor active) |
+| Ctrl+Shift+C | Copy revision plan |
+| Ctrl+Shift+E | Export revision plan… |
+
+### Navigation (inside the preview)
+
+| Keys | Action |
+|---|---|
+| ↑ / ↓ | Previous / next focusable (block, comment, orphan) |
+| Home / End | First / last focusable |
+| gg | Jump to first |
+| G | Jump to last |
+| ? | Show keyboard help overlay |
+
+### On a focused block
+
+| Keys | Action |
+|---|---|
+| Enter or c | Add a new comment on this block |
+
+### On a focused comment
+
+| Keys | Action |
+|---|---|
+| e | Edit the comment |
+| r | Resolve / reopen |
+| d | Delete |
+
+### On a focused orphan row
+
+| Keys | Action |
+|---|---|
+| d | Delete the orphan |
+| a | Begin re-anchor (then arrow-pick a target block and press Enter, or Esc to cancel) |
+
+### In the composer
+
+| Keys | Action |
+|---|---|
+| Esc | Cancel and close |
+| Ctrl+Enter | Save |
 
 ## Limits (v1)
 
