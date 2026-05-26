@@ -1,6 +1,8 @@
 /* preview-keynav.css — focus indicators, overlay, hint toast.
    Geometry per docs/superpowers/specs/2026-05-26-keyboard-navigation-design.md §7. */
 
+/* ---- Default focus ring ---- */
+
 .md-block:focus-visible,
 .sp-card:focus-visible,
 .sp-orphan-row:focus-visible {
@@ -8,6 +10,34 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ---- Per-kind nuance ---- */
+
+/* Card: outline plus a 4px accent left border replacing the existing 3px. */
+.sp-card:focus-visible {
+  border-left: 4px solid #4ea1ff;
+}
+
+/* Resolved card: muted ring so `r` is clearly "reopen". */
+.sp-card.sp-resolved:focus-visible,
+.sp-card[data-resolved="true"]:focus-visible {
+  outline-color: #9aa0a6;
+  border-left-color: #9aa0a6;
+}
+
+/* Orphan row: outline plus a subtle row tint. */
+.sp-orphan-row:focus-visible {
+  background-color: rgba(78, 161, 255, 0.08);
+}
+
+/* ---- Re-anchor mode ---- */
+
+body.sp-reanchor-mode .md-block:focus-visible {
+  outline-style: dashed;
+  cursor: crosshair;
+}
+
+/* ---- Hint toast ---- */
 
 #sp-hint {
   position: fixed;
@@ -26,6 +56,8 @@
   z-index: 1000;
 }
 #sp-hint.sp-hint-visible { opacity: 1; }
+
+/* ---- Help overlay ---- */
 
 #sp-help {
   position: fixed;
@@ -48,15 +80,8 @@
   overflow-y: auto;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
 }
-#sp-help h2 {
-  margin: 0 0 12px 0;
-  font-size: 1.1em;
-}
-#sp-help h3 {
-  margin: 16px 0 6px 0;
-  font-size: 0.95em;
-  color: #4ea1ff;
-}
+#sp-help h2 { margin: 0 0 12px 0; font-size: 1.1em; }
+#sp-help h3 { margin: 16px 0 6px 0; font-size: 0.95em; color: #4ea1ff; }
 #sp-help dl {
   margin: 0;
   display: grid;
@@ -68,14 +93,39 @@
   font-size: 0.9em;
   color: #d4d4d4;
 }
-#sp-help dd {
-  margin: 0;
-  font-size: 0.9em;
-  color: #9aa0a6;
-}
+#sp-help dd { margin: 0; font-size: 0.9em; color: #9aa0a6; }
 #sp-help .sp-help-footer {
   margin-top: 16px;
   text-align: right;
   font-size: 0.85em;
   color: #9aa0a6;
+}
+
+/* ---- High-contrast (Windows forced-colors) ---- */
+
+@media (forced-colors: active) {
+  .md-block:focus-visible,
+  .sp-card:focus-visible,
+  .sp-orphan-row:focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  body.sp-reanchor-mode .md-block:focus-visible {
+    outline-style: dashed;
+  }
+  #sp-hint {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  #sp-help { background: rgba(0, 0, 0, 0.6); }
+  #sp-help .sp-help-card {
+    background: Window;
+    color: WindowText;
+    border-color: WindowText;
+  }
+  #sp-help h3 { color: Highlight; }
+  #sp-help dt { color: WindowText; }
+  #sp-help dd { color: WindowText; }
+  #sp-help .sp-help-footer { color: WindowText; }
 }
