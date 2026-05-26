@@ -26,3 +26,56 @@
   z-index: 1000;
 }
 #sp-hint.sp-hint-visible { opacity: 1; }
+
+#sp-help {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#sp-help[hidden] { display: none; }
+#sp-help .sp-help-card {
+  background: #252526;
+  color: #d4d4d4;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  padding: 20px 24px;
+  width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+#sp-help h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.1em;
+}
+#sp-help h3 {
+  margin: 16px 0 6px 0;
+  font-size: 0.95em;
+  color: #4ea1ff;
+}
+#sp-help dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 4px 12px;
+}
+#sp-help dt {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.9em;
+  color: #d4d4d4;
+}
+#sp-help dd {
+  margin: 0;
+  font-size: 0.9em;
+  color: #9aa0a6;
+}
+#sp-help .sp-help-footer {
+  margin-top: 16px;
+  text-align: right;
+  font-size: 0.85em;
+  color: #9aa0a6;
+}

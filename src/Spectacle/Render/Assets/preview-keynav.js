@@ -197,6 +197,25 @@
     // Composer textarea owns its own keys (Esc, Ctrl+Enter).
     if (e.target && e.target.tagName === "TEXTAREA") return;
 
+    // ---- Help overlay owns its keys ----
+    if (overlayOpen()) {
+      if (e.key === "Escape" || e.key === "?") {
+        e.preventDefault();
+        closeOverlay();
+      } else {
+        // Swallow everything else while overlay is open.
+        e.preventDefault();
+      }
+      return;
+    }
+
+    // ---- Preview-wide: `?` opens overlay ----
+    if (e.key === "?") {
+      e.preventDefault();
+      openOverlay();
+      return;
+    }
+
     // ---- Re-anchor mode owns its keys ----
     if (inReanchor()) {
       if (e.key === "Escape") {
@@ -275,6 +294,82 @@
     var btn = container.querySelector('button[data-sp-action="' + action + '"]');
     if (btn) btn.click();
   }
+
+  // -------- Help overlay --------
+
+  function buildOverlay() {
+    var overlay = document.createElement("div");
+    overlay.id = "sp-help";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-labelledby", "sp-help-title");
+    overlay.setAttribute("tabindex", "-1");
+    overlay.hidden = true;
+
+    var card = document.createElement("div");
+    card.className = "sp-help-card";
+
+    var title = document.createElement("h2");
+    title.id = "sp-help-title";
+    title.textContent = "Keyboard shortcuts";
+    card.appendChild(title);
+
+    // KEYMAP sections in spec order; "in-help" is omitted intentionally.
+    var sectionOrder = [
+      "global", "preview-wide", "on-block", "on-card",
+      "on-orphan", "in-composer", "in-reanchor"
+    ];
+    sectionOrder.forEach(function (key) {
+      var section = KEYMAP[key];
+      if (!section) return;
+      var h = document.createElement("h3");
+      h.textContent = section.title;
+      card.appendChild(h);
+      var dl = document.createElement("dl");
+      section.rows.forEach(function (row) {
+        var dt = document.createElement("dt");
+        dt.textContent = row.key;
+        var dd = document.createElement("dd");
+        dd.textContent = row.label;
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      });
+      card.appendChild(dl);
+    });
+
+    var footer = document.createElement("div");
+    footer.className = "sp-help-footer";
+    footer.textContent = "Esc to close";
+    card.appendChild(footer);
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  var overlayEl = null;
+  var prevFocus = null;
+
+  function overlayOpen() { return overlayEl && !overlayEl.hidden; }
+
+  function openOverlay() {
+    if (!overlayEl) overlayEl = buildOverlay();
+    if (overlayOpen()) return;
+    prevFocus = document.activeElement;
+    overlayEl.hidden = false;
+    overlayEl.focus({ preventScroll: true });
+  }
+
+  function closeOverlay() {
+    if (!overlayOpen()) return;
+    overlayEl.hidden = true;
+    if (prevFocus && document.contains(prevFocus)) {
+      prevFocus.focus({ preventScroll: true });
+    }
+    prevFocus = null;
+  }
+
+  function toggleOverlay() { overlayOpen() ? closeOverlay() : openOverlay(); }
 
   // -------- Init --------
 
