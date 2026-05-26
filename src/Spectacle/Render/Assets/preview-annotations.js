@@ -213,10 +213,12 @@
   function beginReanchor(commentId) {
     document.body.classList.add("sp-reanchor-mode");
     window.__sp_reanchor_active = commentId;
+    try { sessionStorage.setItem("spectacle.reanchorLostOnRender", "1"); } catch (err) { /* ignore */ }
 
     function complete(blockId) {
       document.body.classList.remove("sp-reanchor-mode");
       window.__sp_reanchor_active = null;
+      try { sessionStorage.removeItem("spectacle.reanchorLostOnRender"); } catch (err) { /* ignore */ }
       document.removeEventListener("click", onClick, true);
       post("orphanReanchor", { commentId: commentId, blockId: blockId });
     }
@@ -224,6 +226,7 @@
     function cancel() {
       document.body.classList.remove("sp-reanchor-mode");
       window.__sp_reanchor_active = null;
+      try { sessionStorage.removeItem("spectacle.reanchorLostOnRender"); } catch (err) { /* ignore */ }
       document.removeEventListener("click", onClick, true);
     }
 

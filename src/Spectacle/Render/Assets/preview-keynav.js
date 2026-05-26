@@ -133,6 +133,7 @@
     if (!opts || !opts.preventScroll) {
       target.scrollIntoView({ block: "nearest" });
     }
+    savePointer(target);
   }
 
   function currentFocus() {
@@ -169,11 +170,9 @@
     document.addEventListener("mousedown", function (e) {
       var el = e.target.closest && e.target.closest(".md-block, .sp-card, .sp-orphan-row");
       if (!el) return;
-      // Don't steal scroll position from native mouse interaction.
       applyRoving(el);
-      // Programmatic focus from a real mouse interaction does NOT trigger
-      // `:focus-visible` (browser heuristic), so no ring is painted.
       el.focus({ preventScroll: true });
+      savePointer(el);
     }, true);
   }
 
@@ -358,6 +357,7 @@
     prevFocus = document.activeElement;
     overlayEl.hidden = false;
     overlayEl.focus({ preventScroll: true });
+    try { sessionStorage.setItem(STORAGE_HELP, "1"); } catch (err) { /* ignore */ }
   }
 
   function closeOverlay() {
@@ -367,18 +367,123 @@
       prevFocus.focus({ preventScroll: true });
     }
     prevFocus = null;
+    try { sessionStorage.removeItem(STORAGE_HELP); } catch (err) { /* ignore */ }
   }
 
   function toggleOverlay() { overlayOpen() ? closeOverlay() : openOverlay(); }
+
+  // -------- Persistence (sessionStorage) --------
+
+  var STORAGE_FOCUS = "spectacle.focus";
+  var STORAGE_HELP  = "spectacle.helpOpen";
+  var STORAGE_REANCHOR_LOST = "spectacle.reanchorLostOnRender";
+
+  function pointerOf(el) {
+    if (!el) return null;
+    var kind = kindOf(el);
+    if (!kind) return null;
+    if (kind === "block") {
+      var bid = el.getAttribute("data-block-id");
+      return bid ? { kind: kind, id: bid } : null;
+    }
+    if (kind === "card") {
+      var cid = el.getAttribute("data-comment-id");
+      if (!cid) return null;
+      // Cards are inserted as siblings after their anchoring block. Walk back
+      // to capture the block id so we can fall back if the card is deleted.
+      var sib = el.previousElementSibling;
+      while (sib && !sib.classList.contains("md-block")) {
+        sib = sib.previousElementSibling;
+      }
+      var anchorBlockId = sib ? sib.getAttribute("data-block-id") : null;
+      return { kind: kind, id: cid, blockId: anchorBlockId };
+    }
+    if (kind === "orphan") {
+      var oid = el.getAttribute("data-comment-id");
+      return oid ? { kind: kind, id: oid } : null;
+    }
+    return null;
+  }
+
+  function savePointer(el) {
+    try {
+      var p = pointerOf(el);
+      if (p) sessionStorage.setItem(STORAGE_FOCUS, JSON.stringify(p));
+    } catch (err) { /* ignore */ }
+  }
+
+  function loadPointer() {
+    try {
+      var raw = sessionStorage.getItem(STORAGE_FOCUS);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (err) { return null; }
+  }
+
+  // Fallback chain per spec §6:
+  //   block kind:   exact id → null (init falls through to first focusable)
+  //   card kind:    exact card → orphan row with same id → anchoring block
+  //   orphan kind:  exact orphan row → card with same id (became matched)
+  function findTarget(p) {
+    if (!p || !p.id) return null;
+    if (p.kind === "block") {
+      return document.querySelector('.md-block[data-block-id="' + cssEscape(p.id) + '"]');
+    }
+    if (p.kind === "card") {
+      var card = document.querySelector('.sp-card[data-comment-id="' + cssEscape(p.id) + '"]');
+      if (card) return card;
+      var orphan = document.querySelector('.sp-orphan-row[data-comment-id="' + cssEscape(p.id) + '"]');
+      if (orphan) return orphan;
+      if (p.blockId) {
+        return document.querySelector('.md-block[data-block-id="' + cssEscape(p.blockId) + '"]');
+      }
+      return null;
+    }
+    if (p.kind === "orphan") {
+      var orphan2 = document.querySelector('.sp-orphan-row[data-comment-id="' + cssEscape(p.id) + '"]');
+      if (orphan2) return orphan2;
+      return document.querySelector('.sp-card[data-comment-id="' + cssEscape(p.id) + '"]');
+    }
+    return null;
+  }
+
+  // Minimal CSS.escape polyfill for attribute selectors — sessionStorage holds
+  // ids that might contain quotes/backslashes in pathological cases.
+  function cssEscape(s) {
+    return String(s).replace(/(["\\])/g, "\\$1");
+  }
 
   // -------- Init --------
 
   function init() {
     var all = focusables();
-    if (all.length === 0) return;
-    applyRoving(all[0]);
+
+    // Restore focus from sessionStorage with fallback chain.
+    var stored = loadPointer();
+    var target = stored ? findTarget(stored) : null;
+    if (!target && all.length > 0) target = all[0];
+
+    if (target) {
+      applyRoving(target);
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: "nearest" });
+    }
+
     document.addEventListener("keydown", onKeyDown);
     syncPointerOnMouse();
+
+    // Restore help overlay if it was open across the re-render.
+    try {
+      if (sessionStorage.getItem(STORAGE_HELP) === "1") openOverlay();
+    } catch (err) { /* ignore */ }
+
+    // If re-anchor was lost on render, flash a hint and clear the flag.
+    try {
+      if (sessionStorage.getItem(STORAGE_REANCHOR_LOST) === "1") {
+        sessionStorage.removeItem(STORAGE_REANCHOR_LOST);
+        flashHint("Re-anchor cancelled by document change");
+      }
+    } catch (err) { /* ignore */ }
   }
 
   if (document.readyState === "loading") {
