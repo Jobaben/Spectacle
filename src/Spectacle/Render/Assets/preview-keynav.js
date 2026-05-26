@@ -73,6 +73,9 @@
   // dispatched from the host). Composer + re-anchor mode adjust the list at
   // request time.
   function focusables() {
+    if (inReanchor()) {
+      return Array.prototype.slice.call(document.querySelectorAll(".md-block"));
+    }
     var selector = ".sp-orphan-row, .md-block, .sp-card";
     return Array.prototype.slice.call(document.querySelectorAll(selector));
   }
@@ -84,6 +87,35 @@
     if (el.classList.contains("sp-orphan-row")) return "orphan";
     return null;
   }
+
+  function inReanchor() {
+    return document.body.classList.contains("sp-reanchor-mode");
+  }
+
+  // -------- Hint toast --------
+
+  function ensureHint() {
+    var el = document.getElementById("sp-hint");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "sp-hint";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    document.body.appendChild(el);
+    return el;
+  }
+
+  var hintTimer = null;
+  function flashHint(message) {
+    var el = ensureHint();
+    el.textContent = message;
+    el.classList.add("sp-hint-visible");
+    if (hintTimer) clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () {
+      el.classList.remove("sp-hint-visible");
+    }, 2000);
+  }
+  window.__sp_flash_hint = flashHint;
 
   // -------- Roving tabindex --------
 
@@ -165,6 +197,35 @@
     // Composer textarea owns its own keys (Esc, Ctrl+Enter).
     if (e.target && e.target.tagName === "TEXTAREA") return;
 
+    // ---- Re-anchor mode owns its keys ----
+    if (inReanchor()) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (window.__sp_reanchor_cancel) window.__sp_reanchor_cancel();
+        // After cancel, ensure focus lands somewhere sensible.
+        var first = focusables()[0];
+        if (first) focusTarget(first);
+        return;
+      }
+      if (e.key === "ArrowDown") { e.preventDefault(); move(+1); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); move(-1); return; }
+      if (e.key === "Home")      { e.preventDefault(); jumpFirst(); return; }
+      if (e.key === "End")       { e.preventDefault(); jumpLast(); return; }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        var target = currentFocus();
+        if (target && kindOf(target) === "block" && window.__sp_reanchor_confirm) {
+          window.__sp_reanchor_confirm(target.getAttribute("data-block-id"));
+          flashHint("Re-anchored");
+        }
+        return;
+      }
+      // Swallow other keys in re-anchor mode; don't fall through.
+      return;
+    }
+
+    // ---- Normal mode ----
+
     if (e.key === "ArrowDown") { e.preventDefault(); disarmG(); move(+1); return; }
     if (e.key === "ArrowUp")   { e.preventDefault(); disarmG(); move(-1); return; }
     if (e.key === "Home")      { e.preventDefault(); disarmG(); jumpFirst(); return; }
@@ -190,34 +251,22 @@
         if (blockId && window.__sp_startCompose) {
           window.__sp_startCompose(blockId, null);
         }
-        return;
       }
+      return;
     }
 
     if (kind === "card") {
       var noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
-      if (e.key === "e" && noMods) {
-        e.preventDefault();
-        clickAction(focused, "edit");
-      } else if (e.key === "r" && noMods) {
-        e.preventDefault();
-        clickAction(focused, "resolve");
-      } else if (e.key === "d" && noMods) {
-        e.preventDefault();
-        clickAction(focused, "delete");
-      }
+      if (e.key === "e" && noMods) { e.preventDefault(); clickAction(focused, "edit"); }
+      else if (e.key === "r" && noMods) { e.preventDefault(); clickAction(focused, "resolve"); }
+      else if (e.key === "d" && noMods) { e.preventDefault(); clickAction(focused, "delete"); }
       return;
     }
 
     if (kind === "orphan") {
       var noModsOrphan = !e.ctrlKey && !e.metaKey && !e.altKey;
-      if (e.key === "d" && noModsOrphan) {
-        e.preventDefault();
-        clickAction(focused, "delete");
-      } else if (e.key === "a" && noModsOrphan) {
-        e.preventDefault();
-        clickAction(focused, "reanchor");
-      }
+      if (e.key === "d" && noModsOrphan) { e.preventDefault(); clickAction(focused, "delete"); }
+      else if (e.key === "a" && noModsOrphan) { e.preventDefault(); clickAction(focused, "reanchor"); }
       return;
     }
   }

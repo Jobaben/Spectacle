@@ -212,19 +212,36 @@
 
   function beginReanchor(commentId) {
     document.body.classList.add("sp-reanchor-mode");
+    window.__sp_reanchor_active = commentId;
+
+    function complete(blockId) {
+      document.body.classList.remove("sp-reanchor-mode");
+      window.__sp_reanchor_active = null;
+      document.removeEventListener("click", onClick, true);
+      post("orphanReanchor", { commentId: commentId, blockId: blockId });
+    }
+
+    function cancel() {
+      document.body.classList.remove("sp-reanchor-mode");
+      window.__sp_reanchor_active = null;
+      document.removeEventListener("click", onClick, true);
+    }
+
     function onClick(e) {
       var block = e.target.closest(".md-block");
       if (!block) return;
       e.preventDefault();
       e.stopPropagation();
-      document.body.classList.remove("sp-reanchor-mode");
-      document.removeEventListener("click", onClick, true);
-      post("orphanReanchor", {
-        commentId: commentId,
-        blockId: block.getAttribute("data-block-id")
-      });
+      complete(block.getAttribute("data-block-id"));
     }
+
     document.addEventListener("click", onClick, true);
+
+    // Exposed for preview-keynav.js. Stable API:
+    //   confirm(blockId) — commits and exits the mode
+    //   cancel()         — exits without committing
+    window.__sp_reanchor_confirm = function (blockId) { complete(blockId); };
+    window.__sp_reanchor_cancel  = function () { cancel(); };
   }
 
   function wireBlockClicks() {

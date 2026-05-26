@@ -8,3 +8,21 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+#sp-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: #252526;
+  color: #d4d4d4;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  padding: 8px 14px;
+  font-size: 0.9em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+  z-index: 1000;
+}
+#sp-hint.sp-hint-visible { opacity: 1; }
