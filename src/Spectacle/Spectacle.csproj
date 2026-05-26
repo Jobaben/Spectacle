@@ -24,5 +24,7 @@
     <EmbeddedResource Include="Render\Assets\prism.css" />
     <EmbeddedResource Include="Render\Assets\preview-annotations.css" />
     <EmbeddedResource Include="Render\Assets\preview-annotations.js" />
+    <EmbeddedResource Include="Render\Assets\preview-keynav.css" />
+    <EmbeddedResource Include="Render\Assets\preview-keynav.js" />
   </ItemGroup>
 </Project>

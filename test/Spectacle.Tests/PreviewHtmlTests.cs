@@ -103,4 +103,49 @@ public class PreviewHtmlTests
         // Confirm the user-supplied `<` is encoded (System.Text.Json emits <).
         html.ToLowerInvariant().Should().Contain("\\u003c/script\\u003e");
     }
+
+    [Fact]
+    public void Build_embeds_keynav_css_after_annotations_css()
+    {
+        var matched = new Spectacle.Annotations.MatchResult(
+            System.Array.Empty<Spectacle.Annotations.MatchedComment>(),
+            System.Array.Empty<Spectacle.Annotations.Comment>());
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matched);
+
+        var annotationsCssMarker = html.IndexOf(".sp-composer");
+        var keynavCssMarker = html.IndexOf("preview-keynav.css — focus indicators");
+
+        annotationsCssMarker.Should().BeGreaterThan(0, "annotations CSS must still be embedded");
+        keynavCssMarker.Should().BeGreaterThan(0, "keynav CSS must be embedded");
+        keynavCssMarker.Should().BeGreaterThan(annotationsCssMarker,
+            "keynav CSS must appear after annotations CSS so its rules win on conflict");
+    }
+
+    [Fact]
+    public void Build_embeds_keynav_js_after_annotations_js()
+    {
+        var matched = new Spectacle.Annotations.MatchResult(
+            System.Array.Empty<Spectacle.Annotations.MatchedComment>(),
+            System.Array.Empty<Spectacle.Annotations.Comment>());
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matched);
+
+        var annotationsJsMarker = html.IndexOf("__spectacleAnnotations__");
+        var keynavJsMarker = html.IndexOf("preview-keynav.js — keyboard focus controller");
+
+        annotationsJsMarker.Should().BeGreaterThan(0, "annotations JS payload must be present");
+        keynavJsMarker.Should().BeGreaterThan(0, "keynav JS must be embedded");
+        keynavJsMarker.Should().BeGreaterThan(annotationsJsMarker,
+            "keynav JS must load after annotations JS so it can call into __sp_* helpers");
+    }
+
+    [Fact]
+    public void Build_without_match_result_still_includes_keynav()
+    {
+        // Even without comments, keynav must be present so block navigation
+        // works on plain documents.
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        html.Should().Contain("preview-keynav.js — keyboard focus controller");
+        html.Should().Contain("preview-keynav.css — focus indicators");
+    }
 }

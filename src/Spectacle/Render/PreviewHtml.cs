@@ -18,6 +18,8 @@ public static class PreviewHtml
     private static readonly Lazy<string> PrismJs = new(() => LoadAsset("prism.min.js"));
     private static readonly Lazy<string> AnnotationsCss = new(() => LoadAsset("preview-annotations.css"));
     private static readonly Lazy<string> AnnotationsJs = new(() => LoadAsset("preview-annotations.js"));
+    private static readonly Lazy<string> KeynavCss = new(() => LoadAsset("preview-keynav.css"));
+    private static readonly Lazy<string> KeynavJs = new(() => LoadAsset("preview-keynav.js"));
 
     private static readonly JsonSerializerOptions PayloadOpts = new()
     {
@@ -44,6 +46,7 @@ public static class PreviewHtml
               <style>{{PreviewCss.Value}}</style>
               <style>{{PrismCss.Value}}</style>
               <style>{{AnnotationsCss.Value}}</style>
+              <style>{{KeynavCss.Value}}</style>
             </head>
             <body>
               <main role="main">
@@ -52,6 +55,7 @@ public static class PreviewHtml
               <script>{{PrismJs.Value}}</script>
               <script>window.__spectacleAnnotations__ = {{payloadJson}};</script>
               <script>{{AnnotationsJs.Value}}</script>
+              <script>{{KeynavJs.Value}}</script>
             </body>
             </html>
             """;
