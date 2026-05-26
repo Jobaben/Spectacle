@@ -193,6 +193,26 @@
         return;
       }
     }
+
+    if (kind === "card") {
+      var noMods = !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (e.key === "e" && noMods) {
+        e.preventDefault();
+        clickAction(focused, "edit");
+      } else if (e.key === "r" && noMods) {
+        e.preventDefault();
+        clickAction(focused, "resolve");
+      } else if (e.key === "d" && noMods) {
+        e.preventDefault();
+        clickAction(focused, "delete");
+      }
+      return;
+    }
+  }
+
+  function clickAction(container, action) {
+    var btn = container.querySelector('button[data-sp-action="' + action + '"]');
+    if (btn) btn.click();
   }
 
   // -------- Init --------

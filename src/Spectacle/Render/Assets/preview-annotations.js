@@ -32,6 +32,7 @@
     if (comment.resolvedAt) card.className += " sp-resolved";
     card.setAttribute("role", "comment");
     card.setAttribute("data-comment-id", comment.id);
+    card.setAttribute("data-resolved", comment.resolvedAt ? "true" : "false");
     card.setAttribute("aria-label",
       "Revision request " + index + " on " +
       comment.blockAnchor.kind + " at line " + comment.blockAnchor.line);
@@ -57,16 +58,19 @@
 
     var editBtn = document.createElement("button");
     editBtn.textContent = "Edit";
+    editBtn.setAttribute("data-sp-action", "edit");
     editBtn.addEventListener("click", function () { startCompose(comment.blockAnchor.blockIdAtRender, comment); });
 
     var resolveBtn = document.createElement("button");
     resolveBtn.textContent = comment.resolvedAt ? "Reopen" : "Resolve";
+    resolveBtn.setAttribute("data-sp-action", "resolve");
     resolveBtn.addEventListener("click", function () {
       post("commentResolve", { commentId: comment.id, resolved: !comment.resolvedAt });
     });
 
     var deleteBtn = document.createElement("button");
     deleteBtn.textContent = "Delete";
+    deleteBtn.setAttribute("data-sp-action", "delete");
     deleteBtn.addEventListener("click", function () {
       post("commentDelete", { commentId: comment.id });
     });
