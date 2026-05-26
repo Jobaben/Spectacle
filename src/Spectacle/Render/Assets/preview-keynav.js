@@ -73,7 +73,7 @@
   // dispatched from the host). Composer + re-anchor mode adjust the list at
   // request time.
   function focusables() {
-    var selector = ".md-block, .sp-card";
+    var selector = ".sp-orphan-row, .md-block, .sp-card";
     return Array.prototype.slice.call(document.querySelectorAll(selector));
   }
 
@@ -205,6 +205,18 @@
       } else if (e.key === "d" && noMods) {
         e.preventDefault();
         clickAction(focused, "delete");
+      }
+      return;
+    }
+
+    if (kind === "orphan") {
+      var noModsOrphan = !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (e.key === "d" && noModsOrphan) {
+        e.preventDefault();
+        clickAction(focused, "delete");
+      } else if (e.key === "a" && noModsOrphan) {
+        e.preventDefault();
+        clickAction(focused, "reanchor");
       }
       return;
     }

@@ -187,10 +187,13 @@
     var list = document.createElement("ul");
     data.orphaned.forEach(function (c) {
       var li = document.createElement("li");
+      li.className = "sp-orphan-row";
+      li.setAttribute("data-comment-id", c.id);
+      li.setAttribute("role", "listitem");
       li.innerHTML = "<strong>" + escapeHtml(c.blockAnchor.kind) + "</strong>: " +
         escapeHtml(c.blockAnchor.leadingText) + " — " +
-        '<button type="button" data-action="delete" data-id="' + escapeHtml(c.id) + '">Delete</button> ' +
-        '<button type="button" data-action="reanchor" data-id="' + escapeHtml(c.id) + '">Re-anchor manually</button>';
+        '<button type="button" data-sp-action="delete" data-id="' + escapeHtml(c.id) + '">Delete</button> ' +
+        '<button type="button" data-sp-action="reanchor" data-id="' + escapeHtml(c.id) + '">Re-anchor manually</button>';
       list.appendChild(li);
     });
     panel.appendChild(list);
@@ -199,7 +202,7 @@
       var btn = e.target.closest("button");
       if (!btn) return;
       var id = btn.getAttribute("data-id");
-      var action = btn.getAttribute("data-action");
+      var action = btn.getAttribute("data-sp-action");
       if (action === "delete") post("commentDelete", { commentId: id });
       else if (action === "reanchor") beginReanchor(id);
     });
