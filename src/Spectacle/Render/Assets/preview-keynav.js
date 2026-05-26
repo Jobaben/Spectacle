@@ -170,7 +170,7 @@
     if (e.key === "Home")      { e.preventDefault(); disarmG(); jumpFirst(); return; }
     if (e.key === "End")       { e.preventDefault(); disarmG(); jumpLast(); return; }
     if (e.key === "G")         { e.preventDefault(); disarmG(); jumpLast(); return; }
-    if (e.key === "g") {
+    if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (gPending) { e.preventDefault(); disarmG(); jumpFirst(); return; }
       armG();
       return;
@@ -182,7 +182,9 @@
     var kind = kindOf(focused);
 
     if (kind === "block") {
-      if (e.key === "Enter" || e.key === "c") {
+      var bareEnter = e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      var bareC = e.key === "c" && !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (bareEnter || bareC) {
         e.preventDefault();
         var blockId = focused.getAttribute("data-block-id");
         if (blockId && window.__sp_startCompose) {
