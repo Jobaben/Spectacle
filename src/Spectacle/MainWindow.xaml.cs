@@ -34,6 +34,7 @@ public partial class MainWindow : Window, IPreviewSink
     public MainWindow(string filePath)
     {
         InitializeComponent();
+        SourceInitialized += ApplyStartupGeometry;
 
         _sourcePath = Path.GetFullPath(filePath);
         _document = FileDocument.Open(filePath);
@@ -75,6 +76,20 @@ public partial class MainWindow : Window, IPreviewSink
     }
 
     public void Push(string html) => Dispatcher.Invoke(() => Web.SetHtml(html));
+
+    private void ApplyStartupGeometry(object? sender, EventArgs e)
+    {
+        SourceInitialized -= ApplyStartupGeometry;
+
+        const double startupWidth = 900;
+        var workArea = SystemParameters.WorkArea;
+
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Width  = startupWidth;
+        Height = workArea.Height;
+        Left   = workArea.X + (workArea.Width - startupWidth) / 2;
+        Top    = workArea.Y;
+    }
 
     private void SetZoom(double factor)
     {
