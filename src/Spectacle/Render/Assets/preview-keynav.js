@@ -126,11 +126,32 @@
     });
   }
 
+  // Zero pixels of the element's bounding rect intersect the viewport on the
+  // vertical axis. Boundary cases (bottom touching top, top touching bottom)
+  // yield zero visible pixels and are treated as offscreen.
+  function isFullyOffscreen(el) {
+    var r = el.getBoundingClientRect();
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    return r.bottom <= 0 || r.top >= vh;
+  }
+
+  // Persist scrollY at most once per animation frame, regardless of velocity.
+  var scrollSaveScheduled = false;
+  function onScroll() {
+    if (scrollSaveScheduled) return;
+    scrollSaveScheduled = true;
+    requestAnimationFrame(function () {
+      scrollSaveScheduled = false;
+      try { sessionStorage.setItem(STORAGE_SCROLL, String(window.scrollY)); }
+      catch (err) { /* ignore */ }
+    });
+  }
+
   function focusTarget(target, opts) {
     if (!target) return;
     applyRoving(target);
-    target.focus({ preventScroll: !!(opts && opts.preventScroll) });
-    if (!opts || !opts.preventScroll) {
+    target.focus({ preventScroll: true });
+    if (!(opts && opts.preventScroll) && isFullyOffscreen(target)) {
       target.scrollIntoView({ block: "nearest" });
     }
     savePointer(target);
@@ -377,6 +398,7 @@
   var STORAGE_FOCUS = "spectacle.focus";
   var STORAGE_HELP  = "spectacle.helpOpen";
   var STORAGE_REANCHOR_LOST = "spectacle.reanchorLostOnRender";
+  var STORAGE_SCROLL = "spectacle.scrollY";
 
   function pointerOf(el) {
     if (!el) return null;
@@ -466,8 +488,21 @@
     if (target) {
       applyRoving(target);
       target.focus({ preventScroll: true });
+    }
+
+    // Restore scroll position from prior render, if any.
+    var storedScroll = null;
+    try { storedScroll = sessionStorage.getItem(STORAGE_SCROLL); }
+    catch (err) { /* ignore */ }
+    if (storedScroll !== null) {
+      var y = parseFloat(storedScroll);
+      if (isFinite(y)) window.scrollTo(0, y);
+    } else if (target && isFullyOffscreen(target)) {
+      // First-ever load: keep prior behavior of revealing the initial focus.
       target.scrollIntoView({ block: "nearest" });
     }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     document.addEventListener("keydown", onKeyDown);
     syncPointerOnMouse();
