@@ -10,16 +10,25 @@ public partial class WebViewHost : UserControl
 {
     public const string VirtualHost = "spectacle.local";
 
-    // The preview document is served from this in-memory path over the stable
-    // spectacle.local origin (not NavigateToString, whose opaque about:blank
-    // origin wipes sessionStorage on every render). A stable origin lets the
-    // keynav layer persist scroll/focus/help/reanchor state across re-renders.
+    // The preview document is served in-memory over its own stable origin (not
+    // NavigateToString, whose opaque about:blank origin wipes sessionStorage on
+    // every render). A stable origin lets the keynav layer persist
+    // scroll/focus/help/reanchor state across re-renders.
+    //
+    // PreviewHost is deliberately a DIFFERENT host from VirtualHost: newer
+    // WebView2 runtimes (observed on 148.0.3967) resolve folder-mapped hosts in
+    // the browser process and never raise WebResourceRequested for them, so the
+    // in-memory document must live on a host with no folder mapping. VirtualHost
+    // keeps the folder mapping so images and relative links resolve through the
+    // <base href> against the document folder.
+    public const string PreviewHost = "spectacle-preview.local";
     private const string PreviewPath = "__spectacle_preview__.html";
 
     private bool _ready;
     private string? _pendingHtml;
     private string? _virtualFolder;
     private string? _currentHtml;
+    private bool _mappingApplied;
     private int _navVersion; // cache-bust so each render triggers a fresh fetch
 
     public event EventHandler<string>? HostMessageReceived;
@@ -45,11 +54,11 @@ public partial class WebViewHost : UserControl
         };
 
         // Serve the preview document from memory for the stable-origin URL.
-        // The pattern matches only the preview path, so images (served via the
-        // folder mapping) are untouched; context All avoids depending on how the
-        // runtime classifies the top-level document request.
+        // PreviewHost has no folder mapping, so the request always reaches this
+        // filter; context All avoids depending on how the runtime classifies the
+        // top-level document request.
         Web.CoreWebView2.AddWebResourceRequestedFilter(
-            $"https://{VirtualHost}/{PreviewPath}*", CoreWebView2WebResourceContext.All);
+            $"https://{PreviewHost}/{PreviewPath}*", CoreWebView2WebResourceContext.All);
         Web.CoreWebView2.WebResourceRequested += OnWebResourceRequested;
 
         _ready = true;
@@ -60,8 +69,11 @@ public partial class WebViewHost : UserControl
     {
         _virtualFolder = absolutePath;
         if (_ready)
+        {
             Web.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 VirtualHost, absolutePath, CoreWebView2HostResourceAccessKind.Allow);
+            _mappingApplied = true;
+        }
     }
 
     public void SetHtml(string html)
@@ -79,15 +91,21 @@ public partial class WebViewHost : UserControl
         _currentHtml = html;
 
         // Keep images resolving against the document folder via the base href.
-        if (_virtualFolder is not null)
+        // Applied once per host: the folder never changes within a window, and
+        // mapped hosts are routed in the browser process on newer runtimes, so
+        // re-registering mid-session is avoidable churn.
+        if (_virtualFolder is not null && !_mappingApplied)
+        {
             Web.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 VirtualHost, _virtualFolder, CoreWebView2HostResourceAccessKind.Allow);
+            _mappingApplied = true;
+        }
 
         // Navigate to the stable-origin preview URL; the cache-busting query
         // forces a full navigation so init() re-runs with the new content. The
         // origin (scheme+host) is unchanged, so sessionStorage persists.
         Web.CoreWebView2.Navigate(
-            $"https://{VirtualHost}/{PreviewPath}?v={++_navVersion}");
+            $"https://{PreviewHost}/{PreviewPath}?v={++_navVersion}");
     }
 
     private void OnWebResourceRequested(
@@ -108,7 +126,7 @@ public partial class WebViewHost : UserControl
 
     private void OnNavStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
-        var current = Web.Source?.ToString() ?? $"https://{VirtualHost}/";
+        var current = Web.Source?.ToString() ?? $"https://{PreviewHost}/";
         var decision = LinkInterceptor.Decide(current, e.Uri);
         if (decision == NavDecision.OpenInBrowser)
         {

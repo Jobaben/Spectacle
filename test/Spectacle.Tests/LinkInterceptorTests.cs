@@ -16,8 +16,13 @@ public class LinkInterceptorTests
     [InlineData("https://spectacle.local/", "about:blank", NavDecision.AllowInPage)]
     [InlineData("https://spectacle.local/", "data:text/html,<p>hi</p>", NavDecision.AllowInPage)]
     // First render navigates while the WebView is still at about:blank; the
-    // app's own virtual host must stay in-page regardless of current URL.
-    [InlineData("about:blank", "https://spectacle.local/__spectacle_preview__.html?v=1", NavDecision.AllowInPage)]
+    // app's own hosts must stay in-page regardless of current URL.
+    [InlineData("about:blank", "https://spectacle-preview.local/__spectacle_preview__.html?v=1", NavDecision.AllowInPage)]
+    [InlineData("about:blank", "https://spectacle.local/image.png", NavDecision.AllowInPage)]
+    // Relative links resolve through <base href> to the files host while the
+    // document lives on the preview host — they must stay in-page.
+    [InlineData("https://spectacle-preview.local/__spectacle_preview__.html?v=1", "https://spectacle.local/other.md", NavDecision.AllowInPage)]
+    [InlineData("https://spectacle-preview.local/__spectacle_preview__.html?v=1", "https://example.com/", NavDecision.OpenInBrowser)]
     [InlineData("about:blank", "https://example.com/", NavDecision.OpenInBrowser)]
     public void Decides_navigation(string currentUrl, string targetUrl, NavDecision expected) =>
         LinkInterceptor.Decide(currentUrl, targetUrl).Should().Be(expected);

@@ -24,6 +24,7 @@ public sealed class PreviewPipeline : IDisposable
     private AnnotationFile _file;
     private RenderResult? _lastRender;
     private MatchResult? _lastMatch;
+    private long _renderVersion; // guarded by _sync; identifies the newest render
 
     public event EventHandler? Rendered;
 
@@ -38,22 +39,26 @@ public sealed class PreviewPipeline : IDisposable
 
     public void Start()
     {
+        (string Html, long Version)? render = null;
         lock (_sync)
         {
             if (_started) return;
             _started = true;
             _document.Changed += OnDocumentChanged;
-            Render();
+            render = RenderLocked();
         }
+        Publish(render);
     }
 
     public void SetTheme(PreviewTheme theme)
     {
+        (string Html, long Version)? render = null;
         lock (_sync)
         {
             _theme = theme;
-            if (_started) Render();
+            if (_started) render = RenderLocked();
         }
+        Publish(render);
     }
 
     public IReadOnlyList<MatchedComment> SnapshotMatched()
@@ -74,6 +79,7 @@ public sealed class PreviewPipeline : IDisposable
 
     public void HandleHostMessage(string json)
     {
+        (string Html, long Version)? render = null;
         lock (_sync)
         {
             try
@@ -92,13 +98,14 @@ public sealed class PreviewPipeline : IDisposable
                     default: return;
                 }
                 Persist();
-                Render();
+                render = RenderLocked();
             }
             catch (Exception ex) when (ex is JsonException || ex is KeyNotFoundException || ex is InvalidOperationException)
             {
                 Console.Error.WriteLine($"[PreviewPipeline] Malformed host message; ignored: {ex.Message}. Payload: {Truncate(json, 200)}");
             }
         }
+        Publish(render);
     }
 
     private static string Truncate(string s, int max) =>
@@ -188,14 +195,17 @@ public sealed class PreviewPipeline : IDisposable
 
     private void OnDocumentChanged(object? sender, EventArgs e)
     {
+        (string Html, long Version)? render;
         lock (_sync)
         {
             _file = _store.Load();
-            Render();
+            render = RenderLocked();
         }
+        Publish(render);
     }
 
-    private void Render()
+    // Computes the render under _sync; publishing happens outside the lock.
+    private (string Html, long Version) RenderLocked()
     {
         _lastRender = _renderer.Render(_document.Text);
         _lastMatch = AnnotationMatcher.Match(_lastRender.Blocks, _file.Comments);
@@ -204,6 +214,23 @@ public sealed class PreviewPipeline : IDisposable
             $"https://{Web.WebViewHost.VirtualHost}/",
             _theme,
             _lastMatch);
+        return (html, ++_renderVersion);
+    }
+
+    // Push and Rendered run with NO lock held: the file watcher raises Changed
+    // on a timer thread, and Rendered handlers marshal to the UI thread
+    // (Dispatcher.Invoke) and call back into Snapshot* — doing that under _sync
+    // deadlocks the UI thread against the watcher thread. The version check
+    // drops a render that lost the race to a newer one, so a slow thread can't
+    // publish stale content over a fresher render.
+    private void Publish((string Html, long Version)? render)
+    {
+        if (render is null) return;
+        var (html, version) = render.Value;
+        lock (_sync)
+        {
+            if (version != _renderVersion) return;
+        }
         _sink.Push(html);
         Rendered?.Invoke(this, EventArgs.Empty);
     }

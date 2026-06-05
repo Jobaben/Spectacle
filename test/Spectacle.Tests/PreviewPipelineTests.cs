@@ -287,6 +287,37 @@ public class PreviewPipelineTests : IDisposable
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task Document_change_from_watcher_thread_does_not_hold_lock_during_Rendered()
+    {
+        var doc = new StubDocument();
+        doc.Update("Hello.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+
+        // Mimics MainWindow: Rendered → Dispatcher.Invoke(UpdateTopBar) →
+        // SnapshotMatched() runs on a different thread than the one raising
+        // Rendered, and the handler waits on it synchronously.
+        var snapshotCompleted = false;
+        p.Rendered += (_, _) =>
+        {
+            var query = System.Threading.Tasks.Task.Run(() => p.SnapshotMatched());
+#pragma warning disable xUnit1031 // intentional: simulates Dispatcher.Invoke blocking
+            snapshotCompleted = query.Wait(TimeSpan.FromSeconds(2));
+#pragma warning restore xUnit1031
+        };
+
+        // Mimics DebouncedFileWatcher: Changed raised on a timer (non-UI) thread.
+        var change = System.Threading.Tasks.Task.Run(() => doc.Update("World.\n"));
+
+        var finished = await System.Threading.Tasks.Task.WhenAny(
+            change, System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(5)));
+        finished.Should().Be(change, "the document-change render must complete");
+        snapshotCompleted.Should().BeTrue(
+            "Rendered handlers must be able to query the pipeline from another thread without deadlocking");
+    }
+
+    [Fact]
     public void HandleHostMessage_writes_sidecar_to_disk()
     {
         var sourcePath = Path.Combine(_root, "doc.md");
