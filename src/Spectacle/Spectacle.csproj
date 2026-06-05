@@ -8,6 +8,11 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>Spectacle.Program</StartupObject>
   </PropertyGroup>
+  <!-- Solution-level `dotnet publish` lands in publish\win-x64 too; gated on
+       _IsPublishing so the profile's RID never affects regular builds. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true' and '$(PublishProfile)' == ''">
+    <PublishProfile>win-x64</PublishProfile>
+  </PropertyGroup>
   <ItemGroup>
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" />
