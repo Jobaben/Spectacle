@@ -167,4 +167,16 @@ public class PreviewHtmlTests
         html.Should().Contain("in-composer");
         html.Should().Contain("in-reanchor");
     }
+
+    [Fact]
+    public void Keynav_css_gives_focusables_scroll_margin()
+    {
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        // One rule must cover all three focusable kinds so every keyboard-focus
+        // scrollIntoView lands the target with breathing room, not flush at the edge.
+        System.Text.RegularExpressions.Regex.IsMatch(html,
+                @"\.md-block,\s*\.sp-card,\s*\.sp-orphan-row\s*\{[^}]*scroll-margin-top:\s*48px;[^}]*scroll-margin-bottom:\s*48px;")
+            .Should().BeTrue("keynav CSS must give .md-block, .sp-card and .sp-orphan-row 48px scroll margins");
+    }
 }

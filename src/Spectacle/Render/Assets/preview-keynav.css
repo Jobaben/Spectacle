@@ -30,6 +30,18 @@
   background-color: rgba(78, 161, 255, 0.08);
 }
 
+/* ---- Scroll breathing room ---- */
+
+/* scrollIntoView treats scroll-margin as part of the element's box, so a
+   focused element lands ~2 body lines (16px x 1.6 x 2 = 51px ~ 48px) from the
+   viewport edge instead of flush against it. */
+.md-block,
+.sp-card,
+.sp-orphan-row {
+  scroll-margin-top: 48px;
+  scroll-margin-bottom: 48px;
+}
+
 /* ---- Re-anchor mode ---- */
 
 body.sp-reanchor-mode .md-block:focus-visible {
