@@ -126,15 +126,6 @@
     });
   }
 
-  // Zero pixels of the element's bounding rect intersect the viewport on the
-  // vertical axis. Boundary cases (bottom touching top, top touching bottom)
-  // yield zero visible pixels and are treated as offscreen.
-  function isFullyOffscreen(el) {
-    var r = el.getBoundingClientRect();
-    var vh = window.innerHeight || document.documentElement.clientHeight;
-    return r.bottom <= 0 || r.top >= vh;
-  }
-
   // Persist scrollY at most once per animation frame, regardless of velocity.
   var scrollSaveScheduled = false;
   function onScroll() {
@@ -151,7 +142,7 @@
     if (!target) return;
     applyRoving(target);
     target.focus({ preventScroll: true });
-    if (!(opts && opts.preventScroll) && isFullyOffscreen(target)) {
+    if (!(opts && opts.preventScroll)) {
       target.scrollIntoView({ block: "nearest" });
     }
     savePointer(target);
@@ -497,8 +488,8 @@
     if (storedScroll !== null) {
       var y = parseFloat(storedScroll);
       if (isFinite(y)) window.scrollTo(0, y);
-    } else if (target && isFullyOffscreen(target)) {
-      // First-ever load: keep prior behavior of revealing the initial focus.
+    } else if (target) {
+      // First-ever load: reveal the initial focus.
       target.scrollIntoView({ block: "nearest" });
     }
 

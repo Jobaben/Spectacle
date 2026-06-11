@@ -179,4 +179,14 @@ public class PreviewHtmlTests
                 @"\.md-block,\s*\.sp-card,\s*\.sp-orphan-row\s*\{[^}]*scroll-margin-top:\s*48px;[^}]*scroll-margin-bottom:\s*48px;")
             .Should().BeTrue("keynav CSS must give .md-block, .sp-card and .sp-orphan-row 48px scroll margins");
     }
+
+    [Fact]
+    public void Keynav_js_scrolls_focus_target_unconditionally()
+    {
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        // The zero-pixels-visible gate left sliver-visible blocks below the fold
+        // (spec 2026-06-11). Focus must always scrollIntoView; the helper is gone.
+        html.Should().NotContain("isFullyOffscreen");
+    }
 }
