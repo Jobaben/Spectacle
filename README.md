@@ -46,6 +46,8 @@ Spectacle can be operated entirely without a mouse. Press `?` inside the preview
 | Home / End | First / last focusable |
 | gg | Jump to first |
 | G | Jump to last |
+| Ctrl+F | Find in document (Enter / Shift+Enter or F3 / Shift+F3 to cycle matches, Esc to close) |
+| t | Toggle the document outline (↑ / ↓ to move, Enter to jump, Esc to close) |
 | ? | Show keyboard help overlay |
 
 ### On a focused block

@@ -1,0 +1,86 @@
+/* preview-outline.css — document outline / table-of-contents panel.
+   Docked to the left edge; colours track dark.css / hc.css theme tokens. */
+
+#sp-outline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 80vw;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  background: var(--code-bg, #252526);
+  color: var(--fg, #d4d4d4);
+  border-right: 1px solid var(--rule, #3c3c3c);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  padding: 16px 0 0 0;
+}
+#sp-outline[hidden] { display: none; }
+#sp-outline:focus-visible { outline: none; }
+
+#sp-outline-title {
+  margin: 0 16px 10px 16px;
+  font-size: 1em;
+  color: var(--link, #4ea1ff);
+}
+
+#sp-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.sp-outline-item {
+  padding: 5px 16px;
+  font-size: 0.9em;
+  line-height: 1.35;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-left: 3px solid transparent;
+}
+.sp-outline-item:hover { background: rgba(255, 255, 255, 0.06); }
+.sp-outline-item[aria-selected="true"] {
+  background: rgba(78, 161, 255, 0.16);
+  border-left-color: var(--link, #4ea1ff);
+}
+
+/* Indent by heading depth. */
+.sp-outline-l1 { padding-left: 16px; font-weight: 600; }
+.sp-outline-l2 { padding-left: 30px; }
+.sp-outline-l3 { padding-left: 44px; }
+.sp-outline-l4 { padding-left: 58px; color: var(--muted, #9da5b4); }
+.sp-outline-l5 { padding-left: 72px; color: var(--muted, #9da5b4); }
+.sp-outline-l6 { padding-left: 86px; color: var(--muted, #9da5b4); }
+
+.sp-outline-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--rule, #3c3c3c);
+  font-size: 0.8em;
+  color: var(--muted, #9da5b4);
+}
+
+/* ---- High-contrast (Windows forced-colors) ---- */
+
+@media (forced-colors: active) {
+  #sp-outline {
+    background: Canvas;
+    color: CanvasText;
+    border-right-color: CanvasText;
+  }
+  #sp-outline-title { color: Highlight; }
+  .sp-outline-item { color: CanvasText; }
+  .sp-outline-l4, .sp-outline-l5, .sp-outline-l6 { color: CanvasText; }
+  .sp-outline-item:hover { background: Highlight; color: HighlightText; }
+  .sp-outline-item[aria-selected="true"] {
+    background: Highlight;
+    color: HighlightText;
+    border-left-color: HighlightText;
+  }
+  .sp-outline-footer { color: CanvasText; border-top-color: CanvasText; }
+}
