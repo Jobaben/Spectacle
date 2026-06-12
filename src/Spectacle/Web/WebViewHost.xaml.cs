@@ -53,6 +53,12 @@ public partial class WebViewHost : UserControl
                 HostMessageReceived?.Invoke(this, json);
         };
 
+        // The page focuses the first block itself, but keyboard input only
+        // reaches the browser once the host control has WPF keyboard focus.
+        // Grab it after the first navigation only — later re-renders must not
+        // steal focus from the editor pane.
+        Web.CoreWebView2.NavigationCompleted += OnFirstNavigationCompleted;
+
         // Serve the preview document from memory for the stable-origin URL.
         // PreviewHost has no folder mapping, so the request always reaches this
         // filter; context All avoids depending on how the runtime classifies the
@@ -106,6 +112,13 @@ public partial class WebViewHost : UserControl
         // origin (scheme+host) is unchanged, so sessionStorage persists.
         Web.CoreWebView2.Navigate(
             $"https://{PreviewHost}/{PreviewPath}?v={++_navVersion}");
+    }
+
+    private void OnFirstNavigationCompleted(
+        object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        Web.CoreWebView2.NavigationCompleted -= OnFirstNavigationCompleted;
+        Web.Focus();
     }
 
     private void OnWebResourceRequested(
