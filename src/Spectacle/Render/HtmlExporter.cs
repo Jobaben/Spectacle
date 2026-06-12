@@ -17,7 +17,7 @@ public static class HtmlExporter
 
     public static string Build(string bodyHtml, PreviewTheme theme, string title)
     {
-        var themeCss = PreviewHtml.LoadAsset(theme == PreviewTheme.HighContrast ? "hc.css" : "dark.css");
+        var themeCss = PreviewHtml.ThemeCss(theme);
         var previewCss = PreviewHtml.LoadAsset("preview.css");
         var prismCss = PreviewHtml.LoadAsset("prism.css");
         var prismJs = PreviewHtml.LoadAsset("prism.min.js");

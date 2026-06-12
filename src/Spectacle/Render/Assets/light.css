@@ -1,0 +1,14 @@
+/* light.css — light reading palette. Document chrome (background, text, links,
+   rules) flips to light; syntax-highlighted code blocks keep the VS Code dark
+   styling from prism.css, which stays high-contrast on a light page. Palette
+   values are pinned by PaletteContrastTests to WCAG AA/AAA thresholds. */
+:root {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #656d76;
+  --link: #0969da;
+  --focus: #0550ae;
+  --rule: #d0d7de;
+  --code-bg: #f6f8fa;
+}
+html, body { background: var(--bg); color: var(--fg); }

@@ -24,6 +24,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Render\Assets\preview.css" />
     <EmbeddedResource Include="Render\Assets\dark.css" />
+    <EmbeddedResource Include="Render\Assets\light.css" />
     <EmbeddedResource Include="Render\Assets\hc.css" />
     <EmbeddedResource Include="Render\Assets\prism.min.js" />
     <EmbeddedResource Include="Render\Assets\prism.css" />

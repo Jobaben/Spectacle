@@ -8,12 +8,13 @@ using Spectacle.Annotations;
 
 namespace Spectacle.Render;
 
-public enum PreviewTheme { Dark, HighContrast }
+public enum PreviewTheme { Dark, Light, HighContrast }
 
 public static class PreviewHtml
 {
     private static readonly Lazy<string> PreviewCss = new(() => LoadAsset("preview.css"));
     private static readonly Lazy<string> DarkCss = new(() => LoadAsset("dark.css"));
+    private static readonly Lazy<string> LightCss = new(() => LoadAsset("light.css"));
     private static readonly Lazy<string> HcCss = new(() => LoadAsset("hc.css"));
     private static readonly Lazy<string> PrismCss = new(() => LoadAsset("prism.css"));
     private static readonly Lazy<string> PrismJs = new(() => LoadAsset("prism.min.js"));
@@ -42,7 +43,7 @@ public static class PreviewHtml
         string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
         IReadOnlyList<OutlineEntry>? outline)
     {
-        var themeCss = theme == PreviewTheme.HighContrast ? HcCss.Value : DarkCss.Value;
+        var themeCss = ThemeCss(theme);
         var payloadJson = BuildPayload(matchResult);
         var outlineJson = BuildOutlinePayload(outline);
 
@@ -139,6 +140,14 @@ public static class PreviewHtml
         return JsonSerializer.Serialize(new { comments, orphaned = orphans }, PayloadOpts)
             .Replace("</", "<\\/");
     }
+
+    /// <summary>The theme stylesheet (a <c>:root</c> custom-property block) for a theme.</summary>
+    public static string ThemeCss(PreviewTheme theme) => theme switch
+    {
+        PreviewTheme.HighContrast => HcCss.Value,
+        PreviewTheme.Light => LightCss.Value,
+        _ => DarkCss.Value,
+    };
 
     internal static string LoadAsset(string name)
     {
