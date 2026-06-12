@@ -14,6 +14,14 @@ public class PaletteContrastTests
     private const string DarkMuted = "#9da5b4";
     private const string DarkCodeBg = "#252526";
 
+    // Light palette from src/Spectacle/Render/Assets/light.css
+    private const string LightBg = "#ffffff";
+    private const string LightFg = "#1f2328";
+    private const string LightLink = "#0969da";
+    private const string LightFocus = "#0550ae";
+    private const string LightMuted = "#656d76";
+    private const string LightCodeBg = "#f6f8fa";
+
     // High-contrast palette from src/Spectacle/Render/Assets/hc.css
     private const string HcBg = "#000000";
     private const string HcFg = "#ffffff";
@@ -38,6 +46,26 @@ public class PaletteContrastTests
     [Fact]
     public void Dark_body_on_code_bg_meets_AAA() =>
         WcagContrast.Ratio(DarkFg, DarkCodeBg).Should().BeGreaterThanOrEqualTo(7.0);
+
+    [Fact]
+    public void Light_body_meets_AAA() =>
+        WcagContrast.Ratio(LightFg, LightBg).Should().BeGreaterThanOrEqualTo(7.0);
+
+    [Fact]
+    public void Light_link_meets_AA() =>
+        WcagContrast.Ratio(LightLink, LightBg).Should().BeGreaterThanOrEqualTo(4.5);
+
+    [Fact]
+    public void Light_focus_outline_meets_AA() =>
+        WcagContrast.Ratio(LightFocus, LightBg).Should().BeGreaterThanOrEqualTo(3.0);
+
+    [Fact]
+    public void Light_muted_meets_AA() =>
+        WcagContrast.Ratio(LightMuted, LightBg).Should().BeGreaterThanOrEqualTo(4.5);
+
+    [Fact]
+    public void Light_body_on_code_bg_meets_AAA() =>
+        WcagContrast.Ratio(LightFg, LightCodeBg).Should().BeGreaterThanOrEqualTo(7.0);
 
     [Fact]
     public void Hc_body_meets_AAA() =>

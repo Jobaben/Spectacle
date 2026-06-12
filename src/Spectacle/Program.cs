@@ -16,6 +16,7 @@ public static class Program
           Spectacle.exe <file.md|file.markdown>   Open and render a Markdown file
           Spectacle.exe <file> --stats            Print document statistics and exit
           Spectacle.exe <file> --export-html [out] Export rendered HTML and exit
+          Spectacle.exe <file> --export-html --light  Export using the light theme
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -33,7 +34,7 @@ public static class Program
             CliCommand.Register => DoRegister(),
             CliCommand.Unregister => DoUnregister(),
             CliCommand.Stats stats => DoStats(stats.Path),
-            CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath),
+            CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath, export.Light),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -67,12 +68,13 @@ public static class Program
         return 0;
     }
 
-    private static int DoExportHtml(string path, string? outputPath)
+    private static int DoExportHtml(string path, string? outputPath, bool light)
     {
         if (!ValidateSource(path)) return 2;
 
+        var theme = light ? PreviewTheme.Light : PreviewTheme.Dark;
         var title = Path.GetFileNameWithoutExtension(path) ?? "document";
-        var html = HtmlExporter.FromMarkdown(File.ReadAllText(path), PreviewTheme.Dark, title);
+        var html = HtmlExporter.FromMarkdown(File.ReadAllText(path), theme, title);
         var target = outputPath ?? Path.ChangeExtension(path, ".html");
         File.WriteAllText(target, html);
         Console.WriteLine($"Exported {Path.GetFullPath(target)}");

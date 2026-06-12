@@ -10,7 +10,7 @@ public abstract record CliCommand
     public sealed record Help : CliCommand;
     public sealed record Version : CliCommand;
     public sealed record Stats(string Path) : CliCommand;
-    public sealed record ExportHtml(string Path, string? OutputPath) : CliCommand;
+    public sealed record ExportHtml(string Path, string? OutputPath, bool Light = false) : CliCommand;
 }
 
 public static class CliArgs
@@ -43,7 +43,9 @@ public static class CliArgs
             return path is null ? new CliCommand.Help() : new CliCommand.Stats(path);
 
         if (flags.Contains("--export-html") || flags.Contains("--export"))
-            return path is null ? new CliCommand.Help() : new CliCommand.ExportHtml(path, secondPositional);
+            return path is null
+                ? new CliCommand.Help()
+                : new CliCommand.ExportHtml(path, secondPositional, flags.Contains("--light"));
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).

@@ -22,6 +22,14 @@ public class PreviewHtmlTests
         PreviewHtml.Build("", "x", PreviewTheme.Dark).Should().Contain("#1e1e1e");
 
     [Fact]
+    public void Light_theme_includes_light_css() =>
+        PreviewHtml.Build("", "x", PreviewTheme.Light).Should().Contain("#0969da");
+
+    [Fact]
+    public void Light_theme_uses_white_background() =>
+        PreviewHtml.Build("", "x", PreviewTheme.Light).Should().Contain("--bg: #ffffff");
+
+    [Fact]
     public void HighContrast_theme_includes_hc_css() =>
         PreviewHtml.Build("", "x", PreviewTheme.HighContrast).Should().Contain("#ffff00");
 
