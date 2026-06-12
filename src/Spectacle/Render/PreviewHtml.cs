@@ -140,7 +140,7 @@ public static class PreviewHtml
             .Replace("</", "<\\/");
     }
 
-    private static string LoadAsset(string name)
+    internal static string LoadAsset(string name)
     {
         var asm = typeof(PreviewHtml).Assembly;
         var resource = asm.GetManifestResourceNames()

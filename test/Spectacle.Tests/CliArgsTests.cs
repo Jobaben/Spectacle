@@ -48,4 +48,48 @@ public class CliArgsTests
         var result = CliArgs.Parse(new[] { "a.md", "b.md" });
         result.Should().BeOfType<CliCommand.Open>().Which.Path.Should().Be("a.md");
     }
+
+    [Fact]
+    public void Stats_after_path_is_Stats()
+    {
+        CliArgs.Parse(new[] { "doc.md", "--stats" })
+            .Should().BeOfType<CliCommand.Stats>().Which.Path.Should().Be("doc.md");
+    }
+
+    [Fact]
+    public void Stats_before_path_is_Stats()
+    {
+        CliArgs.Parse(new[] { "--stats", "doc.md" })
+            .Should().BeOfType<CliCommand.Stats>().Which.Path.Should().Be("doc.md");
+    }
+
+    [Fact]
+    public void Stats_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--stats" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Export_html_with_path_defaults_output_to_null()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--export-html" });
+        var export = result.Should().BeOfType<CliCommand.ExportHtml>().Subject;
+        export.Path.Should().Be("doc.md");
+        export.OutputPath.Should().BeNull();
+    }
+
+    [Fact]
+    public void Export_html_captures_output_path()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--export-html", "out.html" });
+        var export = result.Should().BeOfType<CliCommand.ExportHtml>().Subject;
+        export.Path.Should().Be("doc.md");
+        export.OutputPath.Should().Be("out.html");
+    }
+
+    [Fact]
+    public void Export_alias_is_ExportHtml() =>
+        CliArgs.Parse(new[] { "doc.md", "--export" }).Should().BeOfType<CliCommand.ExportHtml>();
+
+    [Fact]
+    public void Export_html_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--export-html" }).Should().BeOfType<CliCommand.Help>();
 }

@@ -30,6 +30,7 @@ public partial class MainWindow : Window, IPreviewSink
     public ICommand CloseCommand { get; }
     public ICommand CopyRevisionPlanCommand { get; }
     public ICommand ExportRevisionPlanCommand { get; }
+    public ICommand ExportHtmlCommand { get; }
 
     public MainWindow(string filePath)
     {
@@ -56,6 +57,7 @@ public partial class MainWindow : Window, IPreviewSink
 
         CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan(), HasComments);
         ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan(), HasComments);
+        ExportHtmlCommand = new RelayCommand(_ => ExportHtml());
 
         Web.HostMessageReceived += (_, json) => Dispatcher.Invoke(() =>
         {
@@ -63,7 +65,11 @@ public partial class MainWindow : Window, IPreviewSink
             UpdateTopBar();
         });
 
-        _pipeline.Rendered += (_, _) => Dispatcher.Invoke(UpdateTopBar);
+        _pipeline.Rendered += (_, _) => Dispatcher.Invoke(() =>
+        {
+            UpdateTopBar();
+            UpdateStatsBar();
+        });
 
         DataContext = this;
         Loaded += (_, _) => _pipeline.Start();
@@ -135,6 +141,15 @@ public partial class MainWindow : Window, IPreviewSink
         ((RelayCommand)ExportRevisionPlanCommand).RaiseCanExecuteChanged();
     }
 
+    private void UpdateStatsBar()
+    {
+        var stats = DocumentStats.Compute(_document.Text);
+        StatsText.Text = stats.Words == 0
+            ? "Empty document"
+            : $"{stats.Words:N0} words · ~{stats.ReadingTimeMinutes} min read · "
+              + $"{stats.Headings:N0} headings · {stats.CodeBlocks:N0} code blocks";
+    }
+
     private bool HasComments()
         => _pipeline.SnapshotMatched().Count + _pipeline.SnapshotOrphans().Count > 0;
 
@@ -163,6 +178,22 @@ public partial class MainWindow : Window, IPreviewSink
         };
         if (dlg.ShowDialog() == true)
             File.WriteAllText(dlg.FileName, text);
+    }
+
+    private void ExportHtml()
+    {
+        var theme = _hcWatcher.IsActive ? PreviewTheme.HighContrast : PreviewTheme.Dark;
+        var title = Path.GetFileNameWithoutExtension(_sourcePath) ?? "document";
+        var html = HtmlExporter.FromMarkdown(_document.Text, theme, title);
+
+        var dlg = new SaveFileDialog
+        {
+            FileName = title + ".html",
+            Filter = "HTML (*.html)|*.html|All files (*.*)|*.*",
+            InitialDirectory = Path.GetDirectoryName(_sourcePath)
+        };
+        if (dlg.ShowDialog() == true)
+            File.WriteAllText(dlg.FileName, html);
     }
 }
 
