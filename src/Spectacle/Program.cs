@@ -3,6 +3,7 @@ using System.Windows;
 using Spectacle.Cli;
 using Spectacle.Files;
 using Spectacle.Install;
+using Spectacle.Render;
 
 namespace Spectacle;
 
@@ -13,6 +14,8 @@ public static class Program
 
         Usage:
           Spectacle.exe <file.md|file.markdown>   Open and render a Markdown file
+          Spectacle.exe <file> --stats            Print document statistics and exit
+          Spectacle.exe <file> --export-html [out] Export rendered HTML and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -29,6 +32,8 @@ public static class Program
             CliCommand.Version => Print(GetVersion(), 0),
             CliCommand.Register => DoRegister(),
             CliCommand.Unregister => DoUnregister(),
+            CliCommand.Stats stats => DoStats(stats.Path),
+            CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -36,20 +41,57 @@ public static class Program
 
     private static int DoOpen(string path)
     {
-        if (!FileGuard.IsAllowed(path))
-        {
-            Console.Error.WriteLine($"Spectacle only opens .md and .markdown files. Refusing: {path}");
-            return 2;
-        }
-        if (!File.Exists(path))
-        {
-            Console.Error.WriteLine($"File not found: {path}");
-            return 2;
-        }
+        if (!ValidateSource(path)) return 2;
 
         var app = new App();
         var window = new MainWindow(path);
         return app.Run(window);
+    }
+
+    private static int DoStats(string path)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var stats = DocumentStats.Compute(File.ReadAllText(path));
+        Console.WriteLine($"""
+            {Path.GetFileName(path)}
+              Words:        {stats.Words:N0}
+              Reading time: ~{stats.ReadingTimeMinutes} min
+              Characters:   {stats.Characters:N0}
+              Lines:        {stats.Lines:N0}
+              Headings:     {stats.Headings:N0}
+              Code blocks:  {stats.CodeBlocks:N0}
+              Links:        {stats.Links:N0}
+              Images:       {stats.Images:N0}
+            """);
+        return 0;
+    }
+
+    private static int DoExportHtml(string path, string? outputPath)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var title = Path.GetFileNameWithoutExtension(path) ?? "document";
+        var html = HtmlExporter.FromMarkdown(File.ReadAllText(path), PreviewTheme.Dark, title);
+        var target = outputPath ?? Path.ChangeExtension(path, ".html");
+        File.WriteAllText(target, html);
+        Console.WriteLine($"Exported {Path.GetFullPath(target)}");
+        return 0;
+    }
+
+    private static bool ValidateSource(string path)
+    {
+        if (!FileGuard.IsAllowed(path))
+        {
+            Console.Error.WriteLine($"Spectacle only opens .md and .markdown files. Refusing: {path}");
+            return false;
+        }
+        if (!File.Exists(path))
+        {
+            Console.Error.WriteLine($"File not found: {path}");
+            return false;
+        }
+        return true;
     }
 
     private static int DoRegister()

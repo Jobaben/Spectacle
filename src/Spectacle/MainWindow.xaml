@@ -20,11 +20,13 @@
         <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
         <KeyBinding Key="C" Modifiers="Control+Shift" Command="{Binding CopyRevisionPlanCommand}" />
         <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExportRevisionPlanCommand}" />
+        <KeyBinding Key="H" Modifiers="Control+Shift" Command="{Binding ExportHtmlCommand}" />
     </Window.InputBindings>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Border x:Name="TopBar" Grid.Row="0"
                 Background="#252526" BorderBrush="#3c3c3c" BorderThickness="0,0,0,1"
@@ -50,5 +52,10 @@
                           HorizontalAlignment="Stretch" Background="#3c3c3c" />
             <web:WebViewHost x:Name="Web" Grid.Column="2" />
         </Grid>
+        <Border x:Name="StatsBar" Grid.Row="2"
+                Background="#252526" BorderBrush="#3c3c3c" BorderThickness="0,1,0,0"
+                Padding="10,4">
+            <TextBlock x:Name="StatsText" Foreground="#9aa0a6" FontSize="11" Text="" />
+        </Border>
     </Grid>
 </Window>
