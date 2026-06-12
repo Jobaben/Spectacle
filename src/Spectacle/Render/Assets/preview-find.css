@@ -1,0 +1,89 @@
+/* preview-find.css — Find-in-document bar and match highlighting.
+   Colours track the dark/HC theme tokens from dark.css / hc.css. */
+
+#sp-find {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--code-bg, #252526);
+  color: var(--fg, #d4d4d4);
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 6px;
+  padding: 6px 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+#sp-find[hidden] { display: none; }
+
+#sp-find-input {
+  background: var(--bg, #1e1e1e);
+  color: var(--fg, #d4d4d4);
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  width: 200px;
+}
+#sp-find-input:focus-visible {
+  outline: 2px solid var(--focus, #7cb7ff);
+  outline-offset: 1px;
+}
+
+#sp-find-count {
+  min-width: 64px;
+  text-align: center;
+  font-size: 0.82em;
+  color: var(--muted, #9da5b4);
+  font-variant-numeric: tabular-nums;
+}
+#sp-find-count.sp-find-empty { color: #ff8585; }
+
+#sp-find button {
+  background: transparent;
+  color: var(--fg, #d4d4d4);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 0.95em;
+  line-height: 1;
+  cursor: pointer;
+}
+#sp-find button:hover { background: rgba(255, 255, 255, 0.08); }
+#sp-find button:focus-visible {
+  outline: 2px solid var(--focus, #7cb7ff);
+  outline-offset: 1px;
+}
+
+/* CSS Custom Highlight API paint layers. */
+::highlight(sp-find) {
+  background-color: rgba(255, 213, 0, 0.32);
+  color: inherit;
+}
+::highlight(sp-find-current) {
+  background-color: #ffd500;
+  color: #0a0a0a;
+}
+
+/* ---- High-contrast (Windows forced-colors) ---- */
+
+@media (forced-colors: active) {
+  #sp-find {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  #sp-find-input {
+    background: Field;
+    color: FieldText;
+    border-color: CanvasText;
+  }
+  #sp-find-count { color: CanvasText; }
+  #sp-find-count.sp-find-empty { color: CanvasText; }
+  #sp-find button { color: CanvasText; }
+  #sp-find button:hover { background: Highlight; color: HighlightText; }
+  ::highlight(sp-find) { background-color: Highlight; color: HighlightText; }
+  ::highlight(sp-find-current) { background-color: Highlight; color: HighlightText; }
+}

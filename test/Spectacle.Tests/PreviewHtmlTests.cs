@@ -189,4 +189,72 @@ public class PreviewHtmlTests
         // (spec 2026-06-11). Focus must always scrollIntoView; the helper is gone.
         html.Should().NotContain("isFullyOffscreen");
     }
+
+    [Fact]
+    public void Build_embeds_find_assets_on_plain_documents()
+    {
+        // Find must be available on any document, with or without comments.
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        html.Should().Contain("preview-find.js — in-document text search");
+        html.Should().Contain("preview-find.css — Find-in-document bar");
+        html.Should().Contain("::highlight(sp-find)");
+    }
+
+    [Fact]
+    public void Build_embeds_outline_assets_on_plain_documents()
+    {
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        html.Should().Contain("preview-outline.js — document outline");
+        html.Should().Contain("preview-outline.css — document outline");
+    }
+
+    [Fact]
+    public void Build_emits_outline_payload_even_when_null()
+    {
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        // The global must always exist so preview-outline.js can read it safely.
+        html.Should().Contain("window.__spectacleOutline__ = [];");
+    }
+
+    [Fact]
+    public void Build_includes_outline_entries_in_payload()
+    {
+        var outline = new[]
+        {
+            new OutlineEntry(1, "Intro", "intro", 1),
+            new OutlineEntry(2, "Details", "details", 5)
+        };
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matchResult: null, outline);
+
+        html.Should().Contain("\"text\":\"Intro\"");
+        html.Should().Contain("\"id\":\"intro\"");
+        html.Should().Contain("\"level\":2");
+        html.Should().Contain("\"line\":5");
+    }
+
+    [Fact]
+    public void Outline_payload_escapes_closing_script_tag_in_heading_text()
+    {
+        var outline = new[]
+        {
+            new OutlineEntry(1, "</script><script>alert('xss')</script>", "h", 1)
+        };
+        var html = PreviewHtml.Build("", "x", PreviewTheme.Dark, matchResult: null, outline);
+
+        html.Should().NotContain("</script><script>alert");
+    }
+
+    [Fact]
+    public void Build_keymap_documents_find_and_outline_sections()
+    {
+        var html = PreviewHtml.Build("<p>hi</p>", "x", PreviewTheme.Dark);
+
+        html.Should().Contain("in-find");
+        html.Should().Contain("in-outline");
+        html.Should().Contain("Find in document");
+        html.Should().Contain("Toggle document outline");
+    }
 }

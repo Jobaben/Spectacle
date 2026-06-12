@@ -18,8 +18,27 @@
       title: "Preview-wide",
       rows: [
         { key: "?",                   label: "Open this help",             action: "help.toggle" },
+        { key: "Ctrl+F",             label: "Find in document",           action: "find.open" /* preview-find.js */ },
+        { key: "t",                   label: "Toggle document outline",    action: "outline.toggle" /* preview-outline.js */ },
         { key: "gg",                  label: "Jump to first",              action: "nav.first" },
         { key: "G",                   label: "Jump to last",               action: "nav.last" }
+      ]
+    },
+    "in-find": {
+      title: "Find bar",
+      rows: [
+        { key: "Enter / ⇧Enter",      label: "Next / previous match",      action: null /* preview-find.js */ },
+        { key: "F3 / ⇧F3",            label: "Next / previous match",      action: null /* preview-find.js */ },
+        { key: "Esc",                 label: "Close find",                 action: null /* preview-find.js */ }
+      ]
+    },
+    "in-outline": {
+      title: "Outline panel",
+      rows: [
+        { key: "↑ / ↓",               label: "Move selection",             action: null /* preview-outline.js */ },
+        { key: "Home / End",          label: "First / last heading",       action: null /* preview-outline.js */ },
+        { key: "Enter",               label: "Jump to heading",            action: null /* preview-outline.js */ },
+        { key: "Esc",                 label: "Close outline",              action: null /* preview-outline.js */ }
       ]
     },
     "on-block": {
@@ -205,8 +224,10 @@
   }
 
   function onKeyDown(e) {
-    // Composer textarea owns its own keys (Esc, Ctrl+Enter).
-    if (e.target && e.target.tagName === "TEXTAREA") return;
+    // Composer textarea and the find input own their own keys. (The find/outline
+    // layers also stop propagation in the capture phase while open, so this is
+    // belt-and-suspenders for any stray event that reaches the dispatcher.)
+    if (e.target && (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT")) return;
 
     // ---- Help overlay owns its keys ----
     if (overlayOpen()) {
@@ -327,7 +348,7 @@
 
     // KEYMAP sections in spec order; "in-help" is omitted intentionally.
     var sectionOrder = [
-      "global", "preview-wide", "on-block", "on-card",
+      "global", "preview-wide", "in-find", "in-outline", "on-block", "on-card",
       "on-orphan", "in-composer", "in-reanchor"
     ];
     sectionOrder.forEach(function (key) {

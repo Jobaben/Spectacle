@@ -31,5 +31,9 @@
     <EmbeddedResource Include="Render\Assets\preview-annotations.js" />
     <EmbeddedResource Include="Render\Assets\preview-keynav.css" />
     <EmbeddedResource Include="Render\Assets\preview-keynav.js" />
+    <EmbeddedResource Include="Render\Assets\preview-find.css" />
+    <EmbeddedResource Include="Render\Assets\preview-find.js" />
+    <EmbeddedResource Include="Render\Assets\preview-outline.css" />
+    <EmbeddedResource Include="Render\Assets\preview-outline.js" />
   </ItemGroup>
 </Project>

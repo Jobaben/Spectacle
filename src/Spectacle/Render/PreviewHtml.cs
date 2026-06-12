@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -20,6 +21,10 @@ public static class PreviewHtml
     private static readonly Lazy<string> AnnotationsJs = new(() => LoadAsset("preview-annotations.js"));
     private static readonly Lazy<string> KeynavCss = new(() => LoadAsset("preview-keynav.css"));
     private static readonly Lazy<string> KeynavJs = new(() => LoadAsset("preview-keynav.js"));
+    private static readonly Lazy<string> FindCss = new(() => LoadAsset("preview-find.css"));
+    private static readonly Lazy<string> FindJs = new(() => LoadAsset("preview-find.js"));
+    private static readonly Lazy<string> OutlineCss = new(() => LoadAsset("preview-outline.css"));
+    private static readonly Lazy<string> OutlineJs = new(() => LoadAsset("preview-outline.js"));
 
     private static readonly JsonSerializerOptions PayloadOpts = new()
     {
@@ -27,13 +32,19 @@ public static class PreviewHtml
     };
 
     public static string Build(string bodyHtml, string baseHref, PreviewTheme theme) =>
-        Build(bodyHtml, baseHref, theme, matchResult: null);
+        Build(bodyHtml, baseHref, theme, matchResult: null, outline: null);
 
     public static string Build(
-        string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult)
+        string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult) =>
+        Build(bodyHtml, baseHref, theme, matchResult, outline: null);
+
+    public static string Build(
+        string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
+        IReadOnlyList<OutlineEntry>? outline)
     {
         var themeCss = theme == PreviewTheme.HighContrast ? HcCss.Value : DarkCss.Value;
         var payloadJson = BuildPayload(matchResult);
+        var outlineJson = BuildOutlinePayload(outline);
 
         return $$"""
             <!DOCTYPE html>
@@ -47,6 +58,8 @@ public static class PreviewHtml
               <style>{{PrismCss.Value}}</style>
               <style>{{AnnotationsCss.Value}}</style>
               <style>{{KeynavCss.Value}}</style>
+              <style>{{FindCss.Value}}</style>
+              <style>{{OutlineCss.Value}}</style>
             </head>
             <body>
               <main role="main">
@@ -54,11 +67,29 @@ public static class PreviewHtml
               </main>
               <script>{{PrismJs.Value}}</script>
               <script>window.__spectacleAnnotations__ = {{payloadJson}};</script>
+              <script>window.__spectacleOutline__ = {{outlineJson}};</script>
               <script>{{AnnotationsJs.Value}}</script>
               <script>{{KeynavJs.Value}}</script>
+              <script>{{FindJs.Value}}</script>
+              <script>{{OutlineJs.Value}}</script>
             </body>
             </html>
             """;
+    }
+
+    private static string BuildOutlinePayload(IReadOnlyList<OutlineEntry>? outline)
+    {
+        var entries = (outline ?? Array.Empty<OutlineEntry>()).Select(e => new
+        {
+            level = e.Level,
+            text = e.Text,
+            id = e.Id,
+            line = e.Line
+        });
+
+        // Same `</` -> `<\/` guard as the annotations payload: a heading whose text
+        // contains `</script>` would otherwise terminate this inline <script> early.
+        return JsonSerializer.Serialize(entries, PayloadOpts).Replace("</", "<\\/");
     }
 
     private static string BuildPayload(MatchResult? matchResult)

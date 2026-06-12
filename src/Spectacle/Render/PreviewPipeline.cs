@@ -213,7 +213,8 @@ public sealed class PreviewPipeline : IDisposable
             _lastRender.Html,
             $"https://{Web.WebViewHost.VirtualHost}/",
             _theme,
-            _lastMatch);
+            _lastMatch,
+            _lastRender.Outline);
         return (html, ++_renderVersion);
     }
 
