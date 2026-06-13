@@ -310,4 +310,40 @@ public class CliArgsTests
     [Fact]
     public void Check_structure_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--check-structure" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_tables_after_path_is_CheckTables()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-tables" });
+        var c = result.Should().BeOfType<CliCommand.CheckTables>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_tables_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-tables", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckTables>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_tables_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-tables" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_after_path_is_Review()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--review" });
+        var r = result.Should().BeOfType<CliCommand.Review>().Subject;
+        r.Path.Should().Be("doc.md");
+        r.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Review_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--review", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.Review>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Review_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--review" }).Should().BeOfType<CliCommand.Help>();
 }

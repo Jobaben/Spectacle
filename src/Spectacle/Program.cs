@@ -25,6 +25,8 @@ public static class Program
           Spectacle.exe <file> --check-links [--json] Report broken internal links and exit (non-zero if any)
           Spectacle.exe <file> --diff <other> [--json] Show block-level changes vs another spec and exit
           Spectacle.exe <file> --check-structure [--json] Report heading-hierarchy issues and exit (non-zero if any)
+          Spectacle.exe <file> --check-tables [--json] Report malformed tables and exit (non-zero if any)
+          Spectacle.exe <file> --review [--json]  Run all checks and exit (non-zero if any issues)
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -51,6 +53,8 @@ public static class Program
             CliCommand.CheckLinks check => DoCheckLinks(check.Path, check.Json),
             CliCommand.Diff diff => DoDiff(diff.Path, diff.OtherPath, diff.Json),
             CliCommand.CheckStructure structure => DoCheckStructure(structure.Path, structure.Json),
+            CliCommand.CheckTables tables => DoCheckTables(tables.Path, tables.Json),
+            CliCommand.Review review => DoReview(review.Path, review.Json),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -183,6 +187,25 @@ public static class Program
         Console.WriteLine(StructureCheckExporter.Build(findings, path, json));
         // Non-zero when issues are found so --check-structure can gate a pipeline.
         return findings.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckTables(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var issues = TableChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(TableCheckExporter.Build(issues, path, json));
+        return issues.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoReview(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var report = ReviewReport.Compute(File.ReadAllText(path));
+        Console.WriteLine(ReviewReportExporter.Build(report, path, json));
+        // Non-zero when any check found an issue so --review can gate a pipeline.
+        return report.IssueCount == 0 ? 0 : 1;
     }
 
     private static bool ValidateSource(string path)

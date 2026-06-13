@@ -19,6 +19,8 @@ public abstract record CliCommand
     public sealed record CheckLinks(string Path, bool Json) : CliCommand;
     public sealed record Diff(string Path, string OtherPath, bool Json) : CliCommand;
     public sealed record CheckStructure(string Path, bool Json) : CliCommand;
+    public sealed record CheckTables(string Path, bool Json) : CliCommand;
+    public sealed record Review(string Path, bool Json) : CliCommand;
 }
 
 public static class CliArgs
@@ -84,6 +86,12 @@ public static class CliArgs
 
         if (flags.Contains("--check-structure"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckStructure(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-tables"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckTables(path, flags.Contains("--json"));
+
+        if (flags.Contains("--review"))
+            return path is null ? new CliCommand.Help() : new CliCommand.Review(path, flags.Contains("--json"));
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).

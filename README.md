@@ -28,6 +28,8 @@ Spectacle.exe <file> --checklist [--json]      Report task-list/acceptance-crite
 Spectacle.exe <file> --check-links [--json]    Report broken internal links, then exit (non-zero if any)
 Spectacle.exe <file> --diff <other> [--json]   Show block-level changes vs another spec, then exit
 Spectacle.exe <file> --check-structure [--json]  Report heading-hierarchy issues, then exit (non-zero if any)
+Spectacle.exe <file> --check-tables [--json]   Report malformed tables, then exit (non-zero if any)
+Spectacle.exe <file> --review [--json]         Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -80,8 +82,18 @@ than one top-level `#` heading, skipped levels (e.g. `##` jumping straight to `#
 heading text (which also produces ambiguous anchors). It exits non-zero when any are found; add
 `--json` for structured findings.
 
-`--outline`, `--checklist`, `--check-links`, `--diff`, and `--check-structure` all run headless and
-write to stdout.
+`--check-tables` validates GFM pipe tables: every separator and body row must have the same number
+of cells as the header. It flags mismatches with line numbers and exits non-zero when any are found;
+add `--json` for structured issues.
+
+`--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`, and
+`--check-tables` together, groups the findings by category with a combined issue count, and includes
+the checklist completion tally. It exits non-zero if any check found an issue — so an agent or CI
+step can call a single command to decide whether a spec is ready. Add `--json` for a structured
+report with one array per check.
+
+`--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`, and
+`--review` all run headless and write to stdout.
 
 ## Keyboard
 
