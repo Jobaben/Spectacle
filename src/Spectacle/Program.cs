@@ -21,6 +21,8 @@ public static class Program
           Spectacle.exe <file> --review-summary [--json] Print review status (open/resolved/orphaned) and exit
           Spectacle.exe <file> --lint [--json]    Report spec readiness issues (placeholders, empty sections) and exit
           Spectacle.exe <file> --outline [--json] Print the heading outline and exit
+          Spectacle.exe <file> --checklist [--json] Report acceptance-criteria/task-list completion and exit
+          Spectacle.exe <file> --check-links [--json] Report broken internal links and exit (non-zero if any)
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -43,6 +45,8 @@ public static class Program
             CliCommand.ReviewSummary summary => DoReviewSummary(summary.Path, summary.Json),
             CliCommand.Lint lint => DoLint(lint.Path, lint.Json),
             CliCommand.Outline outline => DoOutline(outline.Path, outline.Json),
+            CliCommand.Checklist checklist => DoChecklist(checklist.Path, checklist.Json),
+            CliCommand.CheckLinks check => DoCheckLinks(check.Path, check.Json),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -135,6 +139,25 @@ public static class Program
         var outline = new MdRenderer().Render(File.ReadAllText(path)).Outline;
         Console.WriteLine(OutlineExporter.Build(outline, path, json));
         return 0;
+    }
+
+    private static int DoChecklist(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var items = ChecklistAnalyzer.Analyze(File.ReadAllText(path));
+        Console.WriteLine(ChecklistExporter.Build(items, path, json));
+        return 0;
+    }
+
+    private static int DoCheckLinks(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var broken = LinkChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(LinkCheckExporter.Build(broken, path, json));
+        // Non-zero when links are broken so --check-links can gate a pipeline.
+        return broken.Count == 0 ? 0 : 1;
     }
 
     private static bool ValidateSource(string path)

@@ -24,6 +24,8 @@ Spectacle.exe <file> --revision-plan [out] [--json] [--unresolved]  Export the r
 Spectacle.exe <file> --review-summary [--json]  Print review status (open/resolved/orphaned), then exit
 Spectacle.exe <file> --lint [--json]           Report spec readiness issues, then exit (non-zero if any)
 Spectacle.exe <file> --outline [--json]        Print the heading outline, then exit
+Spectacle.exe <file> --checklist [--json]      Report task-list/acceptance-criteria completion, then exit
+Spectacle.exe <file> --check-links [--json]    Report broken internal links, then exit (non-zero if any)
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -55,7 +57,17 @@ finding with a line number and exits non-zero when any are found, so it can gate
 
 `--outline` prints the document's heading tree (indented by level, with line numbers) so you can
 grasp a spec's structure at a glance or feed it to tooling. Add `--json` for a structured outline.
-Both run headless and write to stdout.
+
+`--checklist` tracks acceptance criteria: it finds GFM task-list items (`- [ ]` / `- [x]`, ignoring
+fenced code), reports how many are complete, and lists the open ones with line numbers. Add `--json`
+for structured items.
+
+`--check-links` validates the spec's internal links — anchor links (`#section`) must resolve to a
+heading slug or an explicit element id, and link targets must be non-empty (external and relative
+links are left alone). It prints each broken link with a line number and exits non-zero when any are
+found, so it can gate a pipeline; add `--json` for structured findings.
+
+`--outline`, `--checklist`, and `--check-links` all run headless and write to stdout.
 
 ## Keyboard
 

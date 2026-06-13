@@ -15,6 +15,8 @@ public abstract record CliCommand
     public sealed record ReviewSummary(string Path, bool Json) : CliCommand;
     public sealed record Lint(string Path, bool Json) : CliCommand;
     public sealed record Outline(string Path, bool Json) : CliCommand;
+    public sealed record Checklist(string Path, bool Json) : CliCommand;
+    public sealed record CheckLinks(string Path, bool Json) : CliCommand;
 }
 
 public static class CliArgs
@@ -65,6 +67,12 @@ public static class CliArgs
 
         if (flags.Contains("--outline"))
             return path is null ? new CliCommand.Help() : new CliCommand.Outline(path, flags.Contains("--json"));
+
+        if (flags.Contains("--checklist"))
+            return path is null ? new CliCommand.Help() : new CliCommand.Checklist(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-links"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckLinks(path, flags.Contains("--json"));
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).

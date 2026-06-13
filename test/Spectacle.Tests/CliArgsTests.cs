@@ -229,4 +229,40 @@ public class CliArgsTests
     [Fact]
     public void Outline_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--outline" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Checklist_after_path_is_Checklist()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--checklist" });
+        var c = result.Should().BeOfType<CliCommand.Checklist>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Checklist_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "doc.md", "--checklist", "--json" })
+            .Should().BeOfType<CliCommand.Checklist>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Checklist_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--checklist" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_links_after_path_is_CheckLinks()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-links" });
+        var c = result.Should().BeOfType<CliCommand.CheckLinks>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_links_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-links", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckLinks>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_links_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-links" }).Should().BeOfType<CliCommand.Help>();
 }
