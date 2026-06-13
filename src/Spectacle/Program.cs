@@ -19,6 +19,8 @@ public static class Program
           Spectacle.exe <file> --export-html [out] Export rendered HTML and exit
           Spectacle.exe <file> --revision-plan [out] [--json] [--unresolved] Export the review's revision plan and exit
           Spectacle.exe <file> --review-summary [--json] Print review status (open/resolved/orphaned) and exit
+          Spectacle.exe <file> --lint [--json]    Report spec readiness issues (placeholders, empty sections) and exit
+          Spectacle.exe <file> --outline [--json] Print the heading outline and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -39,6 +41,8 @@ public static class Program
             CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath),
             CliCommand.RevisionPlan plan => DoRevisionPlan(plan.Path, plan.OutputPath, plan.Json, plan.UnresolvedOnly),
             CliCommand.ReviewSummary summary => DoReviewSummary(summary.Path, summary.Json),
+            CliCommand.Lint lint => DoLint(lint.Path, lint.Json),
+            CliCommand.Outline outline => DoOutline(outline.Path, outline.Json),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -111,6 +115,25 @@ public static class Program
         var summary = ReviewSummary.Compute(content, annotations);
         var format = json ? RevisionPlanFormat.Json : RevisionPlanFormat.Markdown;
         Console.WriteLine(ReviewSummaryExporter.Build(summary, path, DateTime.UtcNow, format));
+        return 0;
+    }
+
+    private static int DoLint(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var findings = SpecLinter.Lint(File.ReadAllText(path));
+        Console.WriteLine(SpecLintExporter.Build(findings, path, json));
+        // Non-zero when issues are found so --lint can gate a pipeline.
+        return findings.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoOutline(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var outline = new MdRenderer().Render(File.ReadAllText(path)).Outline;
+        Console.WriteLine(OutlineExporter.Build(outline, path, json));
         return 0;
     }
 

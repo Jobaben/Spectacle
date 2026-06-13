@@ -22,6 +22,8 @@ Spectacle.exe <file> --stats                   Print word count, reading time an
 Spectacle.exe <file> --export-html [out.html]  Export a self-contained HTML file, then exit
 Spectacle.exe <file> --revision-plan [out] [--json] [--unresolved]  Export the review's revision plan, then exit
 Spectacle.exe <file> --review-summary [--json]  Print review status (open/resolved/orphaned), then exit
+Spectacle.exe <file> --lint [--json]           Report spec readiness issues, then exit (non-zero if any)
+Spectacle.exe <file> --outline [--json]        Print the heading outline, then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -44,6 +46,16 @@ open comments, so you hand the agent just the outstanding work. Runs headless, n
 and how many still anchor to a current block (`Anchored`) vs point at content the agent has since
 changed or removed (`Orphaned`). Add `--json` for a machine-readable summary. Like `--stats`, it
 writes to stdout and never opens a window.
+
+`--lint` reports common readiness gaps in an AI-authored spec: leftover placeholder markers
+(`TODO`, `TBD`, `FIXME`, `<placeholder>`, `lorem ipsum`, … — ignoring fenced code) and empty
+sections (a heading with no content of its own and no subsection beneath it). It prints each
+finding with a line number and exits non-zero when any are found, so it can gate a pipeline; add
+`--json` for structured findings.
+
+`--outline` prints the document's heading tree (indented by level, with line numbers) so you can
+grasp a spec's structure at a glance or feed it to tooling. Add `--json` for a structured outline.
+Both run headless and write to stdout.
 
 ## Keyboard
 

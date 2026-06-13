@@ -13,6 +13,8 @@ public abstract record CliCommand
     public sealed record ExportHtml(string Path, string? OutputPath) : CliCommand;
     public sealed record RevisionPlan(string Path, string? OutputPath, bool Json, bool UnresolvedOnly) : CliCommand;
     public sealed record ReviewSummary(string Path, bool Json) : CliCommand;
+    public sealed record Lint(string Path, bool Json) : CliCommand;
+    public sealed record Outline(string Path, bool Json) : CliCommand;
 }
 
 public static class CliArgs
@@ -57,6 +59,12 @@ public static class CliArgs
             return path is null
                 ? new CliCommand.Help()
                 : new CliCommand.ReviewSummary(path, flags.Contains("--json"));
+
+        if (flags.Contains("--lint"))
+            return path is null ? new CliCommand.Help() : new CliCommand.Lint(path, flags.Contains("--json"));
+
+        if (flags.Contains("--outline"))
+            return path is null ? new CliCommand.Help() : new CliCommand.Outline(path, flags.Contains("--json"));
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).

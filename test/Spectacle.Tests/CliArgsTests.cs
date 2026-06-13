@@ -188,4 +188,45 @@ public class CliArgsTests
     [Fact]
     public void Review_summary_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--review-summary" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Lint_after_path_is_Lint()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--lint" });
+        var lint = result.Should().BeOfType<CliCommand.Lint>().Subject;
+        lint.Path.Should().Be("doc.md");
+        lint.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Lint_before_path_is_Lint() =>
+        CliArgs.Parse(new[] { "--lint", "doc.md" })
+            .Should().BeOfType<CliCommand.Lint>().Which.Path.Should().Be("doc.md");
+
+    [Fact]
+    public void Lint_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "doc.md", "--lint", "--json" })
+            .Should().BeOfType<CliCommand.Lint>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Lint_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--lint" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Outline_after_path_is_Outline()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--outline" });
+        var outline = result.Should().BeOfType<CliCommand.Outline>().Subject;
+        outline.Path.Should().Be("doc.md");
+        outline.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Outline_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--outline", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.Outline>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Outline_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--outline" }).Should().BeOfType<CliCommand.Help>();
 }
