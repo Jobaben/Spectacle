@@ -26,6 +26,8 @@ Spectacle.exe <file> --lint [--json]           Report spec readiness issues, the
 Spectacle.exe <file> --outline [--json]        Print the heading outline, then exit
 Spectacle.exe <file> --checklist [--json]      Report task-list/acceptance-criteria completion, then exit
 Spectacle.exe <file> --check-links [--json]    Report broken internal links, then exit (non-zero if any)
+Spectacle.exe <file> --diff <other> [--json]   Show block-level changes vs another spec, then exit
+Spectacle.exe <file> --check-structure [--json]  Report heading-hierarchy issues, then exit (non-zero if any)
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -67,7 +69,19 @@ heading slug or an explicit element id, and link targets must be non-empty (exte
 links are left alone). It prints each broken link with a line number and exits non-zero when any are
 found, so it can gate a pipeline; add `--json` for structured findings.
 
-`--outline`, `--checklist`, and `--check-links` all run headless and write to stdout.
+`--diff <other>` shows what changed between two versions of a spec — invaluable when an AI agent
+revises its own output. It compares blocks structurally (a block is unchanged only if its text is
+identical), reporting added (`+`) and removed (`-`) blocks with line numbers; an edit shows as one
+removed plus one added. The named `<other>` is the baseline and the opened `<file>` is the revision.
+Add `--json` for structured added/removed arrays.
+
+`--check-structure` validates the heading hierarchy (distinct from `--lint`'s content checks): more
+than one top-level `#` heading, skipped levels (e.g. `##` jumping straight to `####`), and duplicate
+heading text (which also produces ambiguous anchors). It exits non-zero when any are found; add
+`--json` for structured findings.
+
+`--outline`, `--checklist`, `--check-links`, `--diff`, and `--check-structure` all run headless and
+write to stdout.
 
 ## Keyboard
 

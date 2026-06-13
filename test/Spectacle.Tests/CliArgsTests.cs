@@ -265,4 +265,49 @@ public class CliArgsTests
     [Fact]
     public void Check_links_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--check-links" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Diff_captures_source_and_other_path()
+    {
+        var result = CliArgs.Parse(new[] { "new.md", "--diff", "old.md" });
+        var d = result.Should().BeOfType<CliCommand.Diff>().Subject;
+        d.Path.Should().Be("new.md");
+        d.OtherPath.Should().Be("old.md");
+        d.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Diff_json_flag_sets_Json()
+    {
+        var result = CliArgs.Parse(new[] { "new.md", "--diff", "old.md", "--json" });
+        var d = result.Should().BeOfType<CliCommand.Diff>().Subject;
+        d.OtherPath.Should().Be("old.md");
+        d.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Diff_without_other_path_is_Help() =>
+        CliArgs.Parse(new[] { "new.md", "--diff" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Diff_without_any_path_is_Help() =>
+        CliArgs.Parse(new[] { "--diff" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_structure_after_path_is_CheckStructure()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-structure" });
+        var c = result.Should().BeOfType<CliCommand.CheckStructure>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_structure_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-structure", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckStructure>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_structure_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-structure" }).Should().BeOfType<CliCommand.Help>();
 }

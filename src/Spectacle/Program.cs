@@ -23,6 +23,8 @@ public static class Program
           Spectacle.exe <file> --outline [--json] Print the heading outline and exit
           Spectacle.exe <file> --checklist [--json] Report acceptance-criteria/task-list completion and exit
           Spectacle.exe <file> --check-links [--json] Report broken internal links and exit (non-zero if any)
+          Spectacle.exe <file> --diff <other> [--json] Show block-level changes vs another spec and exit
+          Spectacle.exe <file> --check-structure [--json] Report heading-hierarchy issues and exit (non-zero if any)
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -47,6 +49,8 @@ public static class Program
             CliCommand.Outline outline => DoOutline(outline.Path, outline.Json),
             CliCommand.Checklist checklist => DoChecklist(checklist.Path, checklist.Json),
             CliCommand.CheckLinks check => DoCheckLinks(check.Path, check.Json),
+            CliCommand.Diff diff => DoDiff(diff.Path, diff.OtherPath, diff.Json),
+            CliCommand.CheckStructure structure => DoCheckStructure(structure.Path, structure.Json),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -158,6 +162,27 @@ public static class Program
         Console.WriteLine(LinkCheckExporter.Build(broken, path, json));
         // Non-zero when links are broken so --check-links can gate a pipeline.
         return broken.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoDiff(string path, string otherPath, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+        if (!ValidateSource(otherPath)) return 2;
+
+        // The current file is the revised version; <other> is the baseline.
+        var diff = SpecDiff.Compare(File.ReadAllText(otherPath), File.ReadAllText(path));
+        Console.WriteLine(SpecDiffExporter.Build(diff, path, otherPath, json));
+        return 0;
+    }
+
+    private static int DoCheckStructure(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var findings = StructureChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(StructureCheckExporter.Build(findings, path, json));
+        // Non-zero when issues are found so --check-structure can gate a pipeline.
+        return findings.Count == 0 ? 0 : 1;
     }
 
     private static bool ValidateSource(string path)

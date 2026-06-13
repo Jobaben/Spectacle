@@ -17,6 +17,8 @@ public abstract record CliCommand
     public sealed record Outline(string Path, bool Json) : CliCommand;
     public sealed record Checklist(string Path, bool Json) : CliCommand;
     public sealed record CheckLinks(string Path, bool Json) : CliCommand;
+    public sealed record Diff(string Path, string OtherPath, bool Json) : CliCommand;
+    public sealed record CheckStructure(string Path, bool Json) : CliCommand;
 }
 
 public static class CliArgs
@@ -73,6 +75,15 @@ public static class CliArgs
 
         if (flags.Contains("--check-links"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckLinks(path, flags.Contains("--json"));
+
+        // --diff needs both the source file and a second file to compare against.
+        if (flags.Contains("--diff"))
+            return path is null || secondPositional is null
+                ? new CliCommand.Help()
+                : new CliCommand.Diff(path, secondPositional, flags.Contains("--json"));
+
+        if (flags.Contains("--check-structure"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckStructure(path, flags.Contains("--json"));
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).
