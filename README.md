@@ -20,6 +20,7 @@ and see live word count / reading time in the status bar.
 Spectacle.exe <file.md|file.markdown>          Open and render
 Spectacle.exe <file> --stats                   Print word count, reading time and structure, then exit
 Spectacle.exe <file> --export-html [out.html]  Export a self-contained HTML file, then exit
+Spectacle.exe <file> --revision-plan [out] [--json]  Export the review's revision plan, then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -29,6 +30,13 @@ Spectacle.exe --version                        Show version
 `--export-html` writes a portable, single-file HTML document (theme and syntax-highlight
 styling inlined, no external assets) next to the source — defaulting to `<file>.html` — or
 to the optional output path. `--stats` and `--export-html` run headless and never open a window.
+
+`--revision-plan` writes the review's revision plan — the same actionable plan you build
+interactively with comments and copy/export via `Ctrl+Shift+C` / `Ctrl+Shift+E` — headlessly,
+so you can pipe a review back to the AI agent that authored the spec. It re-anchors your saved
+comments against the current source (dropping orphans whose blocks no longer exist) and defaults
+to `<file>.revisions.md`, or the optional output path. Add `--json` for a structured
+`<file>.revisions.json` an agent can apply programmatically. Runs headless, never opens a window.
 
 ## Keyboard
 

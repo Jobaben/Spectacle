@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using Spectacle.Annotations;
 using Spectacle.Cli;
 using Spectacle.Files;
 using Spectacle.Install;
@@ -16,6 +17,7 @@ public static class Program
           Spectacle.exe <file.md|file.markdown>   Open and render a Markdown file
           Spectacle.exe <file> --stats            Print document statistics and exit
           Spectacle.exe <file> --export-html [out] Export rendered HTML and exit
+          Spectacle.exe <file> --revision-plan [out] [--json] Export the review's revision plan and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -34,6 +36,7 @@ public static class Program
             CliCommand.Unregister => DoUnregister(),
             CliCommand.Stats stats => DoStats(stats.Path),
             CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath),
+            CliCommand.RevisionPlan plan => DoRevisionPlan(plan.Path, plan.OutputPath, plan.Json),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -75,6 +78,24 @@ public static class Program
         var html = HtmlExporter.FromMarkdown(File.ReadAllText(path), PreviewTheme.Dark, title);
         var target = outputPath ?? Path.ChangeExtension(path, ".html");
         File.WriteAllText(target, html);
+        Console.WriteLine($"Exported {Path.GetFullPath(target)}");
+        return 0;
+    }
+
+    private static int DoRevisionPlan(string path, string? outputPath, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var content = File.ReadAllText(path);
+        var annotations = new AnnotationStore(path).Load();
+        if (annotations.Comments.Count == 0)
+            Console.Error.WriteLine($"No review comments found for {Path.GetFileName(path)}; writing an empty plan.");
+
+        var format = json ? RevisionPlanFormat.Json : RevisionPlanFormat.Markdown;
+        var text = RevisionPlanGenerator.Generate(path, content, annotations, DateTime.UtcNow, format);
+
+        var target = outputPath ?? Path.ChangeExtension(path, json ? ".revisions.json" : ".revisions.md");
+        File.WriteAllText(target, text);
         Console.WriteLine($"Exported {Path.GetFullPath(target)}");
         return 0;
     }

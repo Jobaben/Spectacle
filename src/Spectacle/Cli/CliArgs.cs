@@ -11,6 +11,7 @@ public abstract record CliCommand
     public sealed record Version : CliCommand;
     public sealed record Stats(string Path) : CliCommand;
     public sealed record ExportHtml(string Path, string? OutputPath) : CliCommand;
+    public sealed record RevisionPlan(string Path, string? OutputPath, bool Json) : CliCommand;
 }
 
 public static class CliArgs
@@ -44,6 +45,11 @@ public static class CliArgs
 
         if (flags.Contains("--export-html") || flags.Contains("--export"))
             return path is null ? new CliCommand.Help() : new CliCommand.ExportHtml(path, secondPositional);
+
+        if (flags.Contains("--revision-plan") || flags.Contains("--revisions"))
+            return path is null
+                ? new CliCommand.Help()
+                : new CliCommand.RevisionPlan(path, secondPositional, flags.Contains("--json"));
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).

@@ -92,4 +92,60 @@ public class CliArgsTests
     [Fact]
     public void Export_html_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--export-html" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Revision_plan_after_path_is_RevisionPlan()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.Path.Should().Be("doc.md");
+        plan.OutputPath.Should().BeNull();
+        plan.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Revision_plan_before_path_is_RevisionPlan()
+    {
+        CliArgs.Parse(new[] { "--revision-plan", "doc.md" })
+            .Should().BeOfType<CliCommand.RevisionPlan>().Which.Path.Should().Be("doc.md");
+    }
+
+    [Fact]
+    public void Revisions_alias_is_RevisionPlan() =>
+        CliArgs.Parse(new[] { "doc.md", "--revisions" }).Should().BeOfType<CliCommand.RevisionPlan>();
+
+    [Fact]
+    public void Revision_plan_captures_output_path()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan", "out.md" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.Path.Should().Be("doc.md");
+        plan.OutputPath.Should().Be("out.md");
+    }
+
+    [Fact]
+    public void Revision_plan_json_flag_sets_Json()
+    {
+        var result = CliArgs.Parse(new[] { "--revision-plan", "--json", "doc.md" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.Path.Should().Be("doc.md");
+        plan.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Revision_plan_json_with_output_path()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan", "--json", "out.json" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.OutputPath.Should().Be("out.json");
+        plan.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Revision_plan_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--revision-plan" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Json_without_revision_plan_opens_file() =>
+        CliArgs.Parse(new[] { "doc.md", "--json" }).Should().BeOfType<CliCommand.Open>();
 }
