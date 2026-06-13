@@ -22,6 +22,13 @@ public class RevisionPlanGeneratorTests
         return new AnnotationFile(1, @"C:\doc.md", "", new[] { comment });
     }
 
+    private static Comment AnchoredComment(string content, string kind, string id, string body, DateTime? resolvedAt)
+    {
+        var block = new MdRenderer().Render(content).Blocks.First(b => b.Kind == kind);
+        var anchor = new BlockAnchor(block.Kind, block.Line, block.TextHash, block.OccurrenceIndex, block.OriginalText);
+        return new Comment(id, anchor, block.OriginalText, body, FixedNow, resolvedAt);
+    }
+
     [Fact]
     public void Markdown_format_renders_matched_comment_into_plan()
     {
@@ -79,5 +86,24 @@ public class RevisionPlanGeneratorTests
             @"C:\doc.md", content, file, FixedNow, RevisionPlanFormat.Json);
 
         JsonDocument.Parse(json).RootElement.GetProperty("revisionCount").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public void UnresolvedOnly_drops_resolved_comments()
+    {
+        const string content = "# Heading text\n\nParagraph text.\n";
+        var resolved = AnchoredComment(content, "heading", "h", "done already",
+            new DateTime(2026, 5, 16, 0, 0, 0, DateTimeKind.Utc));
+        var open = AnchoredComment(content, "paragraph", "p", "still open", null);
+        var file = new AnnotationFile(1, @"C:\doc.md", "", new[] { resolved, open });
+
+        var all = JsonDocument.Parse(RevisionPlanGenerator.Generate(
+            @"C:\doc.md", content, file, FixedNow, RevisionPlanFormat.Json));
+        all.RootElement.GetProperty("revisionCount").GetInt32().Should().Be(2);
+
+        var openOnly = JsonDocument.Parse(RevisionPlanGenerator.Generate(
+            @"C:\doc.md", content, file, FixedNow, RevisionPlanFormat.Json, unresolvedOnly: true));
+        openOnly.RootElement.GetProperty("revisionCount").GetInt32().Should().Be(1);
+        openOnly.RootElement.GetProperty("revisions")[0].GetProperty("commentId").GetString().Should().Be("p");
     }
 }

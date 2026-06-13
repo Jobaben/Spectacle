@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Spectacle.Render;
@@ -20,18 +22,23 @@ public static class RevisionPlanGenerator
         string content,
         AnnotationFile annotations,
         DateTime generatedAt,
-        RevisionPlanFormat format)
+        RevisionPlanFormat format,
+        bool unresolvedOnly = false)
     {
         var blocks = new MdRenderer().Render(content).Blocks;
         var match = AnnotationMatcher.Match(blocks, annotations.Comments);
         var sha = Sha256Hex(content);
 
+        var revisions = unresolvedOnly
+            ? match.Matched.Where(m => m.Comment.ResolvedAt is null).ToList()
+            : (IReadOnlyList<MatchedComment>)match.Matched;
+
         return format switch
         {
             RevisionPlanFormat.Json =>
-                RevisionPlanJsonExporter.Build(sourcePath, sha, generatedAt, match.Matched),
+                RevisionPlanJsonExporter.Build(sourcePath, sha, generatedAt, revisions),
             _ =>
-                RevisionPlanExporter.Build(sourcePath, sha, generatedAt, match.Matched),
+                RevisionPlanExporter.Build(sourcePath, sha, generatedAt, revisions),
         };
     }
 

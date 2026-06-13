@@ -148,4 +148,44 @@ public class CliArgsTests
     [Fact]
     public void Json_without_revision_plan_opens_file() =>
         CliArgs.Parse(new[] { "doc.md", "--json" }).Should().BeOfType<CliCommand.Open>();
+
+    [Fact]
+    public void Revision_plan_unresolved_flag_sets_UnresolvedOnly()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan", "--unresolved" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.UnresolvedOnly.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Revision_plan_defaults_UnresolvedOnly_false()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan" });
+        result.Should().BeOfType<CliCommand.RevisionPlan>().Which.UnresolvedOnly.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Review_summary_after_path_is_ReviewSummary()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--review-summary" });
+        var s = result.Should().BeOfType<CliCommand.ReviewSummary>().Subject;
+        s.Path.Should().Be("doc.md");
+        s.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Review_summary_before_path_is_ReviewSummary() =>
+        CliArgs.Parse(new[] { "--review-summary", "doc.md" })
+            .Should().BeOfType<CliCommand.ReviewSummary>().Which.Path.Should().Be("doc.md");
+
+    [Fact]
+    public void Review_summary_json_flag_sets_Json()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--review-summary", "--json" });
+        result.Should().BeOfType<CliCommand.ReviewSummary>().Which.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_summary_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--review-summary" }).Should().BeOfType<CliCommand.Help>();
 }

@@ -20,7 +20,8 @@ and see live word count / reading time in the status bar.
 Spectacle.exe <file.md|file.markdown>          Open and render
 Spectacle.exe <file> --stats                   Print word count, reading time and structure, then exit
 Spectacle.exe <file> --export-html [out.html]  Export a self-contained HTML file, then exit
-Spectacle.exe <file> --revision-plan [out] [--json]  Export the review's revision plan, then exit
+Spectacle.exe <file> --revision-plan [out] [--json] [--unresolved]  Export the review's revision plan, then exit
+Spectacle.exe <file> --review-summary [--json]  Print review status (open/resolved/orphaned), then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -36,7 +37,13 @@ interactively with comments and copy/export via `Ctrl+Shift+C` / `Ctrl+Shift+E` 
 so you can pipe a review back to the AI agent that authored the spec. It re-anchors your saved
 comments against the current source (dropping orphans whose blocks no longer exist) and defaults
 to `<file>.revisions.md`, or the optional output path. Add `--json` for a structured
-`<file>.revisions.json` an agent can apply programmatically. Runs headless, never opens a window.
+`<file>.revisions.json` an agent can apply programmatically. Add `--unresolved` to emit only
+open comments, so you hand the agent just the outstanding work. Runs headless, never opens a window.
+
+`--review-summary` prints where a review stands — total comments, how many are open vs resolved,
+and how many still anchor to a current block (`Anchored`) vs point at content the agent has since
+changed or removed (`Orphaned`). Add `--json` for a machine-readable summary. Like `--stats`, it
+writes to stdout and never opens a window.
 
 ## Keyboard
 
