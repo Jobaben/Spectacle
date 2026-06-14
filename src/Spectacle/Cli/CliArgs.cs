@@ -23,6 +23,8 @@ public abstract record CliCommand
     public sealed record CheckFences(string Path, bool Json) : CliCommand;
     public sealed record CheckPaths(string Path, bool Json) : CliCommand;
     public sealed record CheckSections(string Path, string Required, bool Json) : CliCommand;
+    public sealed record CheckDuplication(string Path, bool Json) : CliCommand;
+    public sealed record CheckAltText(string Path, bool Json) : CliCommand;
     public sealed record Review(string Path, bool Json, string? Baseline = null, bool Sarif = false) : CliCommand;
 }
 
@@ -105,6 +107,12 @@ public static class CliArgs
             return path is null || secondPositional is null
                 ? new CliCommand.Help()
                 : new CliCommand.CheckSections(path, secondPositional, flags.Contains("--json"));
+
+        if (flags.Contains("--check-duplication") || flags.Contains("--check-duplicates"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckDuplication(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-alt-text") || flags.Contains("--check-alt"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckAltText(path, flags.Contains("--json"));
 
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
