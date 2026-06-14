@@ -62,6 +62,15 @@ public class AltTextCheckerTests
     }
 
     [Fact]
+    public void Inline_code_only_alt_text_counts_as_present()
+    {
+        // The alt is entirely a code span — a CodeInline, not a LiteralInline.
+        const string content = "# Doc\n\n![`config.svg`](config.svg)\n";
+
+        AltTextChecker.Check(content).Should().BeEmpty();
+    }
+
+    [Fact]
     public void Findings_are_ordered_by_line()
     {
         const string content = "![](one.png) and ![](two.png)\n\n![](three.png)\n";

@@ -44,13 +44,22 @@ public static class AltTextChecker
         return findings.OrderBy(f => f.Line).ToList();
     }
 
-    // The alt text is the image link's inline content (e.g. the literal in ![alt](url));
-    // concatenate every literal descendant so formatted alt text (**bold**, `code`) counts.
+    // The alt text is the image link's inline content (e.g. the literal in ![alt](url)).
+    // Concatenate every text-bearing descendant so formatted alt text counts: plain text
+    // and emphasis (**bold**, _italic_) carry LiteralInline children, while an alt that is
+    // only an inline code span (![`config.svg`](…)) is a CodeInline, which is not a
+    // LiteralInline — counting both avoids falsely flagging an image that does have alt text.
     private static string AltTextOf(LinkInline image)
     {
         var sb = new StringBuilder();
-        foreach (var literal in image.Descendants<LiteralInline>())
-            sb.Append(literal.Content.ToString());
+        foreach (var inline in image.Descendants())
+        {
+            switch (inline)
+            {
+                case LiteralInline literal: sb.Append(literal.Content.ToString()); break;
+                case CodeInline code: sb.Append(code.Content); break;
+            }
+        }
         return sb.ToString();
     }
 }
