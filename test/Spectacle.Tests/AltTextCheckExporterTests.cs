@@ -13,7 +13,9 @@ public class AltTextCheckExporterTests
     {
         var output = AltTextCheckExporter.Build(new List<ImageWithoutAlt>(), "spec.md", json: false);
 
-        output.Should().Be("spec.md — alt text: 0 image(s) missing alt text");
+        // Substring (not exact) match, mirroring the other exporter tests: the text builder
+        // ends each line with Environment.NewLine, which is \r\n on Windows.
+        output.Should().Contain("spec.md — alt text: 0 image(s) missing alt text");
     }
 
     [Fact]

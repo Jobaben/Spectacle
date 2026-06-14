@@ -13,7 +13,9 @@ public class DuplicateBlockCheckExporterTests
     {
         var output = DuplicateBlockCheckExporter.Build(new List<DuplicateBlock>(), "spec.md", json: false);
 
-        output.Should().Be("spec.md — duplication: 0 repeated block(s)");
+        // Substring (not exact) match, mirroring the other exporter tests: the text builder
+        // ends each line with Environment.NewLine, which is \r\n on Windows.
+        output.Should().Contain("spec.md — duplication: 0 repeated block(s)");
     }
 
     [Fact]
