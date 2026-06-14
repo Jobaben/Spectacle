@@ -35,14 +35,39 @@ public sealed record ReviewDelta(
         var before = Flatten(baseline);
         var after = Flatten(revised);
 
-        // Compare by line-insensitive identity; keep the revision's line for findings that
-        // survive so reported locations point at the current document.
-        var beforeKeys = before.Select(Identity).ToHashSet();
-        var afterKeys = after.Select(Identity).ToHashSet();
+        // A multiset diff over line-insensitive identity: checks legitimately emit several
+        // findings with the same (Category, Rule, Message) — two TODO placeholders, two empty
+        // sections — so a set diff would miscount. Per identity, min(before, after) of the
+        // occurrences persist; the surplus on each side is fixed (baseline) or new (revision).
+        var beforeCounts = before.GroupBy(Identity).ToDictionary(g => g.Key, g => g.Count());
+        var afterCounts = after.GroupBy(Identity).ToDictionary(g => g.Key, g => g.Count());
 
-        var fixedFindings = before.Where(f => !afterKeys.Contains(Identity(f))).ToList();
-        var newFindings = after.Where(f => !beforeKeys.Contains(Identity(f))).ToList();
-        var persisting = after.Where(f => beforeKeys.Contains(Identity(f))).ToList();
+        var persisting = new List<DeltaFinding>();
+        var newFindings = new List<DeltaFinding>();
+        var fixedFindings = new List<DeltaFinding>();
+
+        // Walk the revision in order: the first min(before, after) occurrences of each identity
+        // are persisting (keeping their current lines); any beyond the baseline's count are new.
+        var seenAfter = new Dictionary<(string, string, string), int>();
+        foreach (var f in after)
+        {
+            var key = Identity(f);
+            var budget = beforeCounts.GetValueOrDefault(key);
+            var used = seenAfter.GetValueOrDefault(key);
+            (used < budget ? persisting : newFindings).Add(f);
+            seenAfter[key] = used + 1;
+        }
+
+        // Walk the baseline in order: occurrences beyond what the revision still carries are fixed.
+        var seenBefore = new Dictionary<(string, string, string), int>();
+        foreach (var f in before)
+        {
+            var key = Identity(f);
+            var survived = afterCounts.GetValueOrDefault(key);
+            var used = seenBefore.GetValueOrDefault(key);
+            if (used >= survived) fixedFindings.Add(f);
+            seenBefore[key] = used + 1;
+        }
 
         return new ReviewDelta(
             fixedFindings, newFindings, persisting,

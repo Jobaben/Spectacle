@@ -50,6 +50,34 @@ public class ReviewDeltaTests
     }
 
     [Fact]
+    public void Fixing_one_of_several_identical_findings_counts_one_fixed_one_persisting()
+    {
+        // Two placeholders share the identity (category, rule, message); the revision resolves one.
+        // A set diff would report 0 fixed — this guards the multiset diff.
+        const string twoTodos = "# Title\n\nTODO one.\n\nTODO two.\n";
+        const string oneTodo = "# Title\n\nTODO one.\n\nDone two.\n";
+
+        var delta = ReviewDelta.Compute(ReviewReport.Compute(twoTodos), ReviewReport.Compute(oneTodo));
+
+        delta.Fixed.Count(f => f.Rule == "placeholder").Should().Be(1);
+        delta.Persisting.Count(f => f.Rule == "placeholder").Should().Be(1);
+        delta.New.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Adding_another_identical_finding_counts_one_new_one_persisting()
+    {
+        const string oneTodo = "# Title\n\nTODO one.\n";
+        const string twoTodos = "# Title\n\nTODO one.\n\nTODO two.\n";
+
+        var delta = ReviewDelta.Compute(ReviewReport.Compute(oneTodo), ReviewReport.Compute(twoTodos));
+
+        delta.New.Count(f => f.Rule == "placeholder").Should().Be(1);
+        delta.Persisting.Count(f => f.Rule == "placeholder").Should().Be(1);
+        delta.Fixed.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Clean_revision_of_clean_baseline_has_no_delta()
     {
         const string clean = "# Title\n\n## Section\n\nComplete prose.\n";
