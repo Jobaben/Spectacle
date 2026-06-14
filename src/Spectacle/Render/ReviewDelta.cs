@@ -77,6 +77,14 @@ public sealed record ReviewDelta(
 
     private static (string, string, string) Identity(DeltaFinding f) => (f.Category, f.Rule, f.Message);
 
+    // A short, line-independent snippet of a duplicated block's text for the delta message:
+    // the first non-empty line, trimmed and capped so identity stays stable and readable.
+    private static string FirstLine(string text)
+    {
+        var line = text.Split('\n').FirstOrDefault(l => l.Trim().Length != 0)?.Trim() ?? string.Empty;
+        return line.Length <= 60 ? line : line[..60] + "…";
+    }
+
     /// <summary>Projects every check's findings into one ordered list of <see cref="DeltaFinding"/>.</summary>
     private static List<DeltaFinding> Flatten(ReviewReport r)
     {
@@ -87,6 +95,13 @@ public sealed record ReviewDelta(
         all.AddRange(r.Tables.Select(t => new DeltaFinding("tables", "table", t.Line, t.Message)));
         all.AddRange(r.Fences.Select(f => new DeltaFinding("fences", f.Rule, f.Line, f.Message)));
         all.AddRange(r.Paths.Select(p => new DeltaFinding("paths", "broken-path", p.Line, $"'{p.Target}' — {p.Reason}")));
+        // Identity excludes line numbers, so duplication's message keys on the repeated
+        // text (not the first-occurrence line, which shifts as the spec is edited).
+        all.AddRange(r.Duplication.Select(d => new DeltaFinding("duplication", "duplicate-block", d.Line, $"[{d.Kind}] {FirstLine(d.Text)}")));
+        all.AddRange(r.AltText.Select(a => new DeltaFinding("alt-text", "missing-alt", a.Line, $"'{a.Target}'")));
+        all.AddRange(r.EmphasisHeadings.Select(e => new DeltaFinding("emphasis-heading", "emphasis-as-heading", e.Line, $"'{e.Text}'")));
+        // A missing section has no line; identity is the section name.
+        all.AddRange(r.Sections.Select(s => new DeltaFinding("sections", "missing-section", 0, $"'{s.Required}'")));
         return all;
     }
 }

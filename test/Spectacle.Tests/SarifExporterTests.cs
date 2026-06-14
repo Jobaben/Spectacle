@@ -15,6 +15,10 @@ public class SarifExporterTests
         Tables: new[] { new TableIssue(20, "row has 2 cells, header has 3") },
         Fences: new[] { new FenceIssue(30, "unclosed-fence", "code fence opened here is never closed") },
         Paths: new[] { new BrokenPath("img/logo.png", 40, "target does not exist") },
+        Duplication: System.Array.Empty<DuplicateBlock>(),
+        AltText: System.Array.Empty<ImageWithoutAlt>(),
+        EmphasisHeadings: System.Array.Empty<EmphasisHeading>(),
+        Sections: System.Array.Empty<MissingSection>(),
         ChecklistTotal: 3,
         ChecklistDone: 1);
 
@@ -58,6 +62,40 @@ public class SarifExporterTests
         first.GetProperty("message").GetProperty("text").GetString().Should().NotBeNullOrEmpty();
         first.GetProperty("locations")[0].GetProperty("physicalLocation")
             .GetProperty("region").GetProperty("startLine").GetInt32().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Emits_results_for_the_new_check_categories()
+    {
+        // duplication + alt-text + emphasis-heading from content, plus a missing section.
+        const string content =
+            "# Title\n\n**Overview**\n\nThe quick brown fox jumps over the lazy dog here.\n\n" +
+            "![](d.png)\n\nThe quick brown fox jumps over the lazy dog here.\n";
+        var report = ReviewReport.Compute(content, _ => true, new[] { "Acceptance Criteria" });
+
+        var sarif = SarifExporter.Build(new[] { new BatchReviewEntry("spec.md", report) }, "1.0.0");
+        var ruleIds = Run(sarif).GetProperty("results").EnumerateArray()
+            .Select(r => r.GetProperty("ruleId").GetString()).ToList();
+
+        ruleIds.Should().Contain(new[] { "duplication", "alt-text", "emphasis-heading", "sections" });
+
+        // The catalogue advertises the new rules even when they did not fire.
+        var catalogIds = Run(sarif).GetProperty("tool").GetProperty("driver").GetProperty("rules")
+            .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
+        catalogIds.Should().Contain(new[] { "duplication", "alt-text", "emphasis-heading", "sections" });
+    }
+
+    [Fact]
+    public void Missing_section_result_carries_a_valid_line_one_region()
+    {
+        var report = ReviewReport.Compute("# Title\n\nText.\n", _ => true, new[] { "Acceptance Criteria" });
+
+        var sarif = SarifExporter.Build(new[] { new BatchReviewEntry("spec.md", report) }, "1.0.0");
+        var section = Run(sarif).GetProperty("results").EnumerateArray()
+            .Single(r => r.GetProperty("ruleId").GetString() == "sections");
+
+        section.GetProperty("locations")[0].GetProperty("physicalLocation")
+            .GetProperty("region").GetProperty("startLine").GetInt32().Should().Be(1);
     }
 
     [Fact]

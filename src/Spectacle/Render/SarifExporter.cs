@@ -42,6 +42,10 @@ public static class SarifExporter
         ("tables", "A malformed GFM pipe table (row cell count differs from the header)."),
         ("fences/unclosed-fence", "A fenced code block opened but never closed."),
         ("paths", "A relative link/image target that does not exist on disk."),
+        ("duplication", "A block (paragraph, list item, code, table) repeated verbatim elsewhere."),
+        ("alt-text", "An image with no alt text (empty description)."),
+        ("emphasis-heading", "An emphasized line used as a fake heading instead of a real heading."),
+        ("sections", "A required section (by the spec template) is missing from the document."),
     };
 
     public static string Build(IReadOnlyList<BatchReviewEntry> entries, string toolVersion)
@@ -89,6 +93,16 @@ public static class SarifExporter
         foreach (var t in r.Tables) yield return Result("tables", t.Message, uri, t.Line);
         foreach (var f in r.Fences) yield return Result($"fences/{f.Rule}", f.Message, uri, f.Line);
         foreach (var p in r.Paths) yield return Result("paths", $"{p.Target}: {p.Reason}", uri, p.Line);
+        foreach (var d in r.Duplication)
+            yield return Result("duplication", $"{d.Kind} duplicates line {d.FirstLine}", uri, d.Line);
+        foreach (var a in r.AltText)
+            yield return Result("alt-text", $"image missing alt text: {(a.Target.Length == 0 ? "(no target)" : a.Target)}", uri, a.Line);
+        foreach (var e in r.EmphasisHeadings)
+            yield return Result("emphasis-heading", $"emphasized line used as heading: '{e.Text}'", uri, e.Line);
+        // A missing section is a document-level defect with no line; anchor it at line 1 so it
+        // still carries a valid SARIF region (startLine must be >= 1).
+        foreach (var s in r.Sections)
+            yield return Result("sections", $"missing required section: '{s.Required}'", uri, 1);
     }
 
     private static object Result(string ruleId, string message, string uri, int line) => new

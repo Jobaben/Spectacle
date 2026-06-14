@@ -21,6 +21,10 @@ public class ReviewReportTests
         report.Tables.Should().BeEmpty();
         report.Fences.Should().BeEmpty();
         report.Paths.Should().BeEmpty();
+        report.Duplication.Should().BeEmpty();
+        report.AltText.Should().BeEmpty();
+        report.EmphasisHeadings.Should().BeEmpty();
+        report.Sections.Should().BeEmpty();
     }
 
     [Fact]
@@ -39,7 +43,46 @@ public class ReviewReportTests
         report.Tables.Should().NotBeEmpty();
         report.IssueCount.Should()
             .Be(report.Lint.Count + report.Structure.Count + report.Links.Count + report.Tables.Count
-                + report.Fences.Count + report.Paths.Count);
+                + report.Fences.Count + report.Paths.Count + report.Duplication.Count
+                + report.AltText.Count + report.EmphasisHeadings.Count + report.Sections.Count);
+    }
+
+    [Fact]
+    public void Verdict_includes_duplication_alt_text_and_emphasis_headings()
+    {
+        // A verbatim-repeated paragraph (duplication), an image with no alt text, and an
+        // emphasized line used as a heading — all now part of the one-shot verdict.
+        const string content =
+            "# Title\n\n**Overview**\n\nThe quick brown fox jumps over the lazy dog today.\n\n" +
+            "![](diagram.png)\n\nThe quick brown fox jumps over the lazy dog today.\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.Duplication.Should().NotBeEmpty();
+        report.AltText.Should().NotBeEmpty();
+        report.EmphasisHeadings.Should().Contain(e => e.Text == "Overview");
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Enforces_required_sections_when_a_template_is_given()
+    {
+        const string content = "# Spec\n\n## Overview\n\nText.\n";
+
+        var report = ReviewReport.Compute(
+            content, _ => true, new[] { "Overview", "Acceptance Criteria" });
+
+        report.Sections.Should().ContainSingle(s => s.Required == "Acceptance Criteria");
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void No_template_leaves_the_sections_check_a_noop()
+    {
+        const string content = "# Spec\n\nNo headings beyond the title.\n";
+
+        ReviewReport.Compute(content).Sections.Should().BeEmpty();
+        ReviewReport.Compute(content, _ => true).Sections.Should().BeEmpty();
     }
 
     [Fact]

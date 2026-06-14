@@ -32,6 +32,7 @@ public static class Program
           Spectacle.exe <file> --check-duplication [--json] Report blocks repeated verbatim elsewhere in the spec and exit (non-zero if any)
           Spectacle.exe <file> --check-alt-text [--json] Report images missing alt text and exit (non-zero if any)
           Spectacle.exe <file> --check-emphasis-heading [--json] Report emphasized lines used as fake headings and exit (non-zero if any)
+          Spectacle.exe <file> --check-prose [--json] Report vague/hedging language (advisory, always exits 0)
           Spectacle.exe <file> --review [--json|--sarif] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
@@ -68,6 +69,7 @@ public static class Program
             CliCommand.CheckDuplication dup => DoCheckDuplication(dup.Path, dup.Json),
             CliCommand.CheckAltText alt => DoCheckAltText(alt.Path, alt.Json),
             CliCommand.CheckEmphasisHeading emphasis => DoCheckEmphasisHeading(emphasis.Path, emphasis.Json),
+            CliCommand.CheckProse prose => DoCheckProse(prose.Path, prose.Json),
             CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline, review.Sarif),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
@@ -289,6 +291,16 @@ public static class Program
         return findings.Count == 0 ? 0 : 1;
     }
 
+    private static int DoCheckProse(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var findings = ProseChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(ProseCheckExporter.Build(findings, path, json));
+        // Advisory only: hedging is a judgement call, so this never gates a pipeline.
+        return 0;
+    }
+
     private static int DoReview(string path, bool json, string? baseline, bool sarif)
     {
         // A directory argument reviews every spec under it in one shot.
@@ -300,7 +312,8 @@ public static class Program
         // (The baseline delta is its own shape; --sarif applies to the plain verdict only.)
         if (baseline is not null) return DoReviewDelta(path, baseline, json);
 
-        var report = ReviewReport.Compute(File.ReadAllText(path), RelativeTargetResolver(path));
+        var report = ReviewReport.Compute(
+            File.ReadAllText(path), RelativeTargetResolver(path), RequiredSectionsFor(path));
         // A single file is a one-entry batch, so SARIF takes the same path as a folder review.
         Console.WriteLine(sarif
             ? SarifExporter.Build(new[] { new BatchReviewEntry(path, report) }, GetVersion())
@@ -319,7 +332,7 @@ public static class Program
         }
 
         var result = BatchReview.Compute(
-            specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p))));
+            specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p), RequiredSectionsFor(p))));
         Console.WriteLine(sarif
             ? SarifExporter.Build(result.Entries, GetVersion())
             : BatchReviewExporter.Build(result, directory, json));
@@ -331,8 +344,10 @@ public static class Program
     {
         if (!ValidateSource(baselinePath)) return 2;
 
-        var revised = ReviewReport.Compute(File.ReadAllText(path), RelativeTargetResolver(path));
-        var baseline = ReviewReport.Compute(File.ReadAllText(baselinePath), RelativeTargetResolver(baselinePath));
+        var revised = ReviewReport.Compute(
+            File.ReadAllText(path), RelativeTargetResolver(path), RequiredSectionsFor(path));
+        var baseline = ReviewReport.Compute(
+            File.ReadAllText(baselinePath), RelativeTargetResolver(baselinePath), RequiredSectionsFor(baselinePath));
         var delta = ReviewDelta.Compute(baseline, revised);
         Console.WriteLine(ReviewDeltaExporter.Build(delta, path, baselinePath, json));
         // Non-zero when the revision still carries any issue (new or persisting), so the
@@ -362,6 +377,14 @@ public static class Program
             }
         };
     }
+
+    /// <summary>
+    /// Resolves the required-section template a <c>--review</c> should enforce for a spec:
+    /// the <c>requiredSections</c> of the nearest <c>.spectacle.json</c> above it, or an empty
+    /// list when no config resolves (so a spec reviewed without a template is unaffected).
+    /// </summary>
+    private static IReadOnlyList<string> RequiredSectionsFor(string sourcePath) =>
+        ConfigLocator.Resolve(sourcePath, null).RequiredSections;
 
     private static bool ValidateSource(string path)
     {

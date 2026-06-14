@@ -78,6 +78,21 @@ public class ReviewDeltaTests
     }
 
     [Fact]
+    public void Adding_a_required_section_fixes_a_missing_section_finding()
+    {
+        var template = new[] { "Overview" };
+        const string before = "# Spec\n\nNo overview here.\n";
+        const string after = "# Spec\n\n## Overview\n\nNow present.\n";
+
+        var delta = ReviewDelta.Compute(
+            ReviewReport.Compute(before, _ => true, template),
+            ReviewReport.Compute(after, _ => true, template));
+
+        delta.Fixed.Should().ContainSingle(f => f.Category == "sections" && f.Message.Contains("Overview"));
+        delta.New.Should().NotContain(f => f.Category == "sections");
+    }
+
+    [Fact]
     public void Clean_revision_of_clean_baseline_has_no_delta()
     {
         const string clean = "# Title\n\n## Section\n\nComplete prose.\n";

@@ -35,6 +35,7 @@ Spectacle.exe <file> --check-sections ["A,B,C"] [--config=<cfg>] [--json]  Repor
 Spectacle.exe <file> --check-duplication [--json]  Report blocks repeated verbatim elsewhere in the spec, then exit (non-zero if any)
 Spectacle.exe <file> --check-alt-text [--json]  Report images missing alt text, then exit (non-zero if any)
 Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines used as fake headings, then exit (non-zero if any)
+Spectacle.exe <file> --check-prose [--json]    Report vague/hedging language, then exit (advisory — always exits 0)
 Spectacle.exe <file> --review [--json|--sarif] Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
@@ -168,12 +169,35 @@ the target is reported so the finding points at a recognizable image (whether th
 target exists on disk is `--check-paths`' concern). It exits non-zero when any image lacks alt
 text, so it can gate a pipeline; add `--json` for structured findings.
 
-`--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`,
-`--check-tables`, `--check-fences` (unclosed fences only — the advisory missing-tag rule stays under
-the dedicated command), and `--check-paths` together, groups the findings by category with a combined
-issue count, and includes the checklist completion tally. It exits non-zero if any check found an
-issue — so an agent or CI step can call a single command to decide whether a spec is ready. Add
-`--json` for a structured report with one array per check.
+`--check-prose` flags the hedging and vague filler language that is the signature defect
+of AI-authored specs — wording that *looks* like a requirement but commits to nothing, so
+neither a reader nor the next agent can tell what to build. It reports three rules: `hedge`
+(uncertainty that signals an undecided spec — `should probably`, `may need to`, `perhaps`),
+`weasel` (open-ended fillers with no concrete meaning — `etc.`, `and so on`, `various`,
+`a number of`), and `vague-directive` (instructions that defer the real decision — `as
+appropriate`, `where applicable`, `to be determined`). The word list is deliberately tight
+(multi-word phrases and unambiguous fillers, not common words like "many" or "often" that
+have legitimate uses), and fenced code is skipped. Because hedging is a judgement call,
+this check is **advisory**: it prints findings but always exits 0, never gating a pipeline —
+the same report-don't-fail stance as `--check-fences`' `no-language` rule. Add `--json` for
+structured findings.
+
+`--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
+`--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
+the advisory missing-tag rule stays under the dedicated command), `--check-paths`,
+`--check-duplication`, `--check-alt-text`, `--check-emphasis-heading`, and `--check-sections` —
+groups the findings by category with a combined issue count, and includes the checklist
+completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
+single command to decide whether a spec is ready. Add `--json` for a structured report with one
+array per check. (The advisory `--check-prose` is *not* part of the gate; hedging is guidance, not
+a pass/fail defect, so it stays a standalone command.)
+
+The required-section check participates only when a spec template is declared: `--review` reads
+`requiredSections` from the nearest **`.spectacle.json`** (the same config and "closest config
+wins" discovery `--check-sections` uses) and reports any the spec omits. With no config the
+section check is a no-op, so a spec reviewed without a template is unaffected. This makes
+`.spectacle.json` the single place a team declares its template, enforced automatically by the
+one-shot verdict — for a single file, a `--baseline` delta, and every spec in a folder review alike.
 
 `--review --sarif` emits the same verdict as a **SARIF 2.1.0** log — the static-analysis
 interchange format GitHub code scanning, Azure DevOps, and other CI dashboards ingest natively.
@@ -181,7 +205,8 @@ Where `--json` is Spectacle's own shape, `--sarif` is the lingua franca, so the 
 battery becomes a first-class CI analyzer (inline PR annotations, the code-scanning tab) with no
 bespoke glue. Each finding is one SARIF result with a `category/rule` rule id (e.g.
 `structure/multiple-h1`, `fences/unclosed-fence`), an `error` level, a message, and a one-based
-line location; the tool driver lists the full rule catalogue up front. It works for a single file
+line location (a missing section, which has no line, is anchored at line 1); the tool driver lists
+the full rule catalogue up front. It works for a single file
 and, naturally, for a whole folder (`<dir> --review --sarif` writes results across every spec's
 URI in one log). The exit code is unchanged — non-zero when any issue is found. `--sarif` takes
 precedence over `--json`, and applies to the plain verdict (not the `--baseline` delta).
@@ -206,7 +231,7 @@ agent can act on.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
-`--check-emphasis-heading`, and `--review` all run headless and write to stdout.
+`--check-emphasis-heading`, `--check-prose`, and `--review` all run headless and write to stdout.
 
 ## Keyboard
 

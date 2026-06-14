@@ -50,6 +50,24 @@ public static class ReviewReportExporter
         foreach (var p in r.Paths)
             sb.Append("    line ").Append(p.Line).Append("  '").Append(p.Target).Append("' — ").AppendLine(p.Reason);
 
+        sb.Append("  duplication (").Append(r.Duplication.Count).AppendLine("):");
+        foreach (var d in r.Duplication)
+            sb.Append("    line ").Append(d.Line).Append("  [").Append(d.Kind)
+              .Append("] duplicate of line ").Append(d.FirstLine).AppendLine();
+
+        sb.Append("  alt-text (").Append(r.AltText.Count).AppendLine("):");
+        foreach (var a in r.AltText)
+            sb.Append("    line ").Append(a.Line).Append("  ")
+              .AppendLine(a.Target.Length == 0 ? "(no target)" : a.Target);
+
+        sb.Append("  emphasis-headings (").Append(r.EmphasisHeadings.Count).AppendLine("):");
+        foreach (var e in r.EmphasisHeadings)
+            sb.Append("    line ").Append(e.Line).Append("  '").Append(e.Text).AppendLine("'");
+
+        sb.Append("  sections (").Append(r.Sections.Count).AppendLine("):");
+        foreach (var s in r.Sections)
+            sb.Append("    missing  '").Append(s.Required).AppendLine("'");
+
         sb.Append("  checklist: ").Append(r.ChecklistDone).Append('/').Append(r.ChecklistTotal).Append(" complete");
         return sb.ToString();
     }
@@ -66,6 +84,10 @@ public static class ReviewReportExporter
             tables = r.Tables,
             fences = r.Fences,
             paths = r.Paths,
+            duplication = r.Duplication,
+            altText = r.AltText,
+            emphasisHeadings = r.EmphasisHeadings,
+            sections = r.Sections,
             checklist = new { total = r.ChecklistTotal, done = r.ChecklistDone, open = r.ChecklistTotal - r.ChecklistDone },
         };
         return JsonSerializer.Serialize(payload, JsonOptions);

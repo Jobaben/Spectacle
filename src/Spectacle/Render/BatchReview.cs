@@ -46,7 +46,18 @@ public static class BatchReview
     /// </summary>
     public static BatchReviewResult Compute(
         IEnumerable<(string Path, string Content, Func<string, bool> TargetExists)> specs) =>
+        Compute(specs.Select(s =>
+            (s.Path, s.Content, s.TargetExists, (IReadOnlyList<string>)Array.Empty<string>())));
+
+    /// <summary>
+    /// As above, but each spec also carries its own required-section template (resolved from
+    /// the nearest <c>.spectacle.json</c> by the caller) so a folder review enforces each
+    /// spec's enclosing project template. Pass an empty list to enforce none.
+    /// </summary>
+    public static BatchReviewResult Compute(
+        IEnumerable<(string Path, string Content, Func<string, bool> TargetExists, IReadOnlyList<string> RequiredSections)> specs) =>
         new(specs
-            .Select(s => new BatchReviewEntry(s.Path, ReviewReport.Compute(s.Content, s.TargetExists)))
+            .Select(s => new BatchReviewEntry(
+                s.Path, ReviewReport.Compute(s.Content, s.TargetExists, s.RequiredSections)))
             .ToList());
 }
