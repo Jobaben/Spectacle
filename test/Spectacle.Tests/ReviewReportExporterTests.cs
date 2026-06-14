@@ -23,6 +23,8 @@ public class ReviewReportExporterTests
         text.Should().Contain("structure");
         text.Should().Contain("links");
         text.Should().Contain("tables");
+        text.Should().Contain("fences");
+        text.Should().Contain("paths");
         text.Should().Contain("checklist");
     }
 
@@ -40,6 +42,8 @@ public class ReviewReportExporterTests
         root.GetProperty("structure").GetArrayLength().Should().BeGreaterThan(0);
         root.GetProperty("links").GetArrayLength().Should().BeGreaterThan(0);
         root.GetProperty("tables").GetArrayLength().Should().BeGreaterThan(0);
+        root.GetProperty("fences").ValueKind.Should().Be(JsonValueKind.Array);
+        root.GetProperty("paths").ValueKind.Should().Be(JsonValueKind.Array);
         root.GetProperty("checklist").GetProperty("total").GetInt32().Should().Be(1);
     }
 }

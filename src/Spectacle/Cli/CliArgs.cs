@@ -20,6 +20,8 @@ public abstract record CliCommand
     public sealed record Diff(string Path, string OtherPath, bool Json) : CliCommand;
     public sealed record CheckStructure(string Path, bool Json) : CliCommand;
     public sealed record CheckTables(string Path, bool Json) : CliCommand;
+    public sealed record CheckFences(string Path, bool Json) : CliCommand;
+    public sealed record CheckPaths(string Path, bool Json) : CliCommand;
     public sealed record Review(string Path, bool Json) : CliCommand;
 }
 
@@ -89,6 +91,12 @@ public static class CliArgs
 
         if (flags.Contains("--check-tables"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckTables(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-fences"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckFences(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-paths"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckPaths(path, flags.Contains("--json"));
 
         if (flags.Contains("--review"))
             return path is null ? new CliCommand.Help() : new CliCommand.Review(path, flags.Contains("--json"));

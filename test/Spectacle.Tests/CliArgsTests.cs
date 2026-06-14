@@ -330,6 +330,42 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-tables" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_fences_after_path_is_CheckFences()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-fences" });
+        var c = result.Should().BeOfType<CliCommand.CheckFences>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_fences_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-fences", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckFences>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_fences_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-fences" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_paths_after_path_is_CheckPaths()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-paths" });
+        var c = result.Should().BeOfType<CliCommand.CheckPaths>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_paths_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-paths", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckPaths>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_paths_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-paths" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
     public void Review_after_path_is_Review()
     {
         var result = CliArgs.Parse(new[] { "doc.md", "--review" });

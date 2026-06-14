@@ -29,6 +29,8 @@ Spectacle.exe <file> --check-links [--json]    Report broken internal links, the
 Spectacle.exe <file> --diff <other> [--json]   Show block-level changes vs another spec, then exit
 Spectacle.exe <file> --check-structure [--json]  Report heading-hierarchy issues, then exit (non-zero if any)
 Spectacle.exe <file> --check-tables [--json]   Report malformed tables, then exit (non-zero if any)
+Spectacle.exe <file> --check-fences [--json]   Report fenced-code-block issues (unclosed, untagged), then exit
+Spectacle.exe <file> --check-paths [--json]    Report relative link/image targets missing on disk, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json]         Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
@@ -86,14 +88,32 @@ heading text (which also produces ambiguous anchors). It exits non-zero when any
 of cells as the header. It flags mismatches with line numbers and exits non-zero when any are found;
 add `--json` for structured issues.
 
-`--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`, and
-`--check-tables` together, groups the findings by category with a combined issue count, and includes
-the checklist completion tally. It exits non-zero if any check found an issue — so an agent or CI
-step can call a single command to decide whether a spec is ready. Add `--json` for a structured
-report with one array per check.
+`--check-fences` validates fenced code blocks — the kind AI agents routinely emit malformed. It
+reports two rules: `unclosed-fence` (a fence opened but never closed, which swallows the rest of the
+document into one code block — a real rendering defect) and `no-language` (a closed fence with no
+language/info string, which renders without syntax highlighting — advisory). Closing is judged the
+CommonMark way: a closing fence repeats the opener's delimiter character (`` ` `` or `~`) at least as
+many times with no info string, and a run of the *other* delimiter inside a block is content, not a
+toggle. It exits non-zero only when a fence is genuinely unclosed (so it can gate a pipeline without
+failing on a stylistic missing tag); add `--json` for structured issues.
 
-`--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`, and
-`--review` all run headless and write to stdout.
+`--check-paths` validates the spec's *relative* link and image targets against the filesystem — the
+gap `--check-links` deliberately leaves alone. AI agents frequently reference files and images that
+were never created (hallucinated paths); this catches them by resolving each relative target against
+the spec's own directory and reporting the ones that don't exist on disk. It strips any `#fragment`
+or `?query` and percent-decodes before resolving. External targets (any URI scheme, protocol-relative
+`//host`), in-document anchors (`#section`), and site-absolute paths (`/foo`) are left alone. It exits
+non-zero when any relative target is missing; add `--json` for structured findings.
+
+`--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`,
+`--check-tables`, `--check-fences` (unclosed fences only — the advisory missing-tag rule stays under
+the dedicated command), and `--check-paths` together, groups the findings by category with a combined
+issue count, and includes the checklist completion tally. It exits non-zero if any check found an
+issue — so an agent or CI step can call a single command to decide whether a spec is ready. Add
+`--json` for a structured report with one array per check.
+
+`--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
+`--check-fences`, `--check-paths`, and `--review` all run headless and write to stdout.
 
 ## Keyboard
 
