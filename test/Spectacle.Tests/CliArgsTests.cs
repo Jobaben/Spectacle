@@ -389,6 +389,52 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-sections" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_duplication_after_path_is_CheckDuplication()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-duplication" });
+        var c = result.Should().BeOfType<CliCommand.CheckDuplication>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_duplication_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-duplication", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckDuplication>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_duplicates_alias_is_CheckDuplication() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-duplicates" })
+            .Should().BeOfType<CliCommand.CheckDuplication>();
+
+    [Fact]
+    public void Check_duplication_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-duplication" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_alt_text_after_path_is_CheckAltText()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-alt-text" });
+        var c = result.Should().BeOfType<CliCommand.CheckAltText>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_alt_text_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-alt-text", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckAltText>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_alt_alias_is_CheckAltText() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-alt" })
+            .Should().BeOfType<CliCommand.CheckAltText>();
+
+    [Fact]
+    public void Check_alt_text_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-alt-text" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
     public void Review_sarif_flag_sets_Sarif()
     {
         var r = CliArgs.Parse(new[] { "doc.md", "--review", "--sarif" })

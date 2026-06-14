@@ -32,6 +32,8 @@ Spectacle.exe <file> --check-tables [--json]   Report malformed tables, then exi
 Spectacle.exe <file> --check-fences [--json]   Report fenced-code-block issues (unclosed, untagged), then exit
 Spectacle.exe <file> --check-paths [--json]    Report relative link/image targets missing on disk, then exit (non-zero if any)
 Spectacle.exe <file> --check-sections "A,B,C" [--json]  Report required sections (by heading) missing from the spec, then exit (non-zero if any)
+Spectacle.exe <file> --check-duplication [--json]  Report blocks repeated verbatim elsewhere in the spec, then exit (non-zero if any)
+Spectacle.exe <file> --check-alt-text [--json]  Report images missing alt text, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json|--sarif] Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
@@ -119,6 +121,25 @@ full-text match, not a substring). Missing sections are reported in the order re
 exits non-zero when any are absent, so it can gate a pipeline. Add `--json` for structured
 findings.
 
+`--check-duplication` flags content an AI agent repeated verbatim — the same paragraph,
+list item, code block, or table appearing twice in the spec. Agents pad output by restating
+a requirement in two sections or pasting the same boilerplate into multiple places, and every
+other check looks at one block in isolation, so a verbatim repeat slips through. It compares
+blocks by kind and normalized text (the same whitespace-insensitive comparison `--diff` uses),
+reports each repeat with its line and the line of the first occurrence it duplicates, and skips
+blocks shorter than a small threshold (separators, one-word labels repeat legitimately). It
+exits non-zero when any block repeats, so it can gate a pipeline; add `--json` for structured
+findings.
+
+`--check-alt-text` reports images with no alt text — the `![](image.png)` form an agent emits
+when it drops a screenshot or diagram into a spec without describing it. Alt text is what a
+screen reader announces and what shows when the image fails to load, so a missing description
+is a genuine accessibility defect; `--check-links` deliberately skips images, so nothing else
+catches it. An image is flagged when the text between `![` and `]` is empty or only whitespace;
+the target is reported so the finding points at a recognizable image (whether that relative
+target exists on disk is `--check-paths`' concern). It exits non-zero when any image lacks alt
+text, so it can gate a pipeline; add `--json` for structured findings.
+
 `--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`,
 `--check-tables`, `--check-fences` (unclosed fences only — the advisory missing-tag rule stays under
 the dedicated command), and `--check-paths` together, groups the findings by category with a combined
@@ -156,8 +177,8 @@ while the revision still carries any issue (new or persisting), matching plain `
 agent can act on.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
-`--check-fences`, `--check-paths`, `--check-sections`, and `--review` all run headless and write
-to stdout.
+`--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
+and `--review` all run headless and write to stdout.
 
 ## Keyboard
 

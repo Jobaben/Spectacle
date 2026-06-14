@@ -29,6 +29,8 @@ public static class Program
           Spectacle.exe <file> --check-fences [--json] Report fenced-code-block issues (unclosed, untagged) and exit
           Spectacle.exe <file> --check-paths [--json] Report relative link/image targets missing on disk and exit (non-zero if any)
           Spectacle.exe <file> --check-sections "A,B,C" [--json] Report required sections (by heading) missing from the spec and exit (non-zero if any)
+          Spectacle.exe <file> --check-duplication [--json] Report blocks repeated verbatim elsewhere in the spec and exit (non-zero if any)
+          Spectacle.exe <file> --check-alt-text [--json] Report images missing alt text and exit (non-zero if any)
           Spectacle.exe <file> --review [--json|--sarif] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
@@ -62,6 +64,8 @@ public static class Program
             CliCommand.CheckFences fences => DoCheckFences(fences.Path, fences.Json),
             CliCommand.CheckPaths paths => DoCheckPaths(paths.Path, paths.Json),
             CliCommand.CheckSections sections => DoCheckSections(sections.Path, sections.Required, sections.Json),
+            CliCommand.CheckDuplication dup => DoCheckDuplication(dup.Path, dup.Json),
+            CliCommand.CheckAltText alt => DoCheckAltText(alt.Path, alt.Json),
             CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline, review.Sarif),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
@@ -236,6 +240,26 @@ public static class Program
         Console.WriteLine(RequiredSectionsCheckExporter.Build(missing, names.Count, path, json));
         // Non-zero when a required section is absent so --check-sections can gate a pipeline.
         return missing.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckDuplication(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var duplicates = DuplicateBlockChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(DuplicateBlockCheckExporter.Build(duplicates, path, json));
+        // Non-zero when a block repeats so --check-duplication can gate a pipeline.
+        return duplicates.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckAltText(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var images = AltTextChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(AltTextCheckExporter.Build(images, path, json));
+        // Non-zero when an image lacks alt text so --check-alt-text can gate a pipeline.
+        return images.Count == 0 ? 0 : 1;
     }
 
     private static int DoReview(string path, bool json, string? baseline, bool sarif)
