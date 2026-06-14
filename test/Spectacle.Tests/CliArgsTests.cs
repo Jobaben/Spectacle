@@ -366,6 +366,43 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-paths" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_sections_captures_source_and_required_list()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-sections", "Overview,Non-Goals" });
+        var c = result.Should().BeOfType<CliCommand.CheckSections>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Required.Should().Be("Overview,Non-Goals");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_sections_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-sections", "Overview", "--json" })
+            .Should().BeOfType<CliCommand.CheckSections>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_sections_without_required_list_is_Help() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-sections" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_sections_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-sections" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_sarif_flag_sets_Sarif()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--sarif" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Path.Should().Be("doc.md");
+        r.Sarif.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_defaults_Sarif_false() =>
+        CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Which.Sarif.Should().BeFalse();
+
+    [Fact]
     public void Review_after_path_is_Review()
     {
         var result = CliArgs.Parse(new[] { "doc.md", "--review" });

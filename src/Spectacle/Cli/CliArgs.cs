@@ -22,7 +22,8 @@ public abstract record CliCommand
     public sealed record CheckTables(string Path, bool Json) : CliCommand;
     public sealed record CheckFences(string Path, bool Json) : CliCommand;
     public sealed record CheckPaths(string Path, bool Json) : CliCommand;
-    public sealed record Review(string Path, bool Json, string? Baseline = null) : CliCommand;
+    public sealed record CheckSections(string Path, string Required, bool Json) : CliCommand;
+    public sealed record Review(string Path, bool Json, string? Baseline = null, bool Sarif = false) : CliCommand;
 }
 
 public static class CliArgs
@@ -98,6 +99,13 @@ public static class CliArgs
         if (flags.Contains("--check-paths"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckPaths(path, flags.Contains("--json"));
 
+        // --check-sections needs the spec and a second positional naming the required
+        // sections as a comma-separated list, mirroring how --diff consumes that slot.
+        if (flags.Contains("--check-sections"))
+            return path is null || secondPositional is null
+                ? new CliCommand.Help()
+                : new CliCommand.CheckSections(path, secondPositional, flags.Contains("--json"));
+
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
         // positional, mirroring how --diff consumes it; the second positional is left as
@@ -108,7 +116,8 @@ public static class CliArgs
             var baseline = flags.Contains("--baseline") ? secondPositional : null;
             // --baseline with no file to compare against is a misuse; show help.
             if (flags.Contains("--baseline") && baseline is null) return new CliCommand.Help();
-            return new CliCommand.Review(path, flags.Contains("--json"), baseline);
+            return new CliCommand.Review(
+                path, flags.Contains("--json"), baseline, flags.Contains("--sarif"));
         }
 
         // No recognized flag: open the file if we have one, otherwise show help

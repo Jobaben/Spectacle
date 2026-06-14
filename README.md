@@ -31,8 +31,9 @@ Spectacle.exe <file> --check-structure [--json]  Report heading-hierarchy issues
 Spectacle.exe <file> --check-tables [--json]   Report malformed tables, then exit (non-zero if any)
 Spectacle.exe <file> --check-fences [--json]   Report fenced-code-block issues (unclosed, untagged), then exit
 Spectacle.exe <file> --check-paths [--json]    Report relative link/image targets missing on disk, then exit (non-zero if any)
-Spectacle.exe <file> --review [--json]         Run all checks at once, then exit (non-zero if any issues)
-Spectacle.exe <dir> --review [--json]          Review every spec under a folder at once, then exit (non-zero if any issues)
+Spectacle.exe <file> --check-sections "A,B,C" [--json]  Report required sections (by heading) missing from the spec, then exit (non-zero if any)
+Spectacle.exe <file> --review [--json|--sarif] Run all checks at once, then exit (non-zero if any issues)
+Spectacle.exe <dir> --review [--json|--sarif]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
@@ -107,12 +108,34 @@ or `?query` and percent-decodes before resolving. External targets (any URI sche
 `//host`), in-document anchors (`#section`), and site-absolute paths (`/foo`) are left alone. It exits
 non-zero when any relative target is missing; add `--json` for structured findings.
 
+`--check-sections "A,B,C"` enforces a spec **template** — the one gap the other checks
+leave open. Every other check validates what is *present*; none notices what an AI agent
+*omitted*. Pass the sections your specs must contain as a comma-separated list (in the
+second positional, like `--diff`'s file) and Spectacle reports each one with no matching
+heading. Matching is by exact heading text, case-insensitive and trimmed, at any level — a
+required `Acceptance Criteria` is satisfied by `## Acceptance Criteria` or `#### Acceptance
+Criteria` alike, but a required `Goals` is *not* satisfied by a `Non-Goals` heading (it is a
+full-text match, not a substring). Missing sections are reported in the order requested; it
+exits non-zero when any are absent, so it can gate a pipeline. Add `--json` for structured
+findings.
+
 `--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`,
 `--check-tables`, `--check-fences` (unclosed fences only — the advisory missing-tag rule stays under
 the dedicated command), and `--check-paths` together, groups the findings by category with a combined
 issue count, and includes the checklist completion tally. It exits non-zero if any check found an
 issue — so an agent or CI step can call a single command to decide whether a spec is ready. Add
 `--json` for a structured report with one array per check.
+
+`--review --sarif` emits the same verdict as a **SARIF 2.1.0** log — the static-analysis
+interchange format GitHub code scanning, Azure DevOps, and other CI dashboards ingest natively.
+Where `--json` is Spectacle's own shape, `--sarif` is the lingua franca, so the whole check
+battery becomes a first-class CI analyzer (inline PR annotations, the code-scanning tab) with no
+bespoke glue. Each finding is one SARIF result with a `category/rule` rule id (e.g.
+`structure/multiple-h1`, `fences/unclosed-fence`), an `error` level, a message, and a one-based
+line location; the tool driver lists the full rule catalogue up front. It works for a single file
+and, naturally, for a whole folder (`<dir> --review --sarif` writes results across every spec's
+URI in one log). The exit code is unchanged — non-zero when any issue is found. `--sarif` takes
+precedence over `--json`, and applies to the plain verdict (not the `--baseline` delta).
 
 `--review <dir>` reviews a **whole folder** of specs in one shot — AI agents routinely emit a
 directory of them. Point `--review` at a directory and it walks it recursively, runs the full
@@ -133,7 +156,8 @@ while the revision still carries any issue (new or persisting), matching plain `
 agent can act on.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
-`--check-fences`, `--check-paths`, and `--review` all run headless and write to stdout.
+`--check-fences`, `--check-paths`, `--check-sections`, and `--review` all run headless and write
+to stdout.
 
 ## Keyboard
 
