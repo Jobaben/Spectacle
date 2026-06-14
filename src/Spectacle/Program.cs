@@ -26,6 +26,8 @@ public static class Program
           Spectacle.exe <file> --diff <other> [--json] Show block-level changes vs another spec and exit
           Spectacle.exe <file> --check-structure [--json] Report heading-hierarchy issues and exit (non-zero if any)
           Spectacle.exe <file> --check-tables [--json] Report malformed tables and exit (non-zero if any)
+          Spectacle.exe <file> --check-fences [--json] Report fenced-code-block issues (unclosed, untagged) and exit
+          Spectacle.exe <file> --check-paths [--json] Report relative link/image targets missing on disk and exit (non-zero if any)
           Spectacle.exe <file> --review [--json]  Run all checks and exit (non-zero if any issues)
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
@@ -54,6 +56,8 @@ public static class Program
             CliCommand.Diff diff => DoDiff(diff.Path, diff.OtherPath, diff.Json),
             CliCommand.CheckStructure structure => DoCheckStructure(structure.Path, structure.Json),
             CliCommand.CheckTables tables => DoCheckTables(tables.Path, tables.Json),
+            CliCommand.CheckFences fences => DoCheckFences(fences.Path, fences.Json),
+            CliCommand.CheckPaths paths => DoCheckPaths(paths.Path, paths.Json),
             CliCommand.Review review => DoReview(review.Path, review.Json),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
@@ -198,14 +202,58 @@ public static class Program
         return issues.Count == 0 ? 0 : 1;
     }
 
+    private static int DoCheckFences(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var issues = FenceChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(FenceCheckExporter.Build(issues, path, json));
+        // Non-zero only for the rendering defect (an unclosed fence) so --check-fences can
+        // gate a pipeline; a missing language tag is advisory and does not fail the gate.
+        return issues.Any(i => i.Rule == FenceChecker.UnclosedRule) ? 1 : 0;
+    }
+
+    private static int DoCheckPaths(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var broken = LinkPathChecker.Check(File.ReadAllText(path), RelativeTargetResolver(path));
+        Console.WriteLine(LinkPathCheckExporter.Build(broken, path, json));
+        // Non-zero when a relative target is missing so --check-paths can gate a pipeline.
+        return broken.Count == 0 ? 0 : 1;
+    }
+
     private static int DoReview(string path, bool json)
     {
         if (!ValidateSource(path)) return 2;
 
-        var report = ReviewReport.Compute(File.ReadAllText(path));
+        var report = ReviewReport.Compute(File.ReadAllText(path), RelativeTargetResolver(path));
         Console.WriteLine(ReviewReportExporter.Build(report, path, json));
         // Non-zero when any check found an issue so --review can gate a pipeline.
         return report.IssueCount == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Resolves a cleaned, document-relative target against the spec's own directory and
+    /// reports whether it exists on disk (file or directory). Used by --check-paths and
+    /// --review to validate relative link/image references.
+    /// </summary>
+    private static Func<string, bool> RelativeTargetResolver(string sourcePath)
+    {
+        var baseDir = Path.GetDirectoryName(Path.GetFullPath(sourcePath)) ?? ".";
+        return relative =>
+        {
+            try
+            {
+                var full = Path.GetFullPath(Path.Combine(baseDir, relative));
+                return File.Exists(full) || Directory.Exists(full);
+            }
+            catch
+            {
+                // A malformed target (illegal path characters) cannot resolve to a file.
+                return false;
+            }
+        };
     }
 
     private static bool ValidateSource(string path)
