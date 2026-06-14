@@ -22,9 +22,10 @@ public abstract record CliCommand
     public sealed record CheckTables(string Path, bool Json) : CliCommand;
     public sealed record CheckFences(string Path, bool Json) : CliCommand;
     public sealed record CheckPaths(string Path, bool Json) : CliCommand;
-    public sealed record CheckSections(string Path, string Required, bool Json) : CliCommand;
+    public sealed record CheckSections(string Path, string? Required, bool Json, string? ConfigPath = null) : CliCommand;
     public sealed record CheckDuplication(string Path, bool Json) : CliCommand;
     public sealed record CheckAltText(string Path, bool Json) : CliCommand;
+    public sealed record CheckEmphasisHeading(string Path, bool Json) : CliCommand;
     public sealed record Review(string Path, bool Json, string? Baseline = null, bool Sarif = false) : CliCommand;
 }
 
@@ -101,18 +102,25 @@ public static class CliArgs
         if (flags.Contains("--check-paths"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckPaths(path, flags.Contains("--json"));
 
-        // --check-sections needs the spec and a second positional naming the required
-        // sections as a comma-separated list, mirroring how --diff consumes that slot.
+        // --check-sections takes the required sections as a second positional comma-separated
+        // list (mirroring how --diff consumes that slot). The list is optional: when omitted,
+        // the sections are resolved from a `.spectacle.json` config — an explicit
+        // `--config=<path>` if given, else the nearest one discovered above the spec. An
+        // explicit inline list always wins over config.
         if (flags.Contains("--check-sections"))
-            return path is null || secondPositional is null
+            return path is null
                 ? new CliCommand.Help()
-                : new CliCommand.CheckSections(path, secondPositional, flags.Contains("--json"));
+                : new CliCommand.CheckSections(
+                    path, secondPositional, flags.Contains("--json"), FlagValue(flags, "--config="));
 
         if (flags.Contains("--check-duplication") || flags.Contains("--check-duplicates"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckDuplication(path, flags.Contains("--json"));
 
         if (flags.Contains("--check-alt-text") || flags.Contains("--check-alt"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckAltText(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-emphasis-heading") || flags.Contains("--check-emphasis"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckEmphasisHeading(path, flags.Contains("--json"));
 
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
@@ -131,5 +139,14 @@ public static class CliArgs
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).
         return path is null ? new CliCommand.Help() : new CliCommand.Open(path);
+    }
+
+    // Returns the value of a `prefix=value` flag (e.g. `--config=foo.json`), or null if
+    // absent. Keeping the value on the flag token avoids pairing logic in the positional
+    // split, where a bare `--config foo.json` would otherwise eat the second positional.
+    private static string? FlagValue(List<string> flags, string prefix)
+    {
+        var match = flags.FindLast(f => f.StartsWith(prefix, System.StringComparison.Ordinal));
+        return match?[prefix.Length..];
     }
 }

@@ -381,12 +381,47 @@ public class CliArgsTests
             .Should().BeOfType<CliCommand.CheckSections>().Which.Json.Should().BeTrue();
 
     [Fact]
-    public void Check_sections_without_required_list_is_Help() =>
-        CliArgs.Parse(new[] { "doc.md", "--check-sections" }).Should().BeOfType<CliCommand.Help>();
+    public void Check_sections_without_required_list_defers_to_config()
+    {
+        // The list is now optional — when omitted, sections come from .spectacle.json,
+        // resolved by Program. Parsing yields a CheckSections with a null Required.
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-sections" })
+            .Should().BeOfType<CliCommand.CheckSections>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Required.Should().BeNull();
+        c.ConfigPath.Should().BeNull();
+    }
+
+    [Fact]
+    public void Check_sections_captures_explicit_config_path()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-sections", "--config=team.json" })
+            .Should().BeOfType<CliCommand.CheckSections>().Subject;
+        c.Required.Should().BeNull();
+        c.ConfigPath.Should().Be("team.json");
+    }
 
     [Fact]
     public void Check_sections_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--check-sections" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_emphasis_heading_after_path_is_CheckEmphasisHeading()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-emphasis-heading" })
+            .Should().BeOfType<CliCommand.CheckEmphasisHeading>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_emphasis_heading_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-emphasis-heading", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckEmphasisHeading>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_emphasis_heading_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-emphasis-heading" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
     public void Check_duplication_after_path_is_CheckDuplication()

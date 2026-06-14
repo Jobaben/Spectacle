@@ -31,9 +31,10 @@ Spectacle.exe <file> --check-structure [--json]  Report heading-hierarchy issues
 Spectacle.exe <file> --check-tables [--json]   Report malformed tables, then exit (non-zero if any)
 Spectacle.exe <file> --check-fences [--json]   Report fenced-code-block issues (unclosed, untagged), then exit
 Spectacle.exe <file> --check-paths [--json]    Report relative link/image targets missing on disk, then exit (non-zero if any)
-Spectacle.exe <file> --check-sections "A,B,C" [--json]  Report required sections (by heading) missing from the spec, then exit (non-zero if any)
+Spectacle.exe <file> --check-sections ["A,B,C"] [--config=<cfg>] [--json]  Report required sections (by heading) missing from the spec, then exit (non-zero if any)
 Spectacle.exe <file> --check-duplication [--json]  Report blocks repeated verbatim elsewhere in the spec, then exit (non-zero if any)
 Spectacle.exe <file> --check-alt-text [--json]  Report images missing alt text, then exit (non-zero if any)
+Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines used as fake headings, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json|--sarif] Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
@@ -121,6 +122,33 @@ full-text match, not a substring). Missing sections are reported in the order re
 exits non-zero when any are absent, so it can gate a pipeline. Add `--json` for structured
 findings.
 
+The list is optional. Omit it and Spectacle reads the required sections from a
+**`.spectacle.json`** config, so a team declares its spec template once instead of retyping
+it on every invocation. The config is a JSON object with a `requiredSections` string array:
+
+```json
+{ "requiredSections": ["Overview", "Acceptance Criteria", "Non-Goals"] }
+```
+
+Discovery walks up from the spec's own directory and takes the nearest `.spectacle.json`
+(the "closest config wins" rule editors and linters use), so a spec inherits the settings of
+its enclosing project automatically. Point at a specific file with `--config=<path>`. An
+inline list always wins over config; a malformed or missing config never crashes the check
+(it resolves to no required sections, and `--check-sections` with nothing to enforce exits
+non-zero with a hint rather than silently passing).
+
+`--check-emphasis-heading` flags a paragraph that is nothing but a single bold or italic run
+on its own line — `**Overview**` or `_Goals_` where the agent meant `## Overview`. It looks
+like a heading but is not one, so it is invisible to every heading-based command here:
+`--outline` never lists it, `--check-sections` never counts it as a present section, and
+`--check-structure` cannot reason about its level. Catching it keeps the rest of the heading
+toolchain trustworthy. It mirrors markdownlint's MD036: only a single-line paragraph whose
+*entire* content is one emphasis run is flagged, and one ending in sentence punctuation
+(`. , ; : ! ?`) is left alone (an emphasized *sentence* is not a heading). Only top-level
+paragraphs count — an emphasized list item (`- **Term**`) or blockquote line is a legitimate
+construct. It exits non-zero when any are found, so it can gate a pipeline; add `--json` for
+structured findings.
+
 `--check-duplication` flags content an AI agent repeated verbatim — the same paragraph,
 list item, code block, or table appearing twice in the spec. Agents pad output by restating
 a requirement in two sections or pasting the same boilerplate into multiple places, and every
@@ -178,7 +206,7 @@ agent can act on.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
-and `--review` all run headless and write to stdout.
+`--check-emphasis-heading`, and `--review` all run headless and write to stdout.
 
 ## Keyboard
 
