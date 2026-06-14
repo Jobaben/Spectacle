@@ -28,9 +28,10 @@ public static class Program
           Spectacle.exe <file> --check-tables [--json] Report malformed tables and exit (non-zero if any)
           Spectacle.exe <file> --check-fences [--json] Report fenced-code-block issues (unclosed, untagged) and exit
           Spectacle.exe <file> --check-paths [--json] Report relative link/image targets missing on disk and exit (non-zero if any)
-          Spectacle.exe <file> --check-sections "A,B,C" [--json] Report required sections (by heading) missing from the spec and exit (non-zero if any)
+          Spectacle.exe <file> --check-sections ["A,B,C"] [--config=<cfg>] [--json] Report required sections missing from the spec (list or .spectacle.json) and exit (non-zero if any)
           Spectacle.exe <file> --check-duplication [--json] Report blocks repeated verbatim elsewhere in the spec and exit (non-zero if any)
           Spectacle.exe <file> --check-alt-text [--json] Report images missing alt text and exit (non-zero if any)
+          Spectacle.exe <file> --check-emphasis-heading [--json] Report emphasized lines used as fake headings and exit (non-zero if any)
           Spectacle.exe <file> --review [--json|--sarif] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
@@ -63,9 +64,10 @@ public static class Program
             CliCommand.CheckTables tables => DoCheckTables(tables.Path, tables.Json),
             CliCommand.CheckFences fences => DoCheckFences(fences.Path, fences.Json),
             CliCommand.CheckPaths paths => DoCheckPaths(paths.Path, paths.Json),
-            CliCommand.CheckSections sections => DoCheckSections(sections.Path, sections.Required, sections.Json),
+            CliCommand.CheckSections sections => DoCheckSections(sections.Path, sections.Required, sections.Json, sections.ConfigPath),
             CliCommand.CheckDuplication dup => DoCheckDuplication(dup.Path, dup.Json),
             CliCommand.CheckAltText alt => DoCheckAltText(alt.Path, alt.Json),
+            CliCommand.CheckEmphasisHeading emphasis => DoCheckEmphasisHeading(emphasis.Path, emphasis.Json),
             CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline, review.Sarif),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
@@ -231,11 +233,26 @@ public static class Program
         return broken.Count == 0 ? 0 : 1;
     }
 
-    private static int DoCheckSections(string path, string required, bool json)
+    private static int DoCheckSections(string path, string? required, bool json, string? configPath)
     {
         if (!ValidateSource(path)) return 2;
 
-        var names = RequiredSectionsChecker.ParseRequired(required);
+        // An inline list wins; otherwise the required sections come from .spectacle.json
+        // (an explicit --config=<path>, else the nearest config discovered above the spec).
+        IReadOnlyList<string> names;
+        if (required is not null)
+            names = RequiredSectionsChecker.ParseRequired(required);
+        else
+            names = ConfigLocator.Resolve(path, configPath).RequiredSections;
+
+        if (names.Count == 0)
+        {
+            Console.Error.WriteLine(
+                "No required sections given. Pass a comma-separated list or declare " +
+                "\"requiredSections\" in a .spectacle.json config.");
+            return 2;
+        }
+
         var missing = RequiredSectionsChecker.Check(File.ReadAllText(path), names);
         Console.WriteLine(RequiredSectionsCheckExporter.Build(missing, names.Count, path, json));
         // Non-zero when a required section is absent so --check-sections can gate a pipeline.
@@ -260,6 +277,16 @@ public static class Program
         Console.WriteLine(AltTextCheckExporter.Build(images, path, json));
         // Non-zero when an image lacks alt text so --check-alt-text can gate a pipeline.
         return images.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckEmphasisHeading(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var findings = EmphasisHeadingChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(EmphasisHeadingCheckExporter.Build(findings, path, json));
+        // Non-zero when a paragraph is used as a fake heading so this can gate a pipeline.
+        return findings.Count == 0 ? 0 : 1;
     }
 
     private static int DoReview(string path, bool json, string? baseline, bool sarif)
