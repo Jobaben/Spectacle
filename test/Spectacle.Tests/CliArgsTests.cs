@@ -424,6 +424,28 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-emphasis-heading" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_prose_after_path_is_CheckProse()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-prose" })
+            .Should().BeOfType<CliCommand.CheckProse>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_prose_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-prose", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckProse>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_prose_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--prose" }).Should().BeOfType<CliCommand.CheckProse>();
+
+    [Fact]
+    public void Check_prose_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-prose" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
     public void Check_duplication_after_path_is_CheckDuplication()
     {
         var result = CliArgs.Parse(new[] { "doc.md", "--check-duplication" });

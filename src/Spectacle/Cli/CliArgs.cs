@@ -26,6 +26,7 @@ public abstract record CliCommand
     public sealed record CheckDuplication(string Path, bool Json) : CliCommand;
     public sealed record CheckAltText(string Path, bool Json) : CliCommand;
     public sealed record CheckEmphasisHeading(string Path, bool Json) : CliCommand;
+    public sealed record CheckProse(string Path, bool Json) : CliCommand;
     public sealed record Review(string Path, bool Json, string? Baseline = null, bool Sarif = false) : CliCommand;
 }
 
@@ -121,6 +122,9 @@ public static class CliArgs
 
         if (flags.Contains("--check-emphasis-heading") || flags.Contains("--check-emphasis"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckEmphasisHeading(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-prose") || flags.Contains("--prose"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckProse(path, flags.Contains("--json"));
 
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
