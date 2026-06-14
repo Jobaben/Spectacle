@@ -22,7 +22,7 @@ public abstract record CliCommand
     public sealed record CheckTables(string Path, bool Json) : CliCommand;
     public sealed record CheckFences(string Path, bool Json) : CliCommand;
     public sealed record CheckPaths(string Path, bool Json) : CliCommand;
-    public sealed record Review(string Path, bool Json) : CliCommand;
+    public sealed record Review(string Path, bool Json, string? Baseline = null) : CliCommand;
 }
 
 public static class CliArgs
@@ -98,8 +98,18 @@ public static class CliArgs
         if (flags.Contains("--check-paths"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckPaths(path, flags.Contains("--json"));
 
+        // --review takes a single spec, a directory (batch review), and optionally a
+        // baseline to diff against. --baseline names the older version via the second
+        // positional, mirroring how --diff consumes it; the second positional is left as
+        // the baseline only when --baseline is present (a directory has no second positional).
         if (flags.Contains("--review"))
-            return path is null ? new CliCommand.Help() : new CliCommand.Review(path, flags.Contains("--json"));
+        {
+            if (path is null) return new CliCommand.Help();
+            var baseline = flags.Contains("--baseline") ? secondPositional : null;
+            // --baseline with no file to compare against is a misuse; show help.
+            if (flags.Contains("--baseline") && baseline is null) return new CliCommand.Help();
+            return new CliCommand.Review(path, flags.Contains("--json"), baseline);
+        }
 
         // No recognized flag: open the file if we have one, otherwise show help
         // (covers a lone unknown flag such as `--what`).

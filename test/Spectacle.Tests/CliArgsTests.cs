@@ -382,4 +382,31 @@ public class CliArgsTests
     [Fact]
     public void Review_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--review" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_without_baseline_has_null_Baseline() =>
+        CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Which.Baseline.Should().BeNull();
+
+    [Fact]
+    public void Review_with_baseline_captures_second_positional()
+    {
+        var r = CliArgs.Parse(new[] { "new.md", "--review", "--baseline", "old.md" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Path.Should().Be("new.md");
+        r.Baseline.Should().Be("old.md");
+    }
+
+    [Fact]
+    public void Review_baseline_honours_json_flag()
+    {
+        var r = CliArgs.Parse(new[] { "new.md", "old.md", "--review", "--baseline", "--json" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Baseline.Should().Be("old.md");
+        r.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_baseline_without_second_file_is_Help() =>
+        CliArgs.Parse(new[] { "new.md", "--review", "--baseline" }).Should().BeOfType<CliCommand.Help>();
 }

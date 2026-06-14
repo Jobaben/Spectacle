@@ -32,6 +32,8 @@ Spectacle.exe <file> --check-tables [--json]   Report malformed tables, then exi
 Spectacle.exe <file> --check-fences [--json]   Report fenced-code-block issues (unclosed, untagged), then exit
 Spectacle.exe <file> --check-paths [--json]    Report relative link/image targets missing on disk, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json]         Run all checks at once, then exit (non-zero if any issues)
+Spectacle.exe <dir> --review [--json]          Review every spec under a folder at once, then exit (non-zero if any issues)
+Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -111,6 +113,24 @@ the dedicated command), and `--check-paths` together, groups the findings by cat
 issue count, and includes the checklist completion tally. It exits non-zero if any check found an
 issue — so an agent or CI step can call a single command to decide whether a spec is ready. Add
 `--json` for a structured report with one array per check.
+
+`--review <dir>` reviews a **whole folder** of specs in one shot — AI agents routinely emit a
+directory of them. Point `--review` at a directory and it walks it recursively, runs the full
+review on every `.md` / `.markdown` file, and prints a roll-up: how many files it checked, how
+many have issues, and the total issue count, followed by a per-file line. It exits non-zero if any
+spec in the set has an issue, so one command gates the entire batch; add `--json` for a structured
+report carrying each file's full findings. If the folder holds no specs it prints a notice and
+exits 0.
+
+`--review <file> --baseline <old>` answers the question at the heart of the write → review → revise
+loop: *what did this revision actually change?* It runs the full review on both the current file and
+the older `<old>` version and classifies every finding as **fixed** (gone since the baseline),
+**new** (introduced by the revision) or **persisting** (present in both), and tracks checklist
+progress across the two. Findings are matched by category, rule and message — not line number — so a
+finding that merely moved counts as persisting, not as one fixed plus one new. It exits non-zero
+while the revision still carries any issue (new or persisting), matching plain `--review`'s
+"spec must be clean" gate; add `--json` for structured `fixed` / `new` / `persisting` arrays an
+agent can act on.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, and `--review` all run headless and write to stdout.
