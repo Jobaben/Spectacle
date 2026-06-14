@@ -28,8 +28,9 @@ public static class Program
           Spectacle.exe <file> --check-tables [--json] Report malformed tables and exit (non-zero if any)
           Spectacle.exe <file> --check-fences [--json] Report fenced-code-block issues (unclosed, untagged) and exit
           Spectacle.exe <file> --check-paths [--json] Report relative link/image targets missing on disk and exit (non-zero if any)
-          Spectacle.exe <file> --review [--json]  Run all checks and exit (non-zero if any issues)
-          Spectacle.exe <dir> --review [--json]   Review every .md/.markdown spec under a folder and exit
+          Spectacle.exe <file> --check-sections "A,B,C" [--json] Report required sections (by heading) missing from the spec and exit (non-zero if any)
+          Spectacle.exe <file> --review [--json|--sarif] Run all checks and exit (non-zero if any issues)
+          Spectacle.exe <dir> --review [--json|--sarif] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
@@ -60,7 +61,8 @@ public static class Program
             CliCommand.CheckTables tables => DoCheckTables(tables.Path, tables.Json),
             CliCommand.CheckFences fences => DoCheckFences(fences.Path, fences.Json),
             CliCommand.CheckPaths paths => DoCheckPaths(paths.Path, paths.Json),
-            CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline),
+            CliCommand.CheckSections sections => DoCheckSections(sections.Path, sections.Required, sections.Json),
+            CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline, review.Sarif),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -225,23 +227,38 @@ public static class Program
         return broken.Count == 0 ? 0 : 1;
     }
 
-    private static int DoReview(string path, bool json, string? baseline)
+    private static int DoCheckSections(string path, string required, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var names = RequiredSectionsChecker.ParseRequired(required);
+        var missing = RequiredSectionsChecker.Check(File.ReadAllText(path), names);
+        Console.WriteLine(RequiredSectionsCheckExporter.Build(missing, names.Count, path, json));
+        // Non-zero when a required section is absent so --check-sections can gate a pipeline.
+        return missing.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoReview(string path, bool json, string? baseline, bool sarif)
     {
         // A directory argument reviews every spec under it in one shot.
-        if (Directory.Exists(path)) return DoBatchReview(path, json);
+        if (Directory.Exists(path)) return DoBatchReview(path, json, sarif);
 
         if (!ValidateSource(path)) return 2;
 
         // With a baseline, report what the revision fixed / introduced / still carries.
+        // (The baseline delta is its own shape; --sarif applies to the plain verdict only.)
         if (baseline is not null) return DoReviewDelta(path, baseline, json);
 
         var report = ReviewReport.Compute(File.ReadAllText(path), RelativeTargetResolver(path));
-        Console.WriteLine(ReviewReportExporter.Build(report, path, json));
+        // A single file is a one-entry batch, so SARIF takes the same path as a folder review.
+        Console.WriteLine(sarif
+            ? SarifExporter.Build(new[] { new BatchReviewEntry(path, report) }, GetVersion())
+            : ReviewReportExporter.Build(report, path, json));
         // Non-zero when any check found an issue so --review can gate a pipeline.
         return report.IssueCount == 0 ? 0 : 1;
     }
 
-    private static int DoBatchReview(string directory, bool json)
+    private static int DoBatchReview(string directory, bool json, bool sarif)
     {
         var specs = BatchReview.EnumerateSpecs(directory);
         if (specs.Count == 0)
@@ -252,7 +269,9 @@ public static class Program
 
         var result = BatchReview.Compute(
             specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p))));
-        Console.WriteLine(BatchReviewExporter.Build(result, directory, json));
+        Console.WriteLine(sarif
+            ? SarifExporter.Build(result.Entries, GetVersion())
+            : BatchReviewExporter.Build(result, directory, json));
         // Non-zero when any spec in the set has an issue so a batch can gate a pipeline.
         return result.TotalIssues == 0 ? 0 : 1;
     }
