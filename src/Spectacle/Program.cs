@@ -29,6 +29,8 @@ public static class Program
           Spectacle.exe <file> --check-fences [--json] Report fenced-code-block issues (unclosed, untagged) and exit
           Spectacle.exe <file> --check-paths [--json] Report relative link/image targets missing on disk and exit (non-zero if any)
           Spectacle.exe <file> --review [--json]  Run all checks and exit (non-zero if any issues)
+          Spectacle.exe <dir> --review [--json]   Review every .md/.markdown spec under a folder and exit
+          Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -58,7 +60,7 @@ public static class Program
             CliCommand.CheckTables tables => DoCheckTables(tables.Path, tables.Json),
             CliCommand.CheckFences fences => DoCheckFences(fences.Path, fences.Json),
             CliCommand.CheckPaths paths => DoCheckPaths(paths.Path, paths.Json),
-            CliCommand.Review review => DoReview(review.Path, review.Json),
+            CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -223,14 +225,49 @@ public static class Program
         return broken.Count == 0 ? 0 : 1;
     }
 
-    private static int DoReview(string path, bool json)
+    private static int DoReview(string path, bool json, string? baseline)
     {
+        // A directory argument reviews every spec under it in one shot.
+        if (Directory.Exists(path)) return DoBatchReview(path, json);
+
         if (!ValidateSource(path)) return 2;
+
+        // With a baseline, report what the revision fixed / introduced / still carries.
+        if (baseline is not null) return DoReviewDelta(path, baseline, json);
 
         var report = ReviewReport.Compute(File.ReadAllText(path), RelativeTargetResolver(path));
         Console.WriteLine(ReviewReportExporter.Build(report, path, json));
         // Non-zero when any check found an issue so --review can gate a pipeline.
         return report.IssueCount == 0 ? 0 : 1;
+    }
+
+    private static int DoBatchReview(string directory, bool json)
+    {
+        var specs = BatchReview.EnumerateSpecs(directory);
+        if (specs.Count == 0)
+        {
+            Console.Error.WriteLine($"No .md or .markdown specs found under {Path.GetFullPath(directory)}");
+            return 0;
+        }
+
+        var result = BatchReview.Compute(
+            specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p))));
+        Console.WriteLine(BatchReviewExporter.Build(result, directory, json));
+        // Non-zero when any spec in the set has an issue so a batch can gate a pipeline.
+        return result.TotalIssues == 0 ? 0 : 1;
+    }
+
+    private static int DoReviewDelta(string path, string baselinePath, bool json)
+    {
+        if (!ValidateSource(baselinePath)) return 2;
+
+        var revised = ReviewReport.Compute(File.ReadAllText(path), RelativeTargetResolver(path));
+        var baseline = ReviewReport.Compute(File.ReadAllText(baselinePath), RelativeTargetResolver(baselinePath));
+        var delta = ReviewDelta.Compute(baseline, revised);
+        Console.WriteLine(ReviewDeltaExporter.Build(delta, path, baselinePath, json));
+        // Non-zero when the revision still carries any issue (new or persisting), so the
+        // baseline view gates on the same "spec must be clean" rule as a plain --review.
+        return delta.RemainingIssueCount == 0 ? 0 : 1;
     }
 
     /// <summary>
