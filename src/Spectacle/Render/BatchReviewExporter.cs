@@ -55,6 +55,10 @@ public static class BatchReviewExporter
                 tables = e.Report.Tables,
                 fences = e.Report.Fences,
                 paths = e.Report.Paths,
+                duplication = e.Report.Duplication,
+                altText = e.Report.AltText,
+                emphasisHeadings = e.Report.EmphasisHeadings,
+                sections = e.Report.Sections,
                 checklist = new
                 {
                     total = e.Report.ChecklistTotal,

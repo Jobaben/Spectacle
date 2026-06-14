@@ -70,4 +70,20 @@ public class BatchReviewTests
         result.Entries[0].Report.Paths.Should().BeEmpty();
         result.Entries[1].Report.Paths.Should().NotBeEmpty();
     }
+
+    [Fact]
+    public void Per_spec_template_enforces_required_sections()
+    {
+        const string content = "# Spec\n\n## Overview\n\nText.\n";
+        var specs = new (string, string, Func<string, bool>, IReadOnlyList<string>)[]
+        {
+            ("templated.md", content, AllExist, new[] { "Overview", "Acceptance Criteria" }),
+            ("untemplated.md", content, AllExist, Array.Empty<string>()),
+        };
+
+        var result = BatchReview.Compute(specs);
+
+        result.Entries[0].Report.Sections.Should().ContainSingle(s => s.Required == "Acceptance Criteria");
+        result.Entries[1].Report.Sections.Should().BeEmpty();
+    }
 }

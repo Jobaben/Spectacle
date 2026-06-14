@@ -182,12 +182,22 @@ this check is **advisory**: it prints findings but always exits 0, never gating 
 the same report-don't-fail stance as `--check-fences`' `no-language` rule. Add `--json` for
 structured findings.
 
-`--review` is the one-shot verdict: it runs `--lint`, `--check-structure`, `--check-links`,
-`--check-tables`, `--check-fences` (unclosed fences only — the advisory missing-tag rule stays under
-the dedicated command), and `--check-paths` together, groups the findings by category with a combined
-issue count, and includes the checklist completion tally. It exits non-zero if any check found an
-issue — so an agent or CI step can call a single command to decide whether a spec is ready. Add
-`--json` for a structured report with one array per check.
+`--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
+`--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
+the advisory missing-tag rule stays under the dedicated command), `--check-paths`,
+`--check-duplication`, `--check-alt-text`, `--check-emphasis-heading`, and `--check-sections` —
+groups the findings by category with a combined issue count, and includes the checklist
+completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
+single command to decide whether a spec is ready. Add `--json` for a structured report with one
+array per check. (The advisory `--check-prose` is *not* part of the gate; hedging is guidance, not
+a pass/fail defect, so it stays a standalone command.)
+
+The required-section check participates only when a spec template is declared: `--review` reads
+`requiredSections` from the nearest **`.spectacle.json`** (the same config and "closest config
+wins" discovery `--check-sections` uses) and reports any the spec omits. With no config the
+section check is a no-op, so a spec reviewed without a template is unaffected. This makes
+`.spectacle.json` the single place a team declares its template, enforced automatically by the
+one-shot verdict — for a single file, a `--baseline` delta, and every spec in a folder review alike.
 
 `--review --sarif` emits the same verdict as a **SARIF 2.1.0** log — the static-analysis
 interchange format GitHub code scanning, Azure DevOps, and other CI dashboards ingest natively.
@@ -195,7 +205,8 @@ Where `--json` is Spectacle's own shape, `--sarif` is the lingua franca, so the 
 battery becomes a first-class CI analyzer (inline PR annotations, the code-scanning tab) with no
 bespoke glue. Each finding is one SARIF result with a `category/rule` rule id (e.g.
 `structure/multiple-h1`, `fences/unclosed-fence`), an `error` level, a message, and a one-based
-line location; the tool driver lists the full rule catalogue up front. It works for a single file
+line location (a missing section, which has no line, is anchored at line 1); the tool driver lists
+the full rule catalogue up front. It works for a single file
 and, naturally, for a whole folder (`<dir> --review --sarif` writes results across every spec's
 URI in one log). The exit code is unchanged — non-zero when any issue is found. `--sarif` takes
 precedence over `--json`, and applies to the plain verdict (not the `--baseline` delta).
