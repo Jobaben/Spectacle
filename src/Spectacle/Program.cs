@@ -33,8 +33,9 @@ public static class Program
           Spectacle.exe <file> --check-alt-text [--json] Report images missing alt text and exit (non-zero if any)
           Spectacle.exe <file> --check-emphasis-heading [--json] Report emphasized lines used as fake headings and exit (non-zero if any)
           Spectacle.exe <file> --check-prose [--json] Report vague/hedging language (advisory, always exits 0)
-          Spectacle.exe <file> --review [--json|--sarif] [--only=a,b|--skip=a,b] Run all checks and exit (non-zero if any issues)
-          Spectacle.exe <dir> --review [--json|--sarif] Review every .md/.markdown spec under a folder and exit
+          Spectacle.exe <file> --check-toc [--json] Report a table of contents out of sync with the headings and exit (non-zero if any)
+          Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b] Run all checks and exit (non-zero if any issues)
+          Spectacle.exe <dir> --review [--json|--sarif|--md] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
@@ -70,9 +71,10 @@ public static class Program
             CliCommand.CheckAltText alt => DoCheckAltText(alt.Path, alt.Json),
             CliCommand.CheckEmphasisHeading emphasis => DoCheckEmphasisHeading(emphasis.Path, emphasis.Json),
             CliCommand.CheckProse prose => DoCheckProse(prose.Path, prose.Json),
+            CliCommand.CheckToc toc => DoCheckToc(toc.Path, toc.Json),
             CliCommand.Review review => DoReview(
                 review.Path, review.Json, review.Baseline, review.Sarif,
-                review.Only ?? Array.Empty<string>(), review.Skip ?? Array.Empty<string>()),
+                review.Only ?? Array.Empty<string>(), review.Skip ?? Array.Empty<string>(), review.Md),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -303,21 +305,31 @@ public static class Program
         return 0;
     }
 
+    private static int DoCheckToc(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var issues = TocChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(TocCheckExporter.Build(issues, path, json));
+        // Non-zero when the TOC drifts from the headings so --check-toc can gate a pipeline.
+        return issues.Count == 0 ? 0 : 1;
+    }
+
     private static int DoReview(
         string path, bool json, string? baseline, bool sarif,
-        IReadOnlyList<string> only, IReadOnlyList<string> skip)
+        IReadOnlyList<string> only, IReadOnlyList<string> skip, bool md)
     {
         // A typo'd check id would otherwise be silently ignored and the check keep gating,
         // confusingly; warn (don't fail) so the misuse is visible.
         WarnUnknownChecks(only.Concat(skip));
 
         // A directory argument reviews every spec under it in one shot.
-        if (Directory.Exists(path)) return DoBatchReview(path, json, sarif, only, skip);
+        if (Directory.Exists(path)) return DoBatchReview(path, json, sarif, only, skip, md);
 
         if (!ValidateSource(path)) return 2;
 
         // With a baseline, report what the revision fixed / introduced / still carries.
-        // (The baseline delta is its own shape; --sarif applies to the plain verdict only.)
+        // (The baseline delta is its own shape; --sarif / --md apply to the plain verdict only.)
         if (baseline is not null) return DoReviewDelta(path, baseline, json, only, skip);
 
         var report = ReviewReport.Compute(
@@ -326,13 +338,13 @@ public static class Program
         // A single file is a one-entry batch, so SARIF takes the same path as a folder review.
         Console.WriteLine(sarif
             ? SarifExporter.Build(new[] { new BatchReviewEntry(path, report) }, GetVersion())
-            : ReviewReportExporter.Build(report, path, json));
+            : ReviewReportExporter.Build(report, path, json, md));
         // Non-zero when any check found an issue so --review can gate a pipeline.
         return report.IssueCount == 0 ? 0 : 1;
     }
 
     private static int DoBatchReview(
-        string directory, bool json, bool sarif, IReadOnlyList<string> only, IReadOnlyList<string> skip)
+        string directory, bool json, bool sarif, IReadOnlyList<string> only, IReadOnlyList<string> skip, bool md)
     {
         var specs = BatchReview.EnumerateSpecs(directory);
         if (specs.Count == 0)
@@ -345,7 +357,7 @@ public static class Program
             specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p), RequiredSectionsFor(p), ChecksFor(p, only, skip))));
         Console.WriteLine(sarif
             ? SarifExporter.Build(result.Entries, GetVersion())
-            : BatchReviewExporter.Build(result, directory, json));
+            : BatchReviewExporter.Build(result, directory, json, md));
         // Non-zero when any spec in the set has an issue so a batch can gate a pipeline.
         return result.TotalIssues == 0 ? 0 : 1;
     }

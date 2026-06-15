@@ -446,6 +446,45 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-prose" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_toc_after_path_is_CheckToc()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-toc" })
+            .Should().BeOfType<CliCommand.CheckToc>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_toc_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-toc", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckToc>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_toc_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--toc" }).Should().BeOfType<CliCommand.CheckToc>();
+
+    [Fact]
+    public void Check_toc_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-toc" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_md_flag_sets_Md()
+    {
+        CliArgs.Parse(new[] { "doc.md", "--review", "--md" })
+            .Should().BeOfType<CliCommand.Review>().Which.Md.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_markdown_alias_sets_Md() =>
+        CliArgs.Parse(new[] { "doc.md", "--review", "--markdown" })
+            .Should().BeOfType<CliCommand.Review>().Which.Md.Should().BeTrue();
+
+    [Fact]
+    public void Review_defaults_Md_false() =>
+        CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Which.Md.Should().BeFalse();
+
+    [Fact]
     public void Check_duplication_after_path_is_CheckDuplication()
     {
         var result = CliArgs.Parse(new[] { "doc.md", "--check-duplication" });

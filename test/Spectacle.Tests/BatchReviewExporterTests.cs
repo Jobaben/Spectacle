@@ -43,4 +43,32 @@ public class BatchReviewExporterTests
         files[1].GetProperty("issueCount").GetInt32().Should().BeGreaterThan(0);
         files[1].GetProperty("lint").GetArrayLength().Should().BeGreaterThan(0);
     }
+
+    [Fact]
+    public void Json_carries_toc_findings_per_file()
+    {
+        var result = BatchReview.Compute(new (string, string, Func<string, bool>)[]
+        {
+            ("/specs/toc.md", "# Spec\n\n## Contents\n\n- [Gone](#gone)\n\n## Overview\n\ntext\n", AllExist),
+        });
+
+        var root = JsonDocument.Parse(BatchReviewExporter.Build(result, "/specs", json: true)).RootElement;
+
+        root.GetProperty("files")[0].GetProperty("toc").GetArrayLength().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Markdown_has_a_rollup_header_and_a_section_per_file()
+    {
+        var md = BatchReviewExporter.Build(Sample(), "/specs", json: false, markdown: true);
+
+        md.Should().StartWith("# Batch review: specs");
+        md.Should().Contain("2 file(s)");
+        md.Should().Contain("1 with issues");
+        md.Should().Contain("clean.md");
+        md.Should().Contain("bad.md");
+        // The file with issues lists its findings; the clean one says so.
+        md.Should().Contain("### lint");
+        md.Should().Contain("_No issues._");
+    }
 }

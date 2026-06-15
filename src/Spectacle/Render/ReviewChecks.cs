@@ -20,7 +20,7 @@ public sealed class ReviewChecks
     public static readonly IReadOnlyList<string> All = new[]
     {
         "lint", "structure", "links", "tables", "fences", "paths",
-        "duplication", "alt-text", "emphasis-heading", "sections",
+        "duplication", "alt-text", "emphasis-heading", "sections", "toc",
     };
 
     /// <summary>Every check enabled — the default verdict, unchanged from before this feature.</summary>

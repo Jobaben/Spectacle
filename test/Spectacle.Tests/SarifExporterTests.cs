@@ -137,4 +137,21 @@ public class SarifExporterTests
             .Distinct();
         uris.Should().BeEquivalentTo(new[] { "a.md", "b.md" });
     }
+
+    [Fact]
+    public void Includes_toc_findings_as_results_and_catalogue_rules()
+    {
+        const string content = "# Spec\n\n## Contents\n\n- [Gone](#gone)\n\n## Overview\n\ntext\n";
+        var sarif = SarifExporter.Build(
+            new[] { new BatchReviewEntry("spec.md", ReviewReport.Compute(content)) }, "1.0.0");
+
+        var run = Run(sarif);
+        var ruleIds = run.GetProperty("results").EnumerateArray()
+            .Select(r => r.GetProperty("ruleId").GetString()).ToList();
+        ruleIds.Should().Contain("toc/stale-toc-entry");
+
+        var catalogue = run.GetProperty("tool").GetProperty("driver").GetProperty("rules")
+            .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
+        catalogue.Should().Contain("toc/stale-toc-entry").And.Contain("toc/missing-from-toc");
+    }
 }

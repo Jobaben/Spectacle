@@ -127,4 +127,17 @@ public class ReviewDeltaTests
         delta.RevisedChecklistDone.Should().Be(1);
         delta.RevisedChecklistTotal.Should().Be(2);
     }
+
+    [Fact]
+    public void Toc_drift_introduced_by_a_revision_is_classified_as_new()
+    {
+        // Baseline TOC is in sync; the revision adds an entry to a non-existent heading.
+        const string baseline = "# Spec\n\n## Contents\n\n- [Overview](#overview)\n\n## Overview\n\ntext\n";
+        const string revised =
+            "# Spec\n\n## Contents\n\n- [Overview](#overview)\n- [Gone](#gone)\n\n## Overview\n\ntext\n";
+
+        var delta = ReviewDelta.Compute(ReviewReport.Compute(baseline), ReviewReport.Compute(revised));
+
+        delta.New.Should().Contain(f => f.Category == "toc" && f.Rule == TocChecker.StaleEntryRule);
+    }
 }

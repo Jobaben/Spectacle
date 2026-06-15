@@ -19,8 +19,34 @@ public static class BatchReviewExporter
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public static string Build(BatchReviewResult result, string root, bool json) =>
-        json ? Json(result, root) : Text(result, root);
+    public static string Build(BatchReviewResult result, string root, bool json, bool markdown = false) =>
+        markdown ? Markdown(result, root)
+        : json ? Json(result, root)
+        : Text(result, root);
+
+    private static string Markdown(BatchReviewResult r, string root)
+    {
+        var sb = new StringBuilder();
+        sb.Append("# Batch review: ")
+          .AppendLine(Path.GetFileName(Path.TrimEndingDirectorySeparator(root)));
+        sb.AppendLine();
+        sb.Append("**").Append(r.FileCount).Append(" file(s) · ")
+          .Append(r.FilesWithIssues).Append(" with issues · ")
+          .Append(r.TotalIssues).AppendLine(" issue(s) total**");
+        sb.AppendLine();
+
+        foreach (var e in r.Entries)
+        {
+            sb.Append("## ").AppendLine(RelativePath(root, e.Path));
+            sb.AppendLine();
+            sb.AppendLine(ReviewReportExporter.Summary(e.Report));
+            sb.AppendLine();
+            ReviewReportExporter.AppendSections(sb, e.Report, "### ");
+            if (e.Report.IssueCount == 0) sb.AppendLine("_No issues._").AppendLine();
+        }
+
+        return sb.ToString().TrimEnd('\n');
+    }
 
     private static string Text(BatchReviewResult r, string root)
     {
@@ -66,6 +92,7 @@ public static class BatchReviewExporter
                 altText = e.Report.AltText,
                 emphasisHeadings = e.Report.EmphasisHeadings,
                 sections = e.Report.Sections,
+                toc = e.Report.TocIssues,
                 checklist = new
                 {
                     total = e.Report.ChecklistTotal,
