@@ -24,7 +24,12 @@ public static class ReviewReportExporter
     {
         var sb = new StringBuilder();
         sb.Append(Path.GetFileName(sourcePath)).Append(" — review: ")
-          .Append(r.IssueCount).AppendLine(" issue(s)");
+          .Append(r.IssueCount).Append(" issue(s)");
+        // Honesty: a suppressed finding or a skipped check stopped gating — say so, so a clean
+        // verdict can't be confused with one that simply ran fewer checks.
+        if (r.SuppressedCount > 0) sb.Append(", ").Append(r.SuppressedCount).Append(" suppressed");
+        sb.AppendLine();
+        if (r.Skipped.Count > 0) sb.Append("  skipped: ").AppendLine(string.Join(", ", r.Skipped));
 
         sb.Append("  lint (").Append(r.Lint.Count).AppendLine("):");
         foreach (var f in r.Lint)
@@ -78,6 +83,8 @@ public static class ReviewReportExporter
         {
             source = sourcePath,
             issueCount = r.IssueCount,
+            skippedChecks = r.Skipped,
+            suppressedCount = r.SuppressedCount,
             lint = r.Lint,
             structure = r.Structure,
             links = r.Links,

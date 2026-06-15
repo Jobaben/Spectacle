@@ -61,4 +61,43 @@ public class SpectacleConfigTests
     {
         SpectacleConfig.Parse("[1, 2, 3]").RequiredSections.Should().BeEmpty();
     }
+
+    [Fact]
+    public void Parses_disabled_checks_array()
+    {
+        var config = SpectacleConfig.Parse("""{ "disabledChecks": ["duplication", "alt-text"] }""");
+
+        config.DisabledChecks.Should().Equal("duplication", "alt-text");
+    }
+
+    [Fact]
+    public void Required_sections_and_disabled_checks_parse_together()
+    {
+        var config = SpectacleConfig.Parse(
+            """{ "requiredSections": ["Overview"], "disabledChecks": ["paths"] }""");
+
+        config.RequiredSections.Should().Equal("Overview");
+        config.DisabledChecks.Should().Equal("paths");
+    }
+
+    [Fact]
+    public void Missing_disabled_checks_yields_empty_list()
+    {
+        SpectacleConfig.Parse("""{ "requiredSections": ["Overview"] }""")
+            .DisabledChecks.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Non_array_disabled_checks_yields_empty_list()
+    {
+        SpectacleConfig.Parse("""{ "disabledChecks": "duplication" }""")
+            .DisabledChecks.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Empty_config_has_both_lists_empty()
+    {
+        SpectacleConfig.Empty.RequiredSections.Should().BeEmpty();
+        SpectacleConfig.Empty.DisabledChecks.Should().BeEmpty();
+    }
 }

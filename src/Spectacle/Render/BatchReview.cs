@@ -60,4 +60,16 @@ public static class BatchReview
             .Select(s => new BatchReviewEntry(
                 s.Path, ReviewReport.Compute(s.Content, s.TargetExists, s.RequiredSections)))
             .ToList());
+
+    /// <summary>
+    /// As above, but each spec also carries its own gating-check selection (the project gate
+    /// from its nearest <c>.spectacle.json</c> combined with the global <c>--only</c>/<c>--skip</c>),
+    /// so a folder review honours each spec's enclosing project gate.
+    /// </summary>
+    public static BatchReviewResult Compute(
+        IEnumerable<(string Path, string Content, Func<string, bool> TargetExists, IReadOnlyList<string> RequiredSections, ReviewChecks Checks)> specs) =>
+        new(specs
+            .Select(s => new BatchReviewEntry(
+                s.Path, ReviewReport.Compute(s.Content, s.TargetExists, s.RequiredSections, s.Checks)))
+            .ToList());
 }

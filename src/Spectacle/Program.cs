@@ -33,7 +33,7 @@ public static class Program
           Spectacle.exe <file> --check-alt-text [--json] Report images missing alt text and exit (non-zero if any)
           Spectacle.exe <file> --check-emphasis-heading [--json] Report emphasized lines used as fake headings and exit (non-zero if any)
           Spectacle.exe <file> --check-prose [--json] Report vague/hedging language (advisory, always exits 0)
-          Spectacle.exe <file> --review [--json|--sarif] Run all checks and exit (non-zero if any issues)
+          Spectacle.exe <file> --review [--json|--sarif] [--only=a,b|--skip=a,b] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
@@ -70,7 +70,9 @@ public static class Program
             CliCommand.CheckAltText alt => DoCheckAltText(alt.Path, alt.Json),
             CliCommand.CheckEmphasisHeading emphasis => DoCheckEmphasisHeading(emphasis.Path, emphasis.Json),
             CliCommand.CheckProse prose => DoCheckProse(prose.Path, prose.Json),
-            CliCommand.Review review => DoReview(review.Path, review.Json, review.Baseline, review.Sarif),
+            CliCommand.Review review => DoReview(
+                review.Path, review.Json, review.Baseline, review.Sarif,
+                review.Only ?? Array.Empty<string>(), review.Skip ?? Array.Empty<string>()),
             CliCommand.Open open => DoOpen(open.Path),
             _ => Print(UsageText, 0),
         };
@@ -301,19 +303,26 @@ public static class Program
         return 0;
     }
 
-    private static int DoReview(string path, bool json, string? baseline, bool sarif)
+    private static int DoReview(
+        string path, bool json, string? baseline, bool sarif,
+        IReadOnlyList<string> only, IReadOnlyList<string> skip)
     {
+        // A typo'd check id would otherwise be silently ignored and the check keep gating,
+        // confusingly; warn (don't fail) so the misuse is visible.
+        WarnUnknownChecks(only.Concat(skip));
+
         // A directory argument reviews every spec under it in one shot.
-        if (Directory.Exists(path)) return DoBatchReview(path, json, sarif);
+        if (Directory.Exists(path)) return DoBatchReview(path, json, sarif, only, skip);
 
         if (!ValidateSource(path)) return 2;
 
         // With a baseline, report what the revision fixed / introduced / still carries.
         // (The baseline delta is its own shape; --sarif applies to the plain verdict only.)
-        if (baseline is not null) return DoReviewDelta(path, baseline, json);
+        if (baseline is not null) return DoReviewDelta(path, baseline, json, only, skip);
 
         var report = ReviewReport.Compute(
-            File.ReadAllText(path), RelativeTargetResolver(path), RequiredSectionsFor(path));
+            File.ReadAllText(path), RelativeTargetResolver(path), RequiredSectionsFor(path),
+            ChecksFor(path, only, skip));
         // A single file is a one-entry batch, so SARIF takes the same path as a folder review.
         Console.WriteLine(sarif
             ? SarifExporter.Build(new[] { new BatchReviewEntry(path, report) }, GetVersion())
@@ -322,7 +331,8 @@ public static class Program
         return report.IssueCount == 0 ? 0 : 1;
     }
 
-    private static int DoBatchReview(string directory, bool json, bool sarif)
+    private static int DoBatchReview(
+        string directory, bool json, bool sarif, IReadOnlyList<string> only, IReadOnlyList<string> skip)
     {
         var specs = BatchReview.EnumerateSpecs(directory);
         if (specs.Count == 0)
@@ -332,7 +342,7 @@ public static class Program
         }
 
         var result = BatchReview.Compute(
-            specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p), RequiredSectionsFor(p))));
+            specs.Select(p => (p, File.ReadAllText(p), RelativeTargetResolver(p), RequiredSectionsFor(p), ChecksFor(p, only, skip))));
         Console.WriteLine(sarif
             ? SarifExporter.Build(result.Entries, GetVersion())
             : BatchReviewExporter.Build(result, directory, json));
@@ -340,19 +350,41 @@ public static class Program
         return result.TotalIssues == 0 ? 0 : 1;
     }
 
-    private static int DoReviewDelta(string path, string baselinePath, bool json)
+    private static int DoReviewDelta(
+        string path, string baselinePath, bool json, IReadOnlyList<string> only, IReadOnlyList<string> skip)
     {
         if (!ValidateSource(baselinePath)) return 2;
 
+        // The same selection applies to both versions, so a check turned off is off on both
+        // sides of the delta — a skipped check never reads as "fixed" or "new".
         var revised = ReviewReport.Compute(
-            File.ReadAllText(path), RelativeTargetResolver(path), RequiredSectionsFor(path));
+            File.ReadAllText(path), RelativeTargetResolver(path), RequiredSectionsFor(path),
+            ChecksFor(path, only, skip));
         var baseline = ReviewReport.Compute(
-            File.ReadAllText(baselinePath), RelativeTargetResolver(baselinePath), RequiredSectionsFor(baselinePath));
+            File.ReadAllText(baselinePath), RelativeTargetResolver(baselinePath), RequiredSectionsFor(baselinePath),
+            ChecksFor(baselinePath, only, skip));
         var delta = ReviewDelta.Compute(baseline, revised);
         Console.WriteLine(ReviewDeltaExporter.Build(delta, path, baselinePath, json));
         // Non-zero when the revision still carries any issue (new or persisting), so the
         // baseline view gates on the same "spec must be clean" rule as a plain --review.
         return delta.RemainingIssueCount == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Resolves the gating-check selection for a spec: the global CLI <c>--only</c>/<c>--skip</c>
+    /// combined with the project's nearest <c>.spectacle.json</c> <c>disabledChecks</c>, so a team
+    /// declares its gate once and a single run can still narrow it.
+    /// </summary>
+    private static ReviewChecks ChecksFor(string sourcePath, IReadOnlyList<string> only, IReadOnlyList<string> skip) =>
+        ReviewChecks.Resolve(only, skip, ConfigLocator.Resolve(sourcePath, null).DisabledChecks);
+
+    private static void WarnUnknownChecks(IEnumerable<string> requested)
+    {
+        var unknown = ReviewChecks.Unknown(requested);
+        if (unknown.Count != 0)
+            Console.Error.WriteLine(
+                $"Unknown check id(s) ignored: {string.Join(", ", unknown)}. " +
+                $"Valid checks: {string.Join(", ", ReviewChecks.All)}.");
     }
 
     /// <summary>

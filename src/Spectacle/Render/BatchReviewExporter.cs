@@ -31,8 +31,13 @@ public static class BatchReviewExporter
           .Append(r.TotalIssues).AppendLine(" issue(s) total");
 
         foreach (var e in r.Entries)
+        {
             sb.Append("  ").Append(RelativePath(root, e.Path)).Append(" — ")
-              .Append(e.Report.IssueCount).AppendLine(" issue(s)");
+              .Append(e.Report.IssueCount).Append(" issue(s)");
+            if (e.Report.SuppressedCount > 0) sb.Append(", ").Append(e.Report.SuppressedCount).Append(" suppressed");
+            if (e.Report.Skipped.Count > 0) sb.Append(" (skipped: ").Append(string.Join(", ", e.Report.Skipped)).Append(')');
+            sb.AppendLine();
+        }
 
         return sb.ToString().TrimEnd('\n');
     }
@@ -49,6 +54,8 @@ public static class BatchReviewExporter
             {
                 source = e.Path,
                 issueCount = e.Report.IssueCount,
+                skippedChecks = e.Report.Skipped,
+                suppressedCount = e.Report.SuppressedCount,
                 lint = e.Report.Lint,
                 structure = e.Report.Structure,
                 links = e.Report.Links,
