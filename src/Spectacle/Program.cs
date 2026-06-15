@@ -36,6 +36,8 @@ public static class Program
           Spectacle.exe <file> --check-prose [--json] Report vague/hedging language (advisory, always exits 0)
           Spectacle.exe <file> --check-toc [--json] Report a table of contents out of sync with the headings and exit (non-zero if any)
           Spectacle.exe <file> --check-numbering [--json] Report ordered lists whose numbering is out of sequence and exit (non-zero if any)
+          Spectacle.exe <file> --check-bare-urls [--json] Report bare (auto-linked) URLs that should be descriptive links and exit (non-zero if any)
+          Spectacle.exe <file> --check-heading-numbering [--json] Report manually numbered headings out of sequence and exit (non-zero if any)
           Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif|--md] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
@@ -78,6 +80,8 @@ public static class Program
             CliCommand.CheckProse prose => DoCheckProse(prose.Path, prose.Json),
             CliCommand.CheckToc toc => DoCheckToc(toc.Path, toc.Json),
             CliCommand.CheckNumbering numbering => DoCheckNumbering(numbering.Path, numbering.Json),
+            CliCommand.CheckBareUrls bareUrls => DoCheckBareUrls(bareUrls.Path, bareUrls.Json),
+            CliCommand.CheckHeadingNumbering headingNum => DoCheckHeadingNumbering(headingNum.Path, headingNum.Json),
             CliCommand.Review review => DoReview(
                 review.Path, review.Json, review.Baseline, review.Sarif,
                 review.Only ?? Array.Empty<string>(), review.Skip ?? Array.Empty<string>(), review.Md),
@@ -338,6 +342,26 @@ public static class Program
         var issues = NumberingChecker.Check(File.ReadAllText(path));
         Console.WriteLine(NumberingCheckExporter.Build(issues, path, json));
         // Non-zero when an ordered list is out of sequence so --check-numbering can gate a pipeline.
+        return issues.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckBareUrls(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var urls = BareUrlChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(BareUrlCheckExporter.Build(urls, path, json));
+        // Non-zero when a bare URL is found so --check-bare-urls can gate a pipeline.
+        return urls.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckHeadingNumbering(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var issues = HeadingNumberingChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(HeadingNumberingCheckExporter.Build(issues, path, json));
+        // Non-zero when a numbered-heading run is out of sequence so this can gate a pipeline.
         return issues.Count == 0 ? 0 : 1;
     }
 

@@ -90,6 +90,14 @@ public static class ReviewReportExporter
         foreach (var n in r.NumberingIssues)
             sb.Append("    line ").Append(n.Line).Append("  [").Append(n.Rule).Append("] ").AppendLine(n.Message);
 
+        sb.Append("  bare-urls (").Append(r.BareUrlIssues.Count).AppendLine("):");
+        foreach (var u in r.BareUrlIssues)
+            sb.Append("    line ").Append(u.Line).Append("  ").AppendLine(u.Url);
+
+        sb.Append("  heading-numbering (").Append(r.HeadingNumberingIssues.Count).AppendLine("):");
+        foreach (var h in r.HeadingNumberingIssues)
+            sb.Append("    line ").Append(h.Line).Append("  [").Append(h.Rule).Append("] ").AppendLine(h.Message);
+
         // Advisories are guidance, not gate failures: shown after the issues, never in the count.
         sb.Append("  advisories (").Append(r.AdvisoryCount).AppendLine(") — not gating:");
         foreach (var f in r.FenceAdvisories)
@@ -122,6 +130,8 @@ public static class ReviewReportExporter
             sections = r.Sections,
             toc = r.TocIssues,
             numbering = r.NumberingIssues,
+            bareUrls = r.BareUrlIssues,
+            headingNumbering = r.HeadingNumberingIssues,
             // Advisories are reported but excluded from issueCount — guidance, not gate failures.
             advisoryCount = r.AdvisoryCount,
             advisories = new { prose = r.ProseAdvisories, fences = r.FenceAdvisories },
@@ -182,6 +192,8 @@ public static class ReviewReportExporter
         SectionNoLine(sb, prefix, "sections", r.Sections, s => $"missing '{s.Required}'");
         Section(sb, prefix, "toc", r.TocIssues, t => $"`{t.Rule}` {t.Message}", t => t.Line);
         Section(sb, prefix, "numbering", r.NumberingIssues, n => $"`{n.Rule}` {n.Message}", n => n.Line);
+        Section(sb, prefix, "bare-urls", r.BareUrlIssues, u => u.Url, u => u.Line);
+        Section(sb, prefix, "heading-numbering", r.HeadingNumberingIssues, h => $"`{h.Rule}` {h.Message}", h => h.Line);
     }
 
     /// <summary>

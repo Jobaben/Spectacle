@@ -104,6 +104,9 @@ public sealed record ReviewDelta(
         all.AddRange(r.Sections.Select(s => new DeltaFinding("sections", "missing-section", 0, $"'{s.Required}'")));
         all.AddRange(r.TocIssues.Select(t => new DeltaFinding("toc", t.Rule, t.Line, t.Message)));
         all.AddRange(r.NumberingIssues.Select(n => new DeltaFinding("numbering", n.Rule, n.Line, n.Message)));
+        // Identity excludes line, so a bare URL keys on the URL text — a fix is the same URL gone.
+        all.AddRange(r.BareUrlIssues.Select(u => new DeltaFinding("bare-urls", BareUrlChecker.BareUrlRule, u.Line, u.Url)));
+        all.AddRange(r.HeadingNumberingIssues.Select(h => new DeltaFinding("heading-numbering", h.Rule, h.Line, h.Message)));
         return all;
     }
 }

@@ -95,6 +95,8 @@ public static class BatchReviewExporter
                 emphasisHeadings = e.Report.EmphasisHeadings,
                 sections = e.Report.Sections,
                 toc = e.Report.TocIssues,
+                bareUrls = e.Report.BareUrlIssues,
+                headingNumbering = e.Report.HeadingNumberingIssues,
                 advisoryCount = e.Report.AdvisoryCount,
                 advisories = new { prose = e.Report.ProseAdvisories, fences = e.Report.FenceAdvisories },
                 checklist = new

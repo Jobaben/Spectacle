@@ -597,6 +597,51 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-link-text" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_bare_urls_after_path_is_CheckBareUrls()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-bare-urls" })
+            .Should().BeOfType<CliCommand.CheckBareUrls>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_bare_urls_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-bare-urls", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckBareUrls>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_bare_urls_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-bare-links" }).Should().BeOfType<CliCommand.CheckBareUrls>();
+
+    [Fact]
+    public void Check_bare_urls_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-bare-urls" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_heading_numbering_after_path_is_CheckHeadingNumbering()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-heading-numbering" })
+            .Should().BeOfType<CliCommand.CheckHeadingNumbering>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_heading_numbering_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-heading-numbering", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckHeadingNumbering>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_heading_numbering_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-heading-numbers" })
+            .Should().BeOfType<CliCommand.CheckHeadingNumbering>();
+
+    [Fact]
+    public void Check_heading_numbering_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-heading-numbering" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
     public void Review_sarif_flag_sets_Sarif()
     {
         var r = CliArgs.Parse(new[] { "doc.md", "--review", "--sarif" })
