@@ -27,13 +27,15 @@ public abstract record CliCommand
     public sealed record CheckAltText(string Path, bool Json) : CliCommand;
     public sealed record CheckEmphasisHeading(string Path, bool Json) : CliCommand;
     public sealed record CheckProse(string Path, bool Json) : CliCommand;
+    public sealed record CheckToc(string Path, bool Json) : CliCommand;
     public sealed record Review(
         string Path,
         bool Json,
         string? Baseline = null,
         bool Sarif = false,
         IReadOnlyList<string>? Only = null,
-        IReadOnlyList<string>? Skip = null) : CliCommand;
+        IReadOnlyList<string>? Skip = null,
+        bool Md = false) : CliCommand;
 }
 
 public static class CliArgs
@@ -132,6 +134,9 @@ public static class CliArgs
         if (flags.Contains("--check-prose") || flags.Contains("--prose"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckProse(path, flags.Contains("--json"));
 
+        if (flags.Contains("--check-toc") || flags.Contains("--toc"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckToc(path, flags.Contains("--json"));
+
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
         // positional, mirroring how --diff consumes it; the second positional is left as
@@ -144,7 +149,8 @@ public static class CliArgs
             if (flags.Contains("--baseline") && baseline is null) return new CliCommand.Help();
             return new CliCommand.Review(
                 path, flags.Contains("--json"), baseline, flags.Contains("--sarif"),
-                FlagValueList(flags, "--only="), FlagValueList(flags, "--skip="));
+                FlagValueList(flags, "--only="), FlagValueList(flags, "--skip="),
+                flags.Contains("--md") || flags.Contains("--markdown"));
         }
 
         // No recognized flag: open the file if we have one, otherwise show help

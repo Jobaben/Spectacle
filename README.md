@@ -36,8 +36,9 @@ Spectacle.exe <file> --check-duplication [--json]  Report blocks repeated verbat
 Spectacle.exe <file> --check-alt-text [--json]  Report images missing alt text, then exit (non-zero if any)
 Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines used as fake headings, then exit (non-zero if any)
 Spectacle.exe <file> --check-prose [--json]    Report vague/hedging language, then exit (advisory — always exits 0)
-Spectacle.exe <file> --review [--json|--sarif] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
-Spectacle.exe <dir> --review [--json|--sarif]  Review every spec under a folder at once, then exit (non-zero if any issues)
+Spectacle.exe <file> --check-toc [--json]      Report a table of contents out of sync with the headings, then exit (non-zero if any)
+Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
+Spectacle.exe <dir> --review [--json|--sarif|--md]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
@@ -189,10 +190,25 @@ this check is **advisory**: it prints findings but always exits 0, never gating 
 the same report-don't-fail stance as `--check-fences`' `no-language` rule. Add `--json` for
 structured findings.
 
+`--check-toc` validates a spec's **table of contents** against its actual headings — the
+drift an AI agent introduces when it adds, renames, or removes a section but forgets to
+update the TOC. It recognizes a TOC by a heading named `Table of Contents`, `Contents`, or
+`TOC` (case-insensitive) followed by a list of in-document anchor links, and reports two
+defects: `stale-toc-entry` (an entry pointing at `#anchor` that matches no heading — the TOC
+references a section that was removed or renamed) and `missing-from-toc` (a body section the
+TOC omits). The depth the TOC is expected to cover is inferred from the entries that do
+resolve, so a deeper subsection the TOC never meant to list is left alone, and only headings
+*after* the TOC count as entries it should carry. The check is a **no-op when the spec has no
+TOC**, so a spec that never declared one is unaffected. It uses the same Markdig
+auto-identifier slugs as `--check-links`, so the anchors matched here are the ones the viewer
+emits. It exits non-zero when the TOC is out of sync, so it can gate a pipeline; add `--json`
+for structured findings.
+
 `--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
 `--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
 the advisory missing-tag rule stays under the dedicated command), `--check-paths`,
-`--check-duplication`, `--check-alt-text`, `--check-emphasis-heading`, and `--check-sections` —
+`--check-duplication`, `--check-alt-text`, `--check-emphasis-heading`, `--check-sections`, and
+`--check-toc` (a no-op unless the spec has a TOC) —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
@@ -217,6 +233,17 @@ the full rule catalogue up front. It works for a single file
 and, naturally, for a whole folder (`<dir> --review --sarif` writes results across every spec's
 URI in one log). The exit code is unchanged — non-zero when any issue is found. `--sarif` takes
 precedence over `--json`, and applies to the plain verdict (not the `--baseline` delta).
+
+`--review --md` emits the verdict as a **Markdown report** — the artifact in the AI write →
+review → revise loop a human reads or pastes straight into a pull request, and the most legible
+form to hand back to the agent that authored the spec. Where `--json` and `--sarif` are for
+machines, `--md` is for people and prose-native agents: a `# Review: <file>` heading, a one-line
+summary (issue count, plus an honest note of anything suppressed or skipped), then one Markdown
+subsection per check that found something — checks with nothing to report are omitted so the
+report stays readable, and a clean spec simply says `No issues found.` A folder review
+(`<dir> --review --md`) emits a roll-up heading followed by one section per spec. The exit code is
+unchanged — non-zero when any issue is found. Precedence among the output formats is
+`--sarif` > `--md` > `--json`, and `--md` applies to the plain verdict (not the `--baseline` delta).
 
 `--review <dir>` reviews a **whole folder** of specs in one shot — AI agents routinely emit a
 directory of them. Point `--review` at a directory and it walks it recursively, runs the full
@@ -275,7 +302,7 @@ keeping a clean result honest.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
-`--check-emphasis-heading`, `--check-prose`, and `--review` all run headless and write to stdout.
+`--check-emphasis-heading`, `--check-prose`, `--check-toc`, and `--review` all run headless and write to stdout.
 
 ## Keyboard
 

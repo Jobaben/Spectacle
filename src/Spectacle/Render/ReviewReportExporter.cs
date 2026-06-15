@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -5,8 +7,9 @@ using System.Text.Json;
 namespace Spectacle.Render;
 
 /// <summary>
-/// Formats a <see cref="ReviewReport"/> — a grouped text summary (default) or
-/// structured JSON with one array per check plus the checklist tally.
+/// Formats a <see cref="ReviewReport"/> — a grouped text summary (default), structured JSON
+/// with one array per check plus the checklist tally, or a Markdown report an agent or a
+/// reviewer can read or paste straight into a pull request.
 /// </summary>
 public static class ReviewReportExporter
 {
@@ -17,8 +20,10 @@ public static class ReviewReportExporter
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public static string Build(ReviewReport report, string sourcePath, bool json) =>
-        json ? Json(report, sourcePath) : Text(report, sourcePath);
+    public static string Build(ReviewReport report, string sourcePath, bool json, bool markdown = false) =>
+        markdown ? Markdown(report, sourcePath)
+        : json ? Json(report, sourcePath)
+        : Text(report, sourcePath);
 
     private static string Text(ReviewReport r, string sourcePath)
     {
@@ -73,6 +78,10 @@ public static class ReviewReportExporter
         foreach (var s in r.Sections)
             sb.Append("    missing  '").Append(s.Required).AppendLine("'");
 
+        sb.Append("  toc (").Append(r.TocIssues.Count).AppendLine("):");
+        foreach (var t in r.TocIssues)
+            sb.Append("    line ").Append(t.Line).Append("  [").Append(t.Rule).Append("] ").AppendLine(t.Message);
+
         sb.Append("  checklist: ").Append(r.ChecklistDone).Append('/').Append(r.ChecklistTotal).Append(" complete");
         return sb.ToString();
     }
@@ -95,8 +104,81 @@ public static class ReviewReportExporter
             altText = r.AltText,
             emphasisHeadings = r.EmphasisHeadings,
             sections = r.Sections,
+            toc = r.TocIssues,
             checklist = new { total = r.ChecklistTotal, done = r.ChecklistDone, open = r.ChecklistTotal - r.ChecklistDone },
         };
         return JsonSerializer.Serialize(payload, JsonOptions);
+    }
+
+    private static string Markdown(ReviewReport r, string sourcePath)
+    {
+        var sb = new StringBuilder();
+        sb.Append("# Review: ").AppendLine(Path.GetFileName(sourcePath));
+        sb.AppendLine();
+        sb.AppendLine(Summary(r));
+        sb.AppendLine();
+        AppendSections(sb, r, "## ");
+        if (r.IssueCount == 0) sb.AppendLine("No issues found.").AppendLine();
+        sb.Append("**Checklist:** ").Append(r.ChecklistDone).Append(" / ")
+          .Append(r.ChecklistTotal).Append(" complete");
+        return sb.ToString().TrimEnd('\n');
+    }
+
+    /// <summary>
+    /// The one-line Markdown summary: the issue count plus an honest note of anything that
+    /// stopped gating (suppressed findings, skipped checks), so a clean verdict can't be
+    /// confused with one that simply ran fewer checks. Shared with the batch report.
+    /// </summary>
+    internal static string Summary(ReviewReport r)
+    {
+        var sb = new StringBuilder();
+        sb.Append("**").Append(r.IssueCount).Append(r.IssueCount == 1 ? " issue" : " issues").Append("**");
+        if (r.SuppressedCount > 0) sb.Append(" · ").Append(r.SuppressedCount).Append(" suppressed");
+        if (r.Skipped.Count > 0) sb.Append(" · skipped: ").Append(string.Join(", ", r.Skipped));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Appends one Markdown subsection per check that found something, at the given heading
+    /// prefix (<c>## </c> for a single file, <c>### </c> when nested under a per-file header in
+    /// the batch report). Checks with no findings are omitted to keep the artifact readable.
+    /// </summary>
+    internal static void AppendSections(StringBuilder sb, ReviewReport r, string prefix)
+    {
+        Section(sb, prefix, "lint", r.Lint, f => $"`{f.Rule}` {f.Message}", f => f.Line);
+        Section(sb, prefix, "structure", r.Structure, f => $"`{f.Rule}` {f.Message}", f => f.Line);
+        Section(sb, prefix, "links", r.Links, b => $"`{b.Target}` — {b.Reason}", b => b.Line);
+        Section(sb, prefix, "tables", r.Tables, t => t.Message, t => t.Line);
+        Section(sb, prefix, "fences", r.Fences, f => $"`{f.Rule}` {f.Message}", f => f.Line);
+        Section(sb, prefix, "paths", r.Paths, p => $"`{p.Target}` — {p.Reason}", p => p.Line);
+        Section(sb, prefix, "duplication", r.Duplication,
+            d => $"[{d.Kind}] duplicate of line {d.FirstLine}", d => d.Line);
+        Section(sb, prefix, "alt-text", r.AltText,
+            a => a.Target.Length == 0 ? "(no target)" : a.Target, a => a.Line);
+        Section(sb, prefix, "emphasis-heading", r.EmphasisHeadings, e => $"'{e.Text}'", e => e.Line);
+        // A missing section has no line, so it renders without one.
+        SectionNoLine(sb, prefix, "sections", r.Sections, s => $"missing '{s.Required}'");
+        Section(sb, prefix, "toc", r.TocIssues, t => $"`{t.Rule}` {t.Message}", t => t.Line);
+    }
+
+    private static void Section<T>(
+        StringBuilder sb, string prefix, string name, IReadOnlyList<T> items,
+        Func<T, string> render, Func<T, int> lineOf)
+    {
+        if (items.Count == 0) return;
+        sb.Append(prefix).Append(name).Append(" (").Append(items.Count).Append(')').AppendLine().AppendLine();
+        foreach (var it in items)
+            sb.Append("- line ").Append(lineOf(it)).Append(" — ").AppendLine(render(it));
+        sb.AppendLine();
+    }
+
+    private static void SectionNoLine<T>(
+        StringBuilder sb, string prefix, string name, IReadOnlyList<T> items, Func<T, string> render)
+    {
+        if (items.Count == 0) return;
+        sb.Append(prefix).Append(name).Append(" (").Append(items.Count).Append(')').AppendLine().AppendLine();
+        foreach (var it in items)
+            sb.Append("- ").AppendLine(render(it));
+        sb.AppendLine();
     }
 }

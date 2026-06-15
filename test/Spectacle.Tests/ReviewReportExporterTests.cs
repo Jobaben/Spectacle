@@ -74,6 +74,78 @@ public class ReviewReportExporterTests
     }
 
     [Fact]
+    public void Markdown_has_a_heading_summary_and_lists_findings()
+    {
+        var report = ReviewReport.Compute(Messy);
+
+        var md = ReviewReportExporter.Build(report, "spec.md", json: false, markdown: true);
+
+        md.Should().StartWith("# Review: spec.md");
+        md.Should().Contain("issue");
+        // Categories with findings appear as Markdown subsections; the line numbers are listed.
+        md.Should().Contain("## lint");
+        md.Should().Contain("## links");
+        md.Should().Contain("- line ");
+        md.Should().Contain("**Checklist:**");
+    }
+
+    [Fact]
+    public void Markdown_omits_empty_categories_and_states_clean()
+    {
+        var md = ReviewReportExporter.Build(
+            ReviewReport.Compute("# T\n\nClean.\n"), "spec.md", json: false, markdown: true);
+
+        md.Should().Contain("No issues found.");
+        // A clean report should not spam a header for every check that found nothing.
+        md.Should().NotContain("## lint");
+    }
+
+    [Fact]
+    public void Markdown_surfaces_skipped_and_suppressed_in_the_summary()
+    {
+        const string content =
+            "# Title\n\n<!-- spectacle-disable-next-line alt-text -->\n![](d.png)\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "duplication" }, System.Array.Empty<string>());
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        var md = ReviewReportExporter.Build(report, "spec.md", json: false, markdown: true);
+
+        md.Should().Contain("suppressed");
+        md.Should().Contain("skipped: duplication");
+    }
+
+    [Fact]
+    public void Review_gate_includes_toc_findings()
+    {
+        // A "Contents" section whose only entry points at a heading that does not exist.
+        const string content =
+            "# Spec\n\n## Contents\n\n- [Gone](#gone)\n\n## Overview\n\ntext\n";
+        var report = ReviewReport.Compute(content);
+
+        report.TocIssues.Should().NotBeEmpty();
+        report.IssueCount.Should().BeGreaterThan(0);
+
+        var root = JsonDocument.Parse(ReviewReportExporter.Build(report, "spec.md", json: true)).RootElement;
+        root.GetProperty("toc").GetArrayLength().Should().BeGreaterThan(0);
+
+        ReviewReportExporter.Build(report, "spec.md", json: false).Should().Contain("toc (");
+    }
+
+    [Fact]
+    public void Toc_check_is_skippable_via_the_gate()
+    {
+        const string content =
+            "# Spec\n\n## Contents\n\n- [Gone](#gone)\n\n## Overview\n\ntext\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "toc" }, System.Array.Empty<string>());
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        report.TocIssues.Should().BeEmpty();
+        report.Skipped.Should().Contain("toc");
+    }
+
+    [Fact]
     public void Clean_verdict_reports_no_skipped_or_suppressed()
     {
         var root = JsonDocument.Parse(

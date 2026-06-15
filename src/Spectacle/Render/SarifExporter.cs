@@ -46,6 +46,8 @@ public static class SarifExporter
         ("alt-text", "An image with no alt text (empty description)."),
         ("emphasis-heading", "An emphasized line used as a fake heading instead of a real heading."),
         ("sections", "A required section (by the spec template) is missing from the document."),
+        ("toc/stale-toc-entry", "A table-of-contents entry pointing at a heading that does not exist."),
+        ("toc/missing-from-toc", "A section heading (at a level the table of contents covers) with no entry."),
     };
 
     public static string Build(IReadOnlyList<BatchReviewEntry> entries, string toolVersion)
@@ -103,6 +105,7 @@ public static class SarifExporter
         // still carries a valid SARIF region (startLine must be >= 1).
         foreach (var s in r.Sections)
             yield return Result("sections", $"missing required section: '{s.Required}'", uri, 1);
+        foreach (var t in r.TocIssues) yield return Result($"toc/{t.Rule}", t.Message, uri, t.Line);
     }
 
     private static object Result(string ruleId, string message, string uri, int line) => new

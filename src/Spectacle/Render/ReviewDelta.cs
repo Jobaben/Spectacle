@@ -102,6 +102,7 @@ public sealed record ReviewDelta(
         all.AddRange(r.EmphasisHeadings.Select(e => new DeltaFinding("emphasis-heading", "emphasis-as-heading", e.Line, $"'{e.Text}'")));
         // A missing section has no line; identity is the section name.
         all.AddRange(r.Sections.Select(s => new DeltaFinding("sections", "missing-section", 0, $"'{s.Required}'")));
+        all.AddRange(r.TocIssues.Select(t => new DeltaFinding("toc", t.Rule, t.Line, t.Message)));
         return all;
     }
 }

@@ -23,16 +23,20 @@ public sealed record ReviewReport(
     int ChecklistTotal,
     int ChecklistDone,
     IReadOnlyList<string>? SkippedChecks = null,
-    int SuppressedCount = 0)
+    int SuppressedCount = 0,
+    IReadOnlyList<TocIssue>? Toc = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
     public IReadOnlyList<string> Skipped => SkippedChecks ?? Array.Empty<string>();
 
+    /// <summary>Table-of-contents drift findings (stale and missing entries).</summary>
+    public IReadOnlyList<TocIssue> TocIssues => Toc ?? Array.Empty<TocIssue>();
+
     /// <summary>Total problems across all enabled, non-suppressed checks (the checklist is informational).</summary>
     public int IssueCount =>
         Lint.Count + Structure.Count + Links.Count + Tables.Count + Fences.Count + Paths.Count
-        + Duplication.Count + AltText.Count + EmphasisHeadings.Count + Sections.Count;
+        + Duplication.Count + AltText.Count + EmphasisHeadings.Count + Sections.Count + TocIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -116,6 +120,9 @@ public sealed record ReviewReport(
             ChecklistTotal: checklist.Count,
             ChecklistDone: checklist.Count(i => i.Checked),
             SkippedChecks: checks.Disabled,
-            SuppressedCount: suppressed);
+            SuppressedCount: suppressed,
+            // No TOC in the spec means no findings, so a spec without one is unaffected — the
+            // same "enforced only when present" stance the section template uses.
+            Toc: Run("toc", () => TocChecker.Check(content), t => t.Line));
     }
 }
