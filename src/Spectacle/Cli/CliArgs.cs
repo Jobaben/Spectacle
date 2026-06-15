@@ -31,6 +31,8 @@ public abstract record CliCommand
     public sealed record CheckProse(string Path, bool Json) : CliCommand;
     public sealed record CheckToc(string Path, bool Json) : CliCommand;
     public sealed record CheckNumbering(string Path, bool Json) : CliCommand;
+    public sealed record CheckBareUrls(string Path, bool Json) : CliCommand;
+    public sealed record CheckHeadingNumbering(string Path, bool Json) : CliCommand;
     public sealed record Review(
         string Path,
         bool Json,
@@ -150,6 +152,12 @@ public static class CliArgs
 
         if (flags.Contains("--check-numbering") || flags.Contains("--check-numbers"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckNumbering(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-bare-urls") || flags.Contains("--check-bare-links"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckBareUrls(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-heading-numbering") || flags.Contains("--check-heading-numbers"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckHeadingNumbering(path, flags.Contains("--json"));
 
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second

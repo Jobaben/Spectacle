@@ -228,4 +228,52 @@ public class ReviewReportTests
         report.NumberingIssues.Should().BeEmpty();
         report.Skipped.Should().Contain("numbering");
     }
+
+    [Fact]
+    public void Review_gate_includes_bare_url_findings()
+    {
+        const string content = "# Title\n\nSee https://example.com for details.\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.BareUrlIssues.Should().NotBeEmpty();
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Bare_url_check_is_skippable_via_the_gate()
+    {
+        const string content = "# Title\n\nSee https://example.com for details.\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "bare-urls" }, System.Array.Empty<string>());
+
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        report.BareUrlIssues.Should().BeEmpty();
+        report.Skipped.Should().Contain("bare-urls");
+    }
+
+    [Fact]
+    public void Review_gate_includes_heading_numbering_findings()
+    {
+        const string content = "# Title\n\n## 1. Goals\n## 2. Design\n## 4. Rollout\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.HeadingNumberingIssues.Should().NotBeEmpty();
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Heading_numbering_check_is_skippable_via_the_gate()
+    {
+        const string content = "# Title\n\n## 1. Goals\n## 2. Design\n## 4. Rollout\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "heading-numbering" }, System.Array.Empty<string>());
+
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        report.HeadingNumberingIssues.Should().BeEmpty();
+        report.Skipped.Should().Contain("heading-numbering");
+    }
 }

@@ -171,4 +171,38 @@ public class SarifExporterTests
             .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
         catalogue.Should().Contain("link-text/non-descriptive").And.Contain("link-text/empty");
     }
+
+    [Fact]
+    public void Includes_bare_url_findings_as_results_and_catalogue_rules()
+    {
+        const string content = "# Spec\n\nSee https://example.com for details.\n";
+        var sarif = SarifExporter.Build(
+            new[] { new BatchReviewEntry("spec.md", ReviewReport.Compute(content)) }, "1.0.0");
+
+        var run = Run(sarif);
+        var ruleIds = run.GetProperty("results").EnumerateArray()
+            .Select(r => r.GetProperty("ruleId").GetString()).ToList();
+        ruleIds.Should().Contain("bare-urls/bare-url");
+
+        var catalogue = run.GetProperty("tool").GetProperty("driver").GetProperty("rules")
+            .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
+        catalogue.Should().Contain("bare-urls/bare-url");
+    }
+
+    [Fact]
+    public void Includes_heading_numbering_findings_as_results_and_catalogue_rules()
+    {
+        const string content = "# Spec\n\n## 1. Goals\n## 2. Design\n## 4. Rollout\n";
+        var sarif = SarifExporter.Build(
+            new[] { new BatchReviewEntry("spec.md", ReviewReport.Compute(content)) }, "1.0.0");
+
+        var run = Run(sarif);
+        var ruleIds = run.GetProperty("results").EnumerateArray()
+            .Select(r => r.GetProperty("ruleId").GetString()).ToList();
+        ruleIds.Should().Contain("heading-numbering/out-of-sequence");
+
+        var catalogue = run.GetProperty("tool").GetProperty("driver").GetProperty("rules")
+            .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
+        catalogue.Should().Contain("heading-numbering/out-of-sequence");
+    }
 }

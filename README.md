@@ -39,6 +39,8 @@ Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines 
 Spectacle.exe <file> --check-prose [--json]    Report vague/hedging language, then exit (advisory — always exits 0)
 Spectacle.exe <file> --check-toc [--json]      Report a table of contents out of sync with the headings, then exit (non-zero if any)
 Spectacle.exe <file> --check-numbering [--json]  Report ordered lists whose numbering is out of sequence, then exit (non-zero if any)
+Spectacle.exe <file> --check-bare-urls [--json]  Report bare (auto-linked) URLs that should be descriptive links, then exit (non-zero if any)
+Spectacle.exe <file> --check-heading-numbering [--json]  Report manually numbered headings out of sequence, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif|--md]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
@@ -244,11 +246,44 @@ including a nested one — is judged on its own, and code fences are ignored. Ke
 legitimate styles clean holds the false-positive rate low enough to gate, so it exits
 non-zero when a list is out of sequence; add `--json` for structured findings.
 
+`--check-bare-urls` reports bare URLs pasted straight into the prose — `https://example.com`
+sitting in a sentence rather than a descriptive Markdown link. GFM auto-links such text, so it
+renders as a link whose *visible text is the raw URL*: a screen reader reads the whole address
+aloud and a reader scanning the page learns nothing about where it goes. It is the link analogue
+of the missing alt text `--check-alt-text` catches and the worst case of the non-descriptive text
+`--check-link-text` flags — the text *is* the URL — which is why neither of those looks at it (a
+bare URL has no authored text to inspect). Only the bare, undelimited form is flagged; the two
+legitimate ways to write a URL verbatim are deliberately left alone, so the rule keeps a clean
+escape hatch: an explicit autolink (`<https://example.com>`, the CommonMark "render this as a link
+on purpose" syntax) and a code span (`` `https://example.com` ``, when the URL is a literal value
+like an API endpoint — Markdig never auto-links inside code). A proper `[text](url)` link is never
+flagged, and URLs inside fenced or indented code are skipped for the same reason a code span is. It
+exits non-zero when any bare URL is found, so it can gate a pipeline; add `--json` for structured findings.
+
+`--check-heading-numbering` validates the numbering of *manually numbered headings* — the broken
+section sequences an AI agent emits when it drops, duplicates, or reorders a section (`## 1. Goals`,
+`## 2. Design`, `## 4. Rollout` — where did 3 go?). It is the heading analogue of `--check-numbering`,
+which judges ordered *lists* only; a reviewer skims a numbered spec by its section numbers exactly as
+they skim a numbered list, so a gap or repeat reads as a missing section even when the prose is intact.
+Only flat, single-integer prefixes participate — a heading whose text begins with an integer then `.`
+or `)` then whitespace (`1. `, `2) `, `10. `). Dotted hierarchical numbering (`1.2 Detail`) is
+deliberately ignored: detecting it reliably and validating a full outline is a far more
+false-positive-prone problem, and a spec that never numbers its headings is wholly unaffected (the
+same "enforced only when present" stance the TOC and section-template checks take). Numbered headings
+are grouped into runs by heading level, and a run is closed whenever a *shallower* heading intervenes
+— so sub-section numbering that legitimately restarts under each new parent (`### 1.`, `### 2.` under
+one `##`, then `### 1.` again under the next) is never flagged. Following markdownlint's MD029
+`one_or_ordered` spirit, each run passes when its numbers are either *all the same* (the lazy `1. 1. 1.`
+style) or *strictly consecutive* from whatever the first heading starts at; anything else is one
+`out-of-sequence` finding, anchored at the first heading that breaks the run. It exits non-zero when a
+run is out of sequence, so it can gate a pipeline; add `--json` for structured findings.
+
 `--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
 `--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
 the advisory missing-tag rule is surfaced separately, see below), `--check-paths`,
 `--check-duplication`, `--check-alt-text`, `--check-link-text`, `--check-emphasis-heading`,
-`--check-sections`, `--check-toc` (a no-op unless the spec has a TOC), and `--check-numbering` —
+`--check-sections`, `--check-toc` (a no-op unless the spec has a TOC), `--check-numbering`,
+`--check-bare-urls`, and `--check-heading-numbering` —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
@@ -326,7 +361,7 @@ project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single r
 `--review --only=structure,links` (run only those). Precedence: `--only` chooses the universe,
 then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
 `structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `link-text`,
-`emphasis-heading`, `sections`, `toc`, and `numbering`; an unrecognized id is ignored with a warning. A disabled check is never silently
+`emphasis-heading`, `sections`, `toc`, `numbering`, `bare-urls`, and `heading-numbering`; an unrecognized id is ignored with a warning. A disabled check is never silently
 treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
 clean result can't be confused with one that simply ran fewer checks. The selection applies
 uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
@@ -354,7 +389,8 @@ keeping a clean result honest.
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
 `--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`,
-`--check-numbering`, and `--review` all run headless and write to stdout.
+`--check-numbering`, `--check-bare-urls`, `--check-heading-numbering`, and `--review` all run
+headless and write to stdout.
 
 ## Keyboard
 

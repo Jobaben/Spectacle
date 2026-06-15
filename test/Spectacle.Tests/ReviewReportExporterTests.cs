@@ -74,6 +74,26 @@ public class ReviewReportExporterTests
     }
 
     [Fact]
+    public void Surfaces_bare_url_and_heading_numbering_findings_across_formats()
+    {
+        const string content =
+            "# Title\n\n## 1. Goals\n## 2. Design\n## 4. Rollout\n\nSee https://example.com for details.\n";
+        var report = ReviewReport.Compute(content);
+
+        var text = ReviewReportExporter.Build(report, "spec.md", json: false);
+        text.Should().Contain("bare-urls");
+        text.Should().Contain("heading-numbering");
+
+        var root = JsonDocument.Parse(ReviewReportExporter.Build(report, "spec.md", json: true)).RootElement;
+        root.GetProperty("bareUrls").GetArrayLength().Should().BeGreaterThan(0);
+        root.GetProperty("headingNumbering").GetArrayLength().Should().BeGreaterThan(0);
+
+        var md = ReviewReportExporter.Build(report, "spec.md", json: false, markdown: true);
+        md.Should().Contain("## bare-urls");
+        md.Should().Contain("## heading-numbering");
+    }
+
+    [Fact]
     public void Markdown_has_a_heading_summary_and_lists_findings()
     {
         var report = ReviewReport.Compute(Messy);

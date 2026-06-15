@@ -28,7 +28,9 @@ public sealed record ReviewReport(
     IReadOnlyList<UninformativeLink>? LinkText = null,
     IReadOnlyList<ProseFinding>? Prose = null,
     IReadOnlyList<FenceIssue>? FenceWarnings = null,
-    IReadOnlyList<NumberingIssue>? Numbering = null)
+    IReadOnlyList<NumberingIssue>? Numbering = null,
+    IReadOnlyList<BareUrl>? BareUrls = null,
+    IReadOnlyList<HeadingNumberingIssue>? HeadingNumbering = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
@@ -49,6 +51,12 @@ public sealed record ReviewReport(
     /// <summary>Ordered lists whose numbering is out of sequence (gap, duplicate, or reorder).</summary>
     public IReadOnlyList<NumberingIssue> NumberingIssues => Numbering ?? Array.Empty<NumberingIssue>();
 
+    /// <summary>Bare (auto-linked) URLs in prose that should be descriptive links.</summary>
+    public IReadOnlyList<BareUrl> BareUrlIssues => BareUrls ?? Array.Empty<BareUrl>();
+
+    /// <summary>Manually numbered headings whose section numbers are out of sequence.</summary>
+    public IReadOnlyList<HeadingNumberingIssue> HeadingNumberingIssues => HeadingNumbering ?? Array.Empty<HeadingNumberingIssue>();
+
     /// <summary>
     /// Count of advisory findings — hedging prose and untagged code fences. Surfaced in the
     /// verdict so the one command an agent runs sees this guidance too, but deliberately
@@ -62,7 +70,8 @@ public sealed record ReviewReport(
     public int IssueCount =>
         Lint.Count + Structure.Count + Links.Count + Tables.Count + Fences.Count + Paths.Count
         + Duplication.Count + AltText.Count + LinkTextIssues.Count + EmphasisHeadings.Count
-        + Sections.Count + TocIssues.Count + NumberingIssues.Count;
+        + Sections.Count + TocIssues.Count + NumberingIssues.Count + BareUrlIssues.Count
+        + HeadingNumberingIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -154,6 +163,10 @@ public sealed record ReviewReport(
             Toc: Run("toc", () => TocChecker.Check(content), t => t.Line),
             // A spec with no ordered lists (or only well-numbered ones) is unaffected.
             Numbering: Run("numbering", () => NumberingChecker.Check(content), n => n.Line),
+            // A spec with no bare URLs is unaffected.
+            BareUrls: Run("bare-urls", () => BareUrlChecker.Check(content), u => u.Line),
+            // A spec that never numbers its headings is unaffected.
+            HeadingNumbering: Run("heading-numbering", () => HeadingNumberingChecker.Check(content), h => h.Line),
             // Advisories are guidance, not gating defects, so they are computed unconditionally —
             // independent of the gate selection (their ids never appear in --only/--skip) and never
             // counted in IssueCount. The fence advisory is the no-language rule the gate's fence

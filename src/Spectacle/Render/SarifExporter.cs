@@ -51,6 +51,8 @@ public static class SarifExporter
         ("toc/stale-toc-entry", "A table-of-contents entry pointing at a heading that does not exist."),
         ("toc/missing-from-toc", "A section heading (at a level the table of contents covers) with no entry."),
         ("numbering/out-of-sequence", "An ordered list whose item numbers are neither all the same nor strictly consecutive."),
+        ("bare-urls/bare-url", "A bare (auto-linked) URL in prose that should be a descriptive Markdown link."),
+        ("heading-numbering/out-of-sequence", "Manually numbered headings whose section numbers are neither all the same nor strictly consecutive."),
     };
 
     public static string Build(IReadOnlyList<BatchReviewEntry> entries, string toolVersion)
@@ -112,6 +114,10 @@ public static class SarifExporter
             yield return Result("sections", $"missing required section: '{s.Required}'", uri, 1);
         foreach (var t in r.TocIssues) yield return Result($"toc/{t.Rule}", t.Message, uri, t.Line);
         foreach (var n in r.NumberingIssues) yield return Result($"numbering/{n.Rule}", n.Message, uri, n.Line);
+        foreach (var u in r.BareUrlIssues)
+            yield return Result($"bare-urls/{BareUrlChecker.BareUrlRule}", $"bare URL: {u.Url}", uri, u.Line);
+        foreach (var h in r.HeadingNumberingIssues)
+            yield return Result($"heading-numbering/{h.Rule}", h.Message, uri, h.Line);
     }
 
     private static object Result(string ruleId, string message, string uri, int line) => new

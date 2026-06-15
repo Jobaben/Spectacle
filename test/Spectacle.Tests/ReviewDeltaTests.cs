@@ -37,6 +37,31 @@ public class ReviewDeltaTests
     }
 
     [Fact]
+    public void A_fixed_bare_url_is_classified_as_fixed()
+    {
+        // Baseline pastes a bare URL; the revision wraps it in a descriptive link.
+        const string withBareUrl = "# Title\n\nSee https://example.com for details.\n";
+        const string revised = "# Title\n\nSee [the docs](https://example.com) for details.\n";
+
+        var delta = ReviewDelta.Compute(ReviewReport.Compute(withBareUrl), ReviewReport.Compute(revised));
+
+        delta.Fixed.Should().ContainSingle(f => f.Category == "bare-urls");
+        delta.New.Should().NotContain(f => f.Category == "bare-urls");
+    }
+
+    [Fact]
+    public void A_persisting_heading_numbering_gap_is_classified_as_persisting()
+    {
+        const string spec = "# Title\n\n## 1. Goals\n## 2. Design\n## 4. Rollout\n";
+
+        var delta = ReviewDelta.Compute(ReviewReport.Compute(spec), ReviewReport.Compute(spec));
+
+        delta.Persisting.Should().ContainSingle(f => f.Category == "heading-numbering");
+        delta.New.Should().BeEmpty();
+        delta.Fixed.Should().BeEmpty();
+    }
+
+    [Fact]
     public void A_finding_that_only_moved_lines_is_persisting_not_fixed_plus_new()
     {
         // Same TODO, pushed down by extra leading content — identity ignores line number.
