@@ -86,6 +86,10 @@ public static class ReviewReportExporter
         foreach (var t in r.TocIssues)
             sb.Append("    line ").Append(t.Line).Append("  [").Append(t.Rule).Append("] ").AppendLine(t.Message);
 
+        sb.Append("  numbering (").Append(r.NumberingIssues.Count).AppendLine("):");
+        foreach (var n in r.NumberingIssues)
+            sb.Append("    line ").Append(n.Line).Append("  [").Append(n.Rule).Append("] ").AppendLine(n.Message);
+
         // Advisories are guidance, not gate failures: shown after the issues, never in the count.
         sb.Append("  advisories (").Append(r.AdvisoryCount).AppendLine(") — not gating:");
         foreach (var f in r.FenceAdvisories)
@@ -117,6 +121,7 @@ public static class ReviewReportExporter
             emphasisHeadings = r.EmphasisHeadings,
             sections = r.Sections,
             toc = r.TocIssues,
+            numbering = r.NumberingIssues,
             // Advisories are reported but excluded from issueCount — guidance, not gate failures.
             advisoryCount = r.AdvisoryCount,
             advisories = new { prose = r.ProseAdvisories, fences = r.FenceAdvisories },
@@ -176,6 +181,7 @@ public static class ReviewReportExporter
         // A missing section has no line, so it renders without one.
         SectionNoLine(sb, prefix, "sections", r.Sections, s => $"missing '{s.Required}'");
         Section(sb, prefix, "toc", r.TocIssues, t => $"`{t.Rule}` {t.Message}", t => t.Line);
+        Section(sb, prefix, "numbering", r.NumberingIssues, n => $"`{n.Rule}` {n.Message}", n => n.Line);
     }
 
     /// <summary>

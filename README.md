@@ -38,9 +38,11 @@ Spectacle.exe <file> --check-link-text [--json]  Report links whose text names n
 Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines used as fake headings, then exit (non-zero if any)
 Spectacle.exe <file> --check-prose [--json]    Report vague/hedging language, then exit (advisory — always exits 0)
 Spectacle.exe <file> --check-toc [--json]      Report a table of contents out of sync with the headings, then exit (non-zero if any)
+Spectacle.exe <file> --check-numbering [--json]  Report ordered lists whose numbering is out of sequence, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif|--md]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
+Spectacle.exe --init-config [path] [--force]   Scaffold a documented .spectacle.json (refuses to overwrite without --force), then exit
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
@@ -147,6 +149,16 @@ inline list always wins over config; a malformed or missing config never crashes
 (it resolves to no required sections, and `--check-sections` with nothing to enforce exits
 non-zero with a hint rather than silently passing).
 
+`--init-config` scaffolds that file so a team can adopt the project gate in one step instead
+of authoring JSON by hand. It writes a documented `.spectacle.json` — a starter
+`requiredSections` template, an empty `disabledChecks`, and a `"//"` note that explains each
+field and names every valid check id (sourced from the live check set, so the scaffold can't
+advertise a stale one) — to the current directory, to a directory you name (`--init-config
+specs`), or to an explicit path. Editing it is the point: trim the required sections to your
+template and list any checks you want off. Writing over an existing config would discard a
+team's tuning, so it **refuses to overwrite** unless you pass `--force`; it prints the full
+path it wrote and exits 0 (2 when it refused).
+
 `--check-emphasis-heading` flags a paragraph that is nothing but a single bold or italic run
 on its own line — `**Overview**` or `_Goals_` where the agent meant `## Overview`. It looks
 like a heading but is not one, so it is invisible to every heading-based command here:
@@ -220,11 +232,23 @@ auto-identifier slugs as `--check-links`, so the anchors matched here are the on
 emits. It exits non-zero when the TOC is out of sync, so it can gate a pipeline; add `--json`
 for structured findings.
 
+`--check-numbering` validates the numbering of **ordered lists** — the broken step or
+requirement sequences an AI agent emits when it drops, duplicates, or reorders an item
+(`1. 2. 2. 4.`). A reviewer skims a numbered spec by its numbers, so a gap or a repeat reads
+as a missing step even when the prose is intact. Following markdownlint's MD029
+`one_or_ordered` spirit, a list passes when its source markers are either *all the same* (the
+lazy `1. 1. 1.` style every renderer numbers sequentially) or *strictly consecutive* from
+whatever the first item starts at (`1. 2. 3.`, `0. 1. 2.`, `3. 4. 5.`); anything else is one
+`out-of-sequence` finding, anchored at the first item that breaks the run. Each list —
+including a nested one — is judged on its own, and code fences are ignored. Keeping both
+legitimate styles clean holds the false-positive rate low enough to gate, so it exits
+non-zero when a list is out of sequence; add `--json` for structured findings.
+
 `--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
 `--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
 the advisory missing-tag rule is surfaced separately, see below), `--check-paths`,
 `--check-duplication`, `--check-alt-text`, `--check-link-text`, `--check-emphasis-heading`,
-`--check-sections`, and `--check-toc` (a no-op unless the spec has a TOC) —
+`--check-sections`, `--check-toc` (a no-op unless the spec has a TOC), and `--check-numbering` —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
@@ -302,7 +326,7 @@ project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single r
 `--review --only=structure,links` (run only those). Precedence: `--only` chooses the universe,
 then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
 `structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `link-text`,
-`emphasis-heading`, `sections`, and `toc`; an unrecognized id is ignored with a warning. A disabled check is never silently
+`emphasis-heading`, `sections`, `toc`, and `numbering`; an unrecognized id is ignored with a warning. A disabled check is never silently
 treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
 clean result can't be confused with one that simply ran fewer checks. The selection applies
 uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
@@ -329,8 +353,8 @@ keeping a clean result honest.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
-`--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`, and `--review`
-all run headless and write to stdout.
+`--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`,
+`--check-numbering`, and `--review` all run headless and write to stdout.
 
 ## Keyboard
 

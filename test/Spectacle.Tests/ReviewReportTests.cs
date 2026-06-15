@@ -204,4 +204,28 @@ public class ReviewReportTests
         report.ChecklistTotal.Should().Be(3);
         report.ChecklistDone.Should().Be(1);
     }
+
+    [Fact]
+    public void Review_gate_includes_numbering_findings()
+    {
+        const string content = "# Title\n\n1. first\n2. second\n4. fourth\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.NumberingIssues.Should().NotBeEmpty();
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Numbering_check_is_skippable_via_the_gate()
+    {
+        const string content = "# Title\n\n1. first\n2. second\n4. fourth\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "numbering" }, System.Array.Empty<string>());
+
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        report.NumberingIssues.Should().BeEmpty();
+        report.Skipped.Should().Contain("numbering");
+    }
 }

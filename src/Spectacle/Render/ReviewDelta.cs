@@ -103,6 +103,7 @@ public sealed record ReviewDelta(
         // A missing section has no line; identity is the section name.
         all.AddRange(r.Sections.Select(s => new DeltaFinding("sections", "missing-section", 0, $"'{s.Required}'")));
         all.AddRange(r.TocIssues.Select(t => new DeltaFinding("toc", t.Rule, t.Line, t.Message)));
+        all.AddRange(r.NumberingIssues.Select(n => new DeltaFinding("numbering", n.Rule, n.Line, n.Message)));
         return all;
     }
 }

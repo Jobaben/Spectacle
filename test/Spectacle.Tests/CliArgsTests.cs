@@ -31,6 +31,32 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--unregister" }).Should().BeOfType<CliCommand.Unregister>();
 
     [Fact]
+    public void Init_config_without_path_has_null_path_and_no_force()
+    {
+        var c = CliArgs.Parse(new[] { "--init-config" })
+            .Should().BeOfType<CliCommand.InitConfig>().Subject;
+        c.Path.Should().BeNull();
+        c.Force.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Init_config_takes_an_optional_target_path()
+    {
+        var c = CliArgs.Parse(new[] { "--init-config", "specs" })
+            .Should().BeOfType<CliCommand.InitConfig>().Subject;
+        c.Path.Should().Be("specs");
+    }
+
+    [Fact]
+    public void Init_config_force_flag_sets_Force() =>
+        CliArgs.Parse(new[] { "--init-config", "--force" })
+            .Should().BeOfType<CliCommand.InitConfig>().Which.Force.Should().BeTrue();
+
+    [Fact]
+    public void Init_config_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "--init" }).Should().BeOfType<CliCommand.InitConfig>();
+
+    [Fact]
     public void File_path_is_Open()
     {
         var result = CliArgs.Parse(new[] { @"C:\docs\readme.md" });
@@ -466,6 +492,28 @@ public class CliArgsTests
     [Fact]
     public void Check_toc_without_path_is_Help() =>
         CliArgs.Parse(new[] { "--check-toc" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_numbering_after_path_is_CheckNumbering()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-numbering" })
+            .Should().BeOfType<CliCommand.CheckNumbering>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_numbering_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-numbering", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckNumbering>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_numbering_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-numbers" }).Should().BeOfType<CliCommand.CheckNumbering>();
+
+    [Fact]
+    public void Check_numbering_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-numbering" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
     public void Review_md_flag_sets_Md()

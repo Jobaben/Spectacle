@@ -9,6 +9,7 @@ public abstract record CliCommand
     public sealed record Unregister : CliCommand;
     public sealed record Help : CliCommand;
     public sealed record Version : CliCommand;
+    public sealed record InitConfig(string? Path, bool Force) : CliCommand;
     public sealed record Stats(string Path) : CliCommand;
     public sealed record ExportHtml(string Path, string? OutputPath) : CliCommand;
     public sealed record RevisionPlan(string Path, string? OutputPath, bool Json, bool UnresolvedOnly) : CliCommand;
@@ -29,6 +30,7 @@ public abstract record CliCommand
     public sealed record CheckEmphasisHeading(string Path, bool Json) : CliCommand;
     public sealed record CheckProse(string Path, bool Json) : CliCommand;
     public sealed record CheckToc(string Path, bool Json) : CliCommand;
+    public sealed record CheckNumbering(string Path, bool Json) : CliCommand;
     public sealed record Review(
         string Path,
         bool Json,
@@ -64,6 +66,11 @@ public static class CliArgs
         if (flags.Contains("--version")) return new CliCommand.Version();
         if (flags.Contains("--register")) return new CliCommand.Register();
         if (flags.Contains("--unregister")) return new CliCommand.Unregister();
+
+        // --init-config scaffolds a .spectacle.json; its optional positional is a target
+        // directory or file path (not a Markdown source), so it precedes the file commands.
+        if (flags.Contains("--init-config") || flags.Contains("--init"))
+            return new CliCommand.InitConfig(path, flags.Contains("--force"));
 
         if (flags.Contains("--stats"))
             return path is null ? new CliCommand.Help() : new CliCommand.Stats(path);
@@ -140,6 +147,9 @@ public static class CliArgs
 
         if (flags.Contains("--check-toc") || flags.Contains("--toc"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckToc(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-numbering") || flags.Contains("--check-numbers"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckNumbering(path, flags.Contains("--json"));
 
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
