@@ -35,9 +35,11 @@ public static class Program
           Spectacle.exe <file> --check-emphasis-heading [--json] Report emphasized lines used as fake headings and exit (non-zero if any)
           Spectacle.exe <file> --check-prose [--json] Report vague/hedging language (advisory, always exits 0)
           Spectacle.exe <file> --check-toc [--json] Report a table of contents out of sync with the headings and exit (non-zero if any)
+          Spectacle.exe <file> --check-numbering [--json] Report ordered lists whose numbering is out of sequence and exit (non-zero if any)
           Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif|--md] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
+          Spectacle.exe --init-config [path] [--force] Scaffold a documented .spectacle.json (refuses to overwrite without --force) and exit
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
@@ -54,6 +56,7 @@ public static class Program
             CliCommand.Version => Print(GetVersion(), 0),
             CliCommand.Register => DoRegister(),
             CliCommand.Unregister => DoUnregister(),
+            CliCommand.InitConfig init => DoInitConfig(init.Path, init.Force),
             CliCommand.Stats stats => DoStats(stats.Path),
             CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath),
             CliCommand.RevisionPlan plan => DoRevisionPlan(plan.Path, plan.OutputPath, plan.Json, plan.UnresolvedOnly),
@@ -74,6 +77,7 @@ public static class Program
             CliCommand.CheckEmphasisHeading emphasis => DoCheckEmphasisHeading(emphasis.Path, emphasis.Json),
             CliCommand.CheckProse prose => DoCheckProse(prose.Path, prose.Json),
             CliCommand.CheckToc toc => DoCheckToc(toc.Path, toc.Json),
+            CliCommand.CheckNumbering numbering => DoCheckNumbering(numbering.Path, numbering.Json),
             CliCommand.Review review => DoReview(
                 review.Path, review.Json, review.Baseline, review.Sarif,
                 review.Only ?? Array.Empty<string>(), review.Skip ?? Array.Empty<string>(), review.Md),
@@ -327,6 +331,16 @@ public static class Program
         return issues.Count == 0 ? 0 : 1;
     }
 
+    private static int DoCheckNumbering(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var issues = NumberingChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(NumberingCheckExporter.Build(issues, path, json));
+        // Non-zero when an ordered list is out of sequence so --check-numbering can gate a pipeline.
+        return issues.Count == 0 ? 0 : 1;
+    }
+
     private static int DoReview(
         string path, bool json, string? baseline, bool sarif,
         IReadOnlyList<string> only, IReadOnlyList<string> skip, bool md)
@@ -455,6 +469,25 @@ public static class Program
             return false;
         }
         return true;
+    }
+
+    private static int DoInitConfig(string? pathArg, bool force)
+    {
+        var target = ConfigScaffold.ResolveTargetPath(pathArg, Directory.Exists);
+        var full = Path.GetFullPath(target);
+
+        // Overwriting a hand-tuned config is destructive, so refuse unless the caller insists.
+        if (File.Exists(full) && !force)
+        {
+            Console.Error.WriteLine($"{full} already exists. Pass --force to overwrite.");
+            return 2;
+        }
+
+        var dir = Path.GetDirectoryName(full);
+        if (dir is not null) Directory.CreateDirectory(dir);
+        File.WriteAllText(full, ConfigScaffold.Template());
+        Console.WriteLine($"Wrote {full}");
+        return 0;
     }
 
     private static int DoRegister()

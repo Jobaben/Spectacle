@@ -21,6 +21,7 @@ public sealed class ReviewChecks
     {
         "lint", "structure", "links", "tables", "fences", "paths",
         "duplication", "alt-text", "link-text", "emphasis-heading", "sections", "toc",
+        "numbering",
     };
 
     /// <summary>Every check enabled — the default verdict, unchanged from before this feature.</summary>

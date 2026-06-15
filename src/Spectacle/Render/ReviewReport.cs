@@ -27,7 +27,8 @@ public sealed record ReviewReport(
     IReadOnlyList<TocIssue>? Toc = null,
     IReadOnlyList<UninformativeLink>? LinkText = null,
     IReadOnlyList<ProseFinding>? Prose = null,
-    IReadOnlyList<FenceIssue>? FenceWarnings = null)
+    IReadOnlyList<FenceIssue>? FenceWarnings = null,
+    IReadOnlyList<NumberingIssue>? Numbering = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
@@ -45,6 +46,9 @@ public sealed record ReviewReport(
     /// <summary>Advisory fence findings (closed but untagged) — guidance, never gating.</summary>
     public IReadOnlyList<FenceIssue> FenceAdvisories => FenceWarnings ?? Array.Empty<FenceIssue>();
 
+    /// <summary>Ordered lists whose numbering is out of sequence (gap, duplicate, or reorder).</summary>
+    public IReadOnlyList<NumberingIssue> NumberingIssues => Numbering ?? Array.Empty<NumberingIssue>();
+
     /// <summary>
     /// Count of advisory findings — hedging prose and untagged code fences. Surfaced in the
     /// verdict so the one command an agent runs sees this guidance too, but deliberately
@@ -58,7 +62,7 @@ public sealed record ReviewReport(
     public int IssueCount =>
         Lint.Count + Structure.Count + Links.Count + Tables.Count + Fences.Count + Paths.Count
         + Duplication.Count + AltText.Count + LinkTextIssues.Count + EmphasisHeadings.Count
-        + Sections.Count + TocIssues.Count;
+        + Sections.Count + TocIssues.Count + NumberingIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -148,6 +152,8 @@ public sealed record ReviewReport(
             // No TOC in the spec means no findings, so a spec without one is unaffected — the
             // same "enforced only when present" stance the section template uses.
             Toc: Run("toc", () => TocChecker.Check(content), t => t.Line),
+            // A spec with no ordered lists (or only well-numbered ones) is unaffected.
+            Numbering: Run("numbering", () => NumberingChecker.Check(content), n => n.Line),
             // Advisories are guidance, not gating defects, so they are computed unconditionally —
             // independent of the gate selection (their ids never appear in --only/--skip) and never
             // counted in IssueCount. The fence advisory is the no-language rule the gate's fence
