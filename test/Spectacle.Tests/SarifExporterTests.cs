@@ -154,4 +154,21 @@ public class SarifExporterTests
             .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
         catalogue.Should().Contain("toc/stale-toc-entry").And.Contain("toc/missing-from-toc");
     }
+
+    [Fact]
+    public void Includes_link_text_findings_as_results_and_catalogue_rules()
+    {
+        const string content = "# Spec\n\nFor the API, [click here](api.md).\n";
+        var sarif = SarifExporter.Build(
+            new[] { new BatchReviewEntry("spec.md", ReviewReport.Compute(content)) }, "1.0.0");
+
+        var run = Run(sarif);
+        var ruleIds = run.GetProperty("results").EnumerateArray()
+            .Select(r => r.GetProperty("ruleId").GetString()).ToList();
+        ruleIds.Should().Contain("link-text/non-descriptive");
+
+        var catalogue = run.GetProperty("tool").GetProperty("driver").GetProperty("rules")
+            .EnumerateArray().Select(r => r.GetProperty("id").GetString()).ToList();
+        catalogue.Should().Contain("link-text/non-descriptive").And.Contain("link-text/empty");
+    }
 }

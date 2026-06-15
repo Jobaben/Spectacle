@@ -531,6 +531,24 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--check-alt-text" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Check_link_text_after_path_is_CheckLinkText()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-link-text" })
+            .Should().BeOfType<CliCommand.CheckLinkText>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_link_text_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-link-text", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckLinkText>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_link_text_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-link-text" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
     public void Review_sarif_flag_sets_Sarif()
     {
         var r = CliArgs.Parse(new[] { "doc.md", "--review", "--sarif" })

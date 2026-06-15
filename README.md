@@ -34,6 +34,7 @@ Spectacle.exe <file> --check-paths [--json]    Report relative link/image target
 Spectacle.exe <file> --check-sections ["A,B,C"] [--config=<cfg>] [--json]  Report required sections (by heading) missing from the spec, then exit (non-zero if any)
 Spectacle.exe <file> --check-duplication [--json]  Report blocks repeated verbatim elsewhere in the spec, then exit (non-zero if any)
 Spectacle.exe <file> --check-alt-text [--json]  Report images missing alt text, then exit (non-zero if any)
+Spectacle.exe <file> --check-link-text [--json]  Report links whose text names no destination, then exit (non-zero if any)
 Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines used as fake headings, then exit (non-zero if any)
 Spectacle.exe <file> --check-prose [--json]    Report vague/hedging language, then exit (advisory — always exits 0)
 Spectacle.exe <file> --check-toc [--json]      Report a table of contents out of sync with the headings, then exit (non-zero if any)
@@ -177,6 +178,21 @@ the target is reported so the finding points at a recognizable image (whether th
 target exists on disk is `--check-paths`' concern). It exits non-zero when any image lacks alt
 text, so it can gate a pipeline; add `--json` for structured findings.
 
+`--check-link-text` reports links whose visible text says nothing about where they go —
+the `[click here](…)` / `[link](…)` / `[read more](…)` boilerplate AI agents reach for
+instead of naming the destination. Link text is what a screen reader announces out of
+context (a user tabbing through links hears only the text) and what a reader scans, so
+`here` or `this` is a genuine accessibility and clarity defect — the link analogue of the
+missing alt text `--check-alt-text` catches, which nothing else looks at (`--check-links`
+validates only that a link's *target* resolves, never its text). Two rules: `non-descriptive`
+(the text is one of a tight, curated set of generic phrases — `click here`, `here`, `link`,
+`more`, `read more`, …, matching markdownlint's MD059 defaults) and `empty` (the text between
+`[` and `]` is blank, distinct from `--check-links`' empty-*target* rule). The phrase list is
+deliberately conservative — only wording that is non-descriptive in essentially every context —
+to keep the false-positive rate low, the same stance `--check-prose` takes. Images are skipped
+(their text is alt text). It exits non-zero when any link is uninformative, so it can gate a
+pipeline; add `--json` for structured findings.
+
 `--check-prose` flags the hedging and vague filler language that is the signature defect
 of AI-authored specs — wording that *looks* like a requirement but commits to nothing, so
 neither a reader nor the next agent can tell what to build. It reports three rules: `hedge`
@@ -206,14 +222,25 @@ for structured findings.
 
 `--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
 `--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
-the advisory missing-tag rule stays under the dedicated command), `--check-paths`,
-`--check-duplication`, `--check-alt-text`, `--check-emphasis-heading`, `--check-sections`, and
-`--check-toc` (a no-op unless the spec has a TOC) —
+the advisory missing-tag rule is surfaced separately, see below), `--check-paths`,
+`--check-duplication`, `--check-alt-text`, `--check-link-text`, `--check-emphasis-heading`,
+`--check-sections`, and `--check-toc` (a no-op unless the spec has a TOC) —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
-array per check. (The advisory `--check-prose` is *not* part of the gate; hedging is guidance, not
-a pass/fail defect, so it stays a standalone command.)
+array per check.
+
+**Advisories.** `--review` also surfaces an `advisories` section — the guidance the gate
+deliberately does not fail on, so it no longer requires a separate run to see. It carries the
+`--check-prose` findings (hedging / vague language) and the fence `no-language` rule (a closed
+but untagged code block). Advisories are reported in the text, `--json` (an `advisories` object
+plus an `advisoryCount`), and `--md` outputs, but are **never counted in the issue total and
+never change the exit code** — hedging and a missing language tag are judgement calls, not
+pass/fail defects, the same report-don't-fail stance `--check-prose` and the dedicated
+`--check-fences` take. They are guidance for the agent revising the spec, gathered into the one
+command it already runs. (Advisories are independent of the `--only` / `--skip` gate selection,
+since their rules never gate; they are not emitted in the `--sarif` log, which carries only the
+gating defects, nor in the `--baseline` delta.)
 
 The required-section check participates only when a spec template is declared: `--review` reads
 `requiredSections` from the nearest **`.spectacle.json`** (the same config and "closest config
@@ -274,8 +301,8 @@ project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single r
 `--review --skip=duplication,alt-text` (run everything except those) or
 `--review --only=structure,links` (run only those). Precedence: `--only` chooses the universe,
 then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
-`structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `emphasis-heading`,
-and `sections`; an unrecognized id is ignored with a warning. A disabled check is never silently
+`structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `link-text`,
+`emphasis-heading`, `sections`, and `toc`; an unrecognized id is ignored with a warning. A disabled check is never silently
 treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
 clean result can't be confused with one that simply ran fewer checks. The selection applies
 uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
@@ -302,7 +329,8 @@ keeping a clean result honest.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
-`--check-emphasis-heading`, `--check-prose`, `--check-toc`, and `--review` all run headless and write to stdout.
+`--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`, and `--review`
+all run headless and write to stdout.
 
 ## Keyboard
 

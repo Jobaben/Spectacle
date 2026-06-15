@@ -21,6 +21,9 @@ public static class FenceChecker
     /// <summary>The only rule that represents a rendering defect (the one that gates --review).</summary>
     public const string UnclosedRule = "unclosed-fence";
 
+    /// <summary>The advisory rule: a closed fence with no language tag (renders without highlighting).</summary>
+    public const string NoLanguageRule = "no-language";
+
     public static IReadOnlyList<FenceIssue> Check(string? markdown)
     {
         var lines = (markdown ?? string.Empty).Split('\n');
@@ -50,7 +53,7 @@ public static class FenceChecker
             {
                 // A valid closing fence: same delimiter, at least as long, no info string.
                 if (!openHasLanguage)
-                    issues.Add(new FenceIssue(openLine, "no-language",
+                    issues.Add(new FenceIssue(openLine, NoLanguageRule,
                         "fenced code block has no language tag"));
                 inFence = false;
             }

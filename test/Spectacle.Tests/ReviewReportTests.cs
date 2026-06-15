@@ -10,7 +10,7 @@ public class ReviewReportTests
     public void Clean_spec_reports_zero_issues()
     {
         const string content =
-            "# Title\n\n## Section\n\nComplete prose with a working [link](#section).\n";
+            "# Title\n\n## Section\n\nComplete prose with a working [jump to the section](#section).\n";
 
         var report = ReviewReport.Compute(content);
 
@@ -23,8 +23,28 @@ public class ReviewReportTests
         report.Paths.Should().BeEmpty();
         report.Duplication.Should().BeEmpty();
         report.AltText.Should().BeEmpty();
+        report.LinkTextIssues.Should().BeEmpty();
         report.EmphasisHeadings.Should().BeEmpty();
         report.Sections.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Verdict_includes_uninformative_link_text_and_the_gate_can_skip_it()
+    {
+        // A link whose text names no destination is part of the one-shot verdict, and like every
+        // gating check it can be turned off — then it contributes nothing and is listed skipped.
+        const string content = "# Title\n\nFor the API, [click here](api.md).\n";
+
+        var report = ReviewReport.Compute(content);
+        report.LinkTextIssues.Should().ContainSingle();
+        report.IssueCount.Should().BeGreaterThan(0);
+
+        var skipped = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "link-text" }, System.Array.Empty<string>());
+        var report2 = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), skipped);
+        report2.LinkTextIssues.Should().BeEmpty();
+        report2.IssueCount.Should().Be(0);
+        report2.Skipped.Should().Contain("link-text");
     }
 
     [Fact]
@@ -62,6 +82,22 @@ public class ReviewReportTests
         report.AltText.Should().NotBeEmpty();
         report.EmphasisHeadings.Should().Contain(e => e.Text == "Overview");
         report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Advisories_are_surfaced_but_never_gate_the_verdict()
+    {
+        // Hedging prose and an untagged code fence are advisory: the verdict reports them but
+        // they must not change the pass/fail gate, so a spec with only advisories stays clean.
+        const string content =
+            "# Spec\n\n## Overview\n\nThe service should probably cache responses.\n\n```\nplain code\n```\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.IssueCount.Should().Be(0);
+        report.ProseAdvisories.Should().Contain(p => p.Rule == ProseChecker.HedgeRule);
+        report.FenceAdvisories.Should().Contain(f => f.Rule == FenceChecker.NoLanguageRule);
+        report.AdvisoryCount.Should().Be(report.ProseAdvisories.Count + report.FenceAdvisories.Count);
     }
 
     [Fact]

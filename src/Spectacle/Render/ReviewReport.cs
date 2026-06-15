@@ -24,7 +24,10 @@ public sealed record ReviewReport(
     int ChecklistDone,
     IReadOnlyList<string>? SkippedChecks = null,
     int SuppressedCount = 0,
-    IReadOnlyList<TocIssue>? Toc = null)
+    IReadOnlyList<TocIssue>? Toc = null,
+    IReadOnlyList<UninformativeLink>? LinkText = null,
+    IReadOnlyList<ProseFinding>? Prose = null,
+    IReadOnlyList<FenceIssue>? FenceWarnings = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
@@ -33,10 +36,29 @@ public sealed record ReviewReport(
     /// <summary>Table-of-contents drift findings (stale and missing entries).</summary>
     public IReadOnlyList<TocIssue> TocIssues => Toc ?? Array.Empty<TocIssue>();
 
+    /// <summary>Links whose visible text says nothing about their destination.</summary>
+    public IReadOnlyList<UninformativeLink> LinkTextIssues => LinkText ?? Array.Empty<UninformativeLink>();
+
+    /// <summary>Advisory prose findings (hedging / vague language) — guidance, never gating.</summary>
+    public IReadOnlyList<ProseFinding> ProseAdvisories => Prose ?? Array.Empty<ProseFinding>();
+
+    /// <summary>Advisory fence findings (closed but untagged) — guidance, never gating.</summary>
+    public IReadOnlyList<FenceIssue> FenceAdvisories => FenceWarnings ?? Array.Empty<FenceIssue>();
+
+    /// <summary>
+    /// Count of advisory findings — hedging prose and untagged code fences. Surfaced in the
+    /// verdict so the one command an agent runs sees this guidance too, but deliberately
+    /// <em>excluded</em> from <see cref="IssueCount"/>: advisories are judgement calls, so they
+    /// never change the pass/fail gate (the same report-don't-fail stance the standalone
+    /// <c>--check-prose</c> and the fence <c>no-language</c> rule take).
+    /// </summary>
+    public int AdvisoryCount => ProseAdvisories.Count + FenceAdvisories.Count;
+
     /// <summary>Total problems across all enabled, non-suppressed checks (the checklist is informational).</summary>
     public int IssueCount =>
         Lint.Count + Structure.Count + Links.Count + Tables.Count + Fences.Count + Paths.Count
-        + Duplication.Count + AltText.Count + EmphasisHeadings.Count + Sections.Count + TocIssues.Count;
+        + Duplication.Count + AltText.Count + LinkTextIssues.Count + EmphasisHeadings.Count
+        + Sections.Count + TocIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -103,13 +125,15 @@ public sealed record ReviewReport(
             Links: Run("links", () => LinkChecker.Check(content), b => b.Line),
             Tables: Run("tables", () => TableChecker.Check(content), t => t.Line),
             // Only the rendering defect (an unclosed fence) gates the verdict; a missing
-            // language tag is advisory and surfaces solely under the dedicated --check-fences.
+            // language tag is advisory — it surfaces under FenceWarnings below (and the
+            // dedicated --check-fences), never in the gating count.
             Fences: Run("fences",
                 () => FenceChecker.Check(content).Where(f => f.Rule == FenceChecker.UnclosedRule).ToList(),
                 f => f.Line),
             Paths: Run("paths", () => LinkPathChecker.Check(content, targetExists), p => p.Line),
             Duplication: Run("duplication", () => DuplicateBlockChecker.Check(content), d => d.Line),
             AltText: Run("alt-text", () => AltTextChecker.Check(content), a => a.Line),
+            LinkText: Run("link-text", () => LinkTextChecker.Check(content), l => l.Line),
             EmphasisHeadings: Run("emphasis-heading", () => EmphasisHeadingChecker.Check(content), e => e.Line),
             // No template (empty list) means nothing is required, so this is a no-op —
             // preserving the verdict for specs reviewed without a .spectacle.json. A missing
@@ -123,6 +147,12 @@ public sealed record ReviewReport(
             SuppressedCount: suppressed,
             // No TOC in the spec means no findings, so a spec without one is unaffected — the
             // same "enforced only when present" stance the section template uses.
-            Toc: Run("toc", () => TocChecker.Check(content), t => t.Line));
+            Toc: Run("toc", () => TocChecker.Check(content), t => t.Line),
+            // Advisories are guidance, not gating defects, so they are computed unconditionally —
+            // independent of the gate selection (their ids never appear in --only/--skip) and never
+            // counted in IssueCount. The fence advisory is the no-language rule the gate's fence
+            // check deliberately drops (it keeps only the unclosed-fence rendering defect).
+            Prose: ProseChecker.Check(content),
+            FenceWarnings: FenceChecker.Check(content).Where(f => f.Rule == FenceChecker.NoLanguageRule).ToList());
     }
 }

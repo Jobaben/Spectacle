@@ -31,6 +31,7 @@ public static class Program
           Spectacle.exe <file> --check-sections ["A,B,C"] [--config=<cfg>] [--json] Report required sections missing from the spec (list or .spectacle.json) and exit (non-zero if any)
           Spectacle.exe <file> --check-duplication [--json] Report blocks repeated verbatim elsewhere in the spec and exit (non-zero if any)
           Spectacle.exe <file> --check-alt-text [--json] Report images missing alt text and exit (non-zero if any)
+          Spectacle.exe <file> --check-link-text [--json] Report links whose text names no destination and exit (non-zero if any)
           Spectacle.exe <file> --check-emphasis-heading [--json] Report emphasized lines used as fake headings and exit (non-zero if any)
           Spectacle.exe <file> --check-prose [--json] Report vague/hedging language (advisory, always exits 0)
           Spectacle.exe <file> --check-toc [--json] Report a table of contents out of sync with the headings and exit (non-zero if any)
@@ -69,6 +70,7 @@ public static class Program
             CliCommand.CheckSections sections => DoCheckSections(sections.Path, sections.Required, sections.Json, sections.ConfigPath),
             CliCommand.CheckDuplication dup => DoCheckDuplication(dup.Path, dup.Json),
             CliCommand.CheckAltText alt => DoCheckAltText(alt.Path, alt.Json),
+            CliCommand.CheckLinkText linkText => DoCheckLinkText(linkText.Path, linkText.Json),
             CliCommand.CheckEmphasisHeading emphasis => DoCheckEmphasisHeading(emphasis.Path, emphasis.Json),
             CliCommand.CheckProse prose => DoCheckProse(prose.Path, prose.Json),
             CliCommand.CheckToc toc => DoCheckToc(toc.Path, toc.Json),
@@ -283,6 +285,16 @@ public static class Program
         Console.WriteLine(AltTextCheckExporter.Build(images, path, json));
         // Non-zero when an image lacks alt text so --check-alt-text can gate a pipeline.
         return images.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckLinkText(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var links = LinkTextChecker.Check(File.ReadAllText(path));
+        Console.WriteLine(LinkTextCheckExporter.Build(links, path, json));
+        // Non-zero when a link's text says nothing about its destination so this can gate a pipeline.
+        return links.Count == 0 ? 0 : 1;
     }
 
     private static int DoCheckEmphasisHeading(string path, bool json)
