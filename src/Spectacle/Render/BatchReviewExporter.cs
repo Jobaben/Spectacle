@@ -43,6 +43,7 @@ public static class BatchReviewExporter
             sb.AppendLine();
             ReviewReportExporter.AppendSections(sb, e.Report, "### ");
             if (e.Report.IssueCount == 0) sb.AppendLine("_No issues._").AppendLine();
+            ReviewReportExporter.AppendAdvisories(sb, e.Report, "### ");
         }
 
         return sb.ToString().TrimEnd('\n');
@@ -90,9 +91,12 @@ public static class BatchReviewExporter
                 paths = e.Report.Paths,
                 duplication = e.Report.Duplication,
                 altText = e.Report.AltText,
+                linkText = e.Report.LinkTextIssues,
                 emphasisHeadings = e.Report.EmphasisHeadings,
                 sections = e.Report.Sections,
                 toc = e.Report.TocIssues,
+                advisoryCount = e.Report.AdvisoryCount,
+                advisories = new { prose = e.Report.ProseAdvisories, fences = e.Report.FenceAdvisories },
                 checklist = new
                 {
                     total = e.Report.ChecklistTotal,

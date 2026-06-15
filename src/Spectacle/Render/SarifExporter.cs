@@ -44,6 +44,8 @@ public static class SarifExporter
         ("paths", "A relative link/image target that does not exist on disk."),
         ("duplication", "A block (paragraph, list item, code, table) repeated verbatim elsewhere."),
         ("alt-text", "An image with no alt text (empty description)."),
+        ("link-text/non-descriptive", "A link whose visible text (e.g. 'click here', 'more') names no destination."),
+        ("link-text/empty", "A link with empty or whitespace-only visible text."),
         ("emphasis-heading", "An emphasized line used as a fake heading instead of a real heading."),
         ("sections", "A required section (by the spec template) is missing from the document."),
         ("toc/stale-toc-entry", "A table-of-contents entry pointing at a heading that does not exist."),
@@ -99,6 +101,8 @@ public static class SarifExporter
             yield return Result("duplication", $"{d.Kind} duplicates line {d.FirstLine}", uri, d.Line);
         foreach (var a in r.AltText)
             yield return Result("alt-text", $"image missing alt text: {(a.Target.Length == 0 ? "(no target)" : a.Target)}", uri, a.Line);
+        foreach (var l in r.LinkTextIssues)
+            yield return Result($"link-text/{LinkTextChecker.RuleOf(l)}", l.Reason, uri, l.Line);
         foreach (var e in r.EmphasisHeadings)
             yield return Result("emphasis-heading", $"emphasized line used as heading: '{e.Text}'", uri, e.Line);
         // A missing section is a document-level defect with no line; anchor it at line 1 so it

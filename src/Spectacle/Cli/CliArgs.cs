@@ -25,6 +25,7 @@ public abstract record CliCommand
     public sealed record CheckSections(string Path, string? Required, bool Json, string? ConfigPath = null) : CliCommand;
     public sealed record CheckDuplication(string Path, bool Json) : CliCommand;
     public sealed record CheckAltText(string Path, bool Json) : CliCommand;
+    public sealed record CheckLinkText(string Path, bool Json) : CliCommand;
     public sealed record CheckEmphasisHeading(string Path, bool Json) : CliCommand;
     public sealed record CheckProse(string Path, bool Json) : CliCommand;
     public sealed record CheckToc(string Path, bool Json) : CliCommand;
@@ -127,6 +128,9 @@ public static class CliArgs
 
         if (flags.Contains("--check-alt-text") || flags.Contains("--check-alt"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckAltText(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-link-text"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckLinkText(path, flags.Contains("--json"));
 
         if (flags.Contains("--check-emphasis-heading") || flags.Contains("--check-emphasis"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckEmphasisHeading(path, flags.Contains("--json"));

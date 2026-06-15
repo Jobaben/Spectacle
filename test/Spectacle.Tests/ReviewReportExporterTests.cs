@@ -145,6 +145,48 @@ public class ReviewReportExporterTests
         report.Skipped.Should().Contain("toc");
     }
 
+    private const string OnlyAdvisories =
+        "# Spec\n\n## Overview\n\nThe service should probably cache responses.\n\n```\nplain code\n```\n";
+
+    [Fact]
+    public void Text_reports_advisories_separately_from_gating_issues()
+    {
+        var report = ReviewReport.Compute(OnlyAdvisories);
+
+        var text = ReviewReportExporter.Build(report, "spec.md", json: false);
+
+        text.Should().Contain("0 issue(s)");          // advisories do not raise the issue count
+        text.Should().Contain("advisories (");
+        text.Should().Contain("prose/hedge");
+        text.Should().Contain("fences/no-language");
+    }
+
+    [Fact]
+    public void Json_carries_advisories_outside_the_issue_count()
+    {
+        var report = ReviewReport.Compute(OnlyAdvisories);
+
+        var root = JsonDocument.Parse(ReviewReportExporter.Build(report, "spec.md", json: true)).RootElement;
+
+        root.GetProperty("issueCount").GetInt32().Should().Be(0);
+        root.GetProperty("advisoryCount").GetInt32().Should().BeGreaterThan(0);
+        root.GetProperty("advisories").GetProperty("prose").GetArrayLength().Should().BeGreaterThan(0);
+        root.GetProperty("advisories").GetProperty("fences").GetArrayLength().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Markdown_lists_advisories_and_omits_the_section_when_none()
+    {
+        var withAdvisories = ReviewReportExporter.Build(
+            ReviewReport.Compute(OnlyAdvisories), "spec.md", json: false, markdown: true);
+        withAdvisories.Should().Contain("advisories (");
+        withAdvisories.Should().Contain("prose/hedge");
+
+        var clean = ReviewReportExporter.Build(
+            ReviewReport.Compute("# T\n\nA clean spec.\n"), "spec.md", json: false, markdown: true);
+        clean.Should().NotContain("advisories");
+    }
+
     [Fact]
     public void Clean_verdict_reports_no_skipped_or_suppressed()
     {

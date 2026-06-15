@@ -70,6 +70,10 @@ public static class ReviewReportExporter
             sb.Append("    line ").Append(a.Line).Append("  ")
               .AppendLine(a.Target.Length == 0 ? "(no target)" : a.Target);
 
+        sb.Append("  link-text (").Append(r.LinkTextIssues.Count).AppendLine("):");
+        foreach (var l in r.LinkTextIssues)
+            sb.Append("    line ").Append(l.Line).Append("  ").AppendLine(l.Reason);
+
         sb.Append("  emphasis-headings (").Append(r.EmphasisHeadings.Count).AppendLine("):");
         foreach (var e in r.EmphasisHeadings)
             sb.Append("    line ").Append(e.Line).Append("  '").Append(e.Text).AppendLine("'");
@@ -81,6 +85,13 @@ public static class ReviewReportExporter
         sb.Append("  toc (").Append(r.TocIssues.Count).AppendLine("):");
         foreach (var t in r.TocIssues)
             sb.Append("    line ").Append(t.Line).Append("  [").Append(t.Rule).Append("] ").AppendLine(t.Message);
+
+        // Advisories are guidance, not gate failures: shown after the issues, never in the count.
+        sb.Append("  advisories (").Append(r.AdvisoryCount).AppendLine(") — not gating:");
+        foreach (var f in r.FenceAdvisories)
+            sb.Append("    line ").Append(f.Line).Append("  [fences/").Append(f.Rule).Append("] ").AppendLine(f.Message);
+        foreach (var p in r.ProseAdvisories)
+            sb.Append("    line ").Append(p.Line).Append("  [prose/").Append(p.Rule).Append("] ").AppendLine(p.Message);
 
         sb.Append("  checklist: ").Append(r.ChecklistDone).Append('/').Append(r.ChecklistTotal).Append(" complete");
         return sb.ToString();
@@ -102,9 +113,13 @@ public static class ReviewReportExporter
             paths = r.Paths,
             duplication = r.Duplication,
             altText = r.AltText,
+            linkText = r.LinkTextIssues,
             emphasisHeadings = r.EmphasisHeadings,
             sections = r.Sections,
             toc = r.TocIssues,
+            // Advisories are reported but excluded from issueCount — guidance, not gate failures.
+            advisoryCount = r.AdvisoryCount,
+            advisories = new { prose = r.ProseAdvisories, fences = r.FenceAdvisories },
             checklist = new { total = r.ChecklistTotal, done = r.ChecklistDone, open = r.ChecklistTotal - r.ChecklistDone },
         };
         return JsonSerializer.Serialize(payload, JsonOptions);
@@ -119,6 +134,7 @@ public static class ReviewReportExporter
         sb.AppendLine();
         AppendSections(sb, r, "## ");
         if (r.IssueCount == 0) sb.AppendLine("No issues found.").AppendLine();
+        AppendAdvisories(sb, r, "## ");
         sb.Append("**Checklist:** ").Append(r.ChecklistDone).Append(" / ")
           .Append(r.ChecklistTotal).Append(" complete");
         return sb.ToString().TrimEnd('\n');
@@ -155,10 +171,29 @@ public static class ReviewReportExporter
             d => $"[{d.Kind}] duplicate of line {d.FirstLine}", d => d.Line);
         Section(sb, prefix, "alt-text", r.AltText,
             a => a.Target.Length == 0 ? "(no target)" : a.Target, a => a.Line);
+        Section(sb, prefix, "link-text", r.LinkTextIssues, l => l.Reason, l => l.Line);
         Section(sb, prefix, "emphasis-heading", r.EmphasisHeadings, e => $"'{e.Text}'", e => e.Line);
         // A missing section has no line, so it renders without one.
         SectionNoLine(sb, prefix, "sections", r.Sections, s => $"missing '{s.Required}'");
         Section(sb, prefix, "toc", r.TocIssues, t => $"`{t.Rule}` {t.Message}", t => t.Line);
+    }
+
+    /// <summary>
+    /// Appends the advisory subsection (untagged fences, hedging prose) at the given heading
+    /// prefix, omitted entirely when there is nothing advisory to report. Advisories are guidance,
+    /// so the heading says so and they are kept out of the issue sections above. Shared with the
+    /// batch report so a folder review surfaces the same guidance per spec.
+    /// </summary>
+    internal static void AppendAdvisories(StringBuilder sb, ReviewReport r, string prefix)
+    {
+        if (r.AdvisoryCount == 0) return;
+        sb.Append(prefix).Append("advisories (").Append(r.AdvisoryCount).Append(") — not gating")
+          .AppendLine().AppendLine();
+        foreach (var f in r.FenceAdvisories)
+            sb.Append("- line ").Append(f.Line).Append(" — `fences/").Append(f.Rule).Append("` ").AppendLine(f.Message);
+        foreach (var p in r.ProseAdvisories)
+            sb.Append("- line ").Append(p.Line).Append(" — `prose/").Append(p.Rule).Append("` ").AppendLine(p.Message);
+        sb.AppendLine();
     }
 
     private static void Section<T>(
