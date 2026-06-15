@@ -36,7 +36,7 @@ Spectacle.exe <file> --check-duplication [--json]  Report blocks repeated verbat
 Spectacle.exe <file> --check-alt-text [--json]  Report images missing alt text, then exit (non-zero if any)
 Spectacle.exe <file> --check-emphasis-heading [--json]  Report emphasized lines used as fake headings, then exit (non-zero if any)
 Spectacle.exe <file> --check-prose [--json]    Report vague/hedging language, then exit (advisory — always exits 0)
-Spectacle.exe <file> --review [--json|--sarif] Run all checks at once, then exit (non-zero if any issues)
+Spectacle.exe <file> --review [--json|--sarif] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
 Spectacle.exe --register                       Register file association
@@ -129,6 +129,13 @@ it on every invocation. The config is a JSON object with a `requiredSections` st
 
 ```json
 { "requiredSections": ["Overview", "Acceptance Criteria", "Non-Goals"] }
+```
+
+The same config also declares the team's **gate** — which checks `--review` runs (see
+"Tuning the gate" below) — via a `disabledChecks` array:
+
+```json
+{ "requiredSections": ["Overview"], "disabledChecks": ["duplication", "alt-text"] }
 ```
 
 Discovery walks up from the spec's own directory and takes the nearest `.spectacle.json`
@@ -228,6 +235,43 @@ finding that merely moved counts as persisting, not as one fixed plus one new. I
 while the revision still carries any issue (new or persisting), matching plain `--review`'s
 "spec must be clean" gate; add `--json` for structured `fixed` / `new` / `persisting` arrays an
 agent can act on.
+
+### Tuning the gate
+
+The one-shot verdict is otherwise all-or-nothing. Two controls let a team adopt it without
+fighting checks that don't fit their style — the same file-level and line-level tuning every
+linter offers, here serving the AI write → review → revise loop.
+
+**Project gate (`disabledChecks` / `--only` / `--skip`).** Turn a gating check off for a whole
+project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single run with
+`--review --skip=duplication,alt-text` (run everything except those) or
+`--review --only=structure,links` (run only those). Precedence: `--only` chooses the universe,
+then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
+`structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `emphasis-heading`,
+and `sections`; an unrecognized id is ignored with a warning. A disabled check is never silently
+treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
+clean result can't be confused with one that simply ran fewer checks. The selection applies
+uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
+`--baseline` delta (off on both sides, so a skipped check never reads as fixed or new).
+
+**Inline suppression (`spectacle-disable-line` / `spectacle-disable-next-line`).** Silence one
+finding at one place — a paragraph an agent repeated on purpose, an intentionally decorative
+image — by annotating the spec itself, the line-level companion to the project gate (the
+`eslint-disable-next-line` / `# noqa` mechanism). Write an HTML comment (invisible in the
+rendered preview) on the finding's line or the line before it:
+
+```markdown
+<!-- spectacle-disable-next-line duplication -->
+The quick brown fox jumps over the lazy dog.
+
+![logo](logo.png) <!-- spectacle-disable-line alt-text -->
+```
+
+List one or more check ids after the keyword (comma- or space-separated), or omit them to
+suppress every check on that line. Directives inside fenced code are ignored, so a spec can
+document the syntax without disarming its own gate. A suppressed finding stops gating but is
+counted, not hidden: the verdict reports `N suppressed` (text) / `suppressedCount` (JSON), again
+keeping a clean result honest.
 
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,

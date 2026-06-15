@@ -106,6 +106,59 @@ public class ReviewReportTests
     }
 
     [Fact]
+    public void A_disabled_check_contributes_no_findings_and_is_listed_skipped()
+    {
+        // A spec with a verbatim-repeated paragraph would normally fail on duplication.
+        const string content =
+            "# Title\n\nThe quick brown fox jumps over the lazy dog today.\n\n" +
+            "The quick brown fox jumps over the lazy dog today.\n";
+
+        var withCheck = ReviewReport.Compute(content);
+        withCheck.Duplication.Should().NotBeEmpty();
+
+        var disabled = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "duplication" }, System.Array.Empty<string>());
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), disabled);
+
+        report.Duplication.Should().BeEmpty();
+        report.IssueCount.Should().Be(0);
+        report.Skipped.Should().Contain("duplication");
+    }
+
+    [Fact]
+    public void Inline_directive_suppresses_a_finding_and_counts_it()
+    {
+        // The directive silences the missing-alt finding on the image it precedes. Suppression
+        // is intrinsic to the content, so the same default Compute honours it — the directive-free
+        // spec is the baseline that still reports the finding.
+        const string withoutDirective = "# Title\n\n![](diagram.png)\n";
+        const string withDirective =
+            "# Title\n\n<!-- spectacle-disable-next-line alt-text -->\n![](diagram.png)\n";
+
+        ReviewReport.Compute(withoutDirective).AltText.Should().NotBeEmpty();
+
+        var report = ReviewReport.Compute(withDirective);
+
+        report.AltText.Should().BeEmpty();
+        report.SuppressedCount.Should().Be(1);
+        report.IssueCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void Suppression_targets_only_the_named_check_on_that_line()
+    {
+        // A line with both a missing-alt image and a different defect: only alt-text is silenced.
+        const string content =
+            "# Title\n\n![](a.png) and [bad](#nowhere) <!-- spectacle-disable-line alt-text -->\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.AltText.Should().BeEmpty();
+        report.SuppressedCount.Should().Be(1);
+        report.Links.Should().NotBeEmpty();
+    }
+
+    [Fact]
     public void Counts_checklist_completion()
     {
         const string content = "# Title\n\n- [x] done\n- [ ] open\n- [ ] also open\n";

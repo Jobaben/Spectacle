@@ -27,7 +27,13 @@ public abstract record CliCommand
     public sealed record CheckAltText(string Path, bool Json) : CliCommand;
     public sealed record CheckEmphasisHeading(string Path, bool Json) : CliCommand;
     public sealed record CheckProse(string Path, bool Json) : CliCommand;
-    public sealed record Review(string Path, bool Json, string? Baseline = null, bool Sarif = false) : CliCommand;
+    public sealed record Review(
+        string Path,
+        bool Json,
+        string? Baseline = null,
+        bool Sarif = false,
+        IReadOnlyList<string>? Only = null,
+        IReadOnlyList<string>? Skip = null) : CliCommand;
 }
 
 public static class CliArgs
@@ -137,7 +143,8 @@ public static class CliArgs
             // --baseline with no file to compare against is a misuse; show help.
             if (flags.Contains("--baseline") && baseline is null) return new CliCommand.Help();
             return new CliCommand.Review(
-                path, flags.Contains("--json"), baseline, flags.Contains("--sarif"));
+                path, flags.Contains("--json"), baseline, flags.Contains("--sarif"),
+                FlagValueList(flags, "--only="), FlagValueList(flags, "--skip="));
         }
 
         // No recognized flag: open the file if we have one, otherwise show help
@@ -152,5 +159,20 @@ public static class CliArgs
     {
         var match = flags.FindLast(f => f.StartsWith(prefix, System.StringComparison.Ordinal));
         return match?[prefix.Length..];
+    }
+
+    // Collects the comma-separated values of every `prefix=a,b` occurrence into one list, so
+    // `--skip=lint --skip=paths` and `--skip=lint,paths` are equivalent. Blank entries are
+    // dropped; an absent flag yields an empty list (never null) for a simple caller contract.
+    private static IReadOnlyList<string> FlagValueList(List<string> flags, string prefix)
+    {
+        var values = new List<string>();
+        foreach (var f in flags)
+        {
+            if (!f.StartsWith(prefix, System.StringComparison.Ordinal)) continue;
+            foreach (var part in f[prefix.Length..].Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries))
+                values.Add(part);
+        }
+        return values;
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using FluentAssertions;
 using Spectacle.Cli;
+using Spectacle.Render;
 using Xunit;
 
 namespace Spectacle.Tests;
@@ -82,5 +83,27 @@ public class ConfigLocatorTests : IDisposable
         File.WriteAllText(spec, "# Spec\n");
 
         ConfigLocator.Resolve(spec, explicitConfigPath: null).RequiredSections.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Disk_disabled_checks_flow_through_to_the_review_gate()
+    {
+        // Mirrors Program.ChecksFor: a .spectacle.json disabledChecks entry, discovered from the
+        // spec's directory, must reach ReviewReport.Compute and stop that check from gating.
+        File.WriteAllText(Path.Combine(_tmp, ConfigLocator.FileName),
+            """{ "disabledChecks": ["duplication"] }""");
+        var spec = Path.Combine(_tmp, "spec.md");
+        const string repeated =
+            "# Title\n\nThe quick brown fox jumps over the lazy dog today.\n\n" +
+            "The quick brown fox jumps over the lazy dog today.\n";
+        File.WriteAllText(spec, repeated);
+
+        var configDisabled = ConfigLocator.Resolve(spec, null).DisabledChecks;
+        var checks = ReviewChecks.Resolve(Array.Empty<string>(), Array.Empty<string>(), configDisabled);
+        var report = ReviewReport.Compute(repeated, _ => true, Array.Empty<string>(), checks);
+
+        report.Skipped.Should().Contain("duplication");
+        report.Duplication.Should().BeEmpty();
+        report.IssueCount.Should().Be(0);
     }
 }

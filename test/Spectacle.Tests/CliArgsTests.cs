@@ -549,4 +549,37 @@ public class CliArgsTests
     [Fact]
     public void Review_baseline_without_second_file_is_Help() =>
         CliArgs.Parse(new[] { "new.md", "--review", "--baseline" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_without_selection_has_empty_only_and_skip()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Only.Should().BeNullOrEmpty();
+        r.Skip.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
+    public void Review_skip_captures_comma_separated_ids()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--skip=duplication,alt-text" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Skip.Should().Equal("duplication", "alt-text");
+    }
+
+    [Fact]
+    public void Review_only_captures_comma_separated_ids()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--only=structure,links" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Only.Should().Equal("structure", "links");
+    }
+
+    [Fact]
+    public void Review_repeated_skip_flags_accumulate()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--skip=lint", "--skip=paths" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Skip.Should().Equal("lint", "paths");
+    }
 }

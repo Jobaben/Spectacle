@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using FluentAssertions;
 using Spectacle.Render;
@@ -70,5 +71,47 @@ public class ReviewReportExporterTests
         root.GetProperty("altText").GetArrayLength().Should().BeGreaterThan(0);
         root.GetProperty("emphasisHeadings").GetArrayLength().Should().BeGreaterThan(0);
         root.GetProperty("sections")[0].GetProperty("required").GetString().Should().Be("Acceptance Criteria");
+    }
+
+    [Fact]
+    public void Clean_verdict_reports_no_skipped_or_suppressed()
+    {
+        var root = JsonDocument.Parse(
+            ReviewReportExporter.Build(ReviewReport.Compute("# T\n\nClean.\n"), "spec.md", json: true)).RootElement;
+
+        root.GetProperty("skippedChecks").GetArrayLength().Should().Be(0);
+        root.GetProperty("suppressedCount").GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public void Text_surfaces_skipped_checks_and_suppressed_count()
+    {
+        // Disable duplication, and suppress the alt-text finding inline.
+        const string content =
+            "# Title\n\n<!-- spectacle-disable-next-line alt-text -->\n![](d.png)\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "duplication" }, System.Array.Empty<string>());
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        var text = ReviewReportExporter.Build(report, "spec.md", json: false);
+
+        text.Should().Contain("1 suppressed");
+        text.Should().Contain("skipped: duplication");
+    }
+
+    [Fact]
+    public void Json_surfaces_skipped_checks_and_suppressed_count()
+    {
+        const string content =
+            "# Title\n\n<!-- spectacle-disable-next-line alt-text -->\n![](d.png)\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "duplication", "paths" }, System.Array.Empty<string>());
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        var root = JsonDocument.Parse(ReviewReportExporter.Build(report, "spec.md", json: true)).RootElement;
+
+        root.GetProperty("suppressedCount").GetInt32().Should().Be(1);
+        var skipped = root.GetProperty("skippedChecks").EnumerateArray().Select(e => e.GetString()).ToList();
+        skipped.Should().Contain("duplication").And.Contain("paths");
     }
 }
