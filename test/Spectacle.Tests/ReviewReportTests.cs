@@ -276,4 +276,52 @@ public class ReviewReportTests
         report.HeadingNumberingIssues.Should().BeEmpty();
         report.Skipped.Should().Contain("heading-numbering");
     }
+
+    [Fact]
+    public void Review_gate_includes_undefined_link_reference_findings()
+    {
+        const string content = "# Title\n\nSee [the spec][missing-ref] for details.\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.LinkRefIssues.Should().ContainSingle().Which.Label.Should().Be("missing-ref");
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Link_refs_check_is_skippable_via_the_gate()
+    {
+        const string content = "# Title\n\nSee [the spec][missing-ref] for details.\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "link-refs" }, System.Array.Empty<string>());
+
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        report.LinkRefIssues.Should().BeEmpty();
+        report.Skipped.Should().Contain("link-refs");
+    }
+
+    [Fact]
+    public void Review_gate_includes_undefined_footnote_findings()
+    {
+        const string content = "# Title\n\nA cited claim.[^missing]\n";
+
+        var report = ReviewReport.Compute(content);
+
+        report.FootnoteIssues.Should().ContainSingle().Which.Label.Should().Be("missing");
+        report.IssueCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Footnotes_check_is_skippable_via_the_gate()
+    {
+        const string content = "# Title\n\nA cited claim.[^missing]\n";
+        var checks = ReviewChecks.Resolve(
+            System.Array.Empty<string>(), new[] { "footnotes" }, System.Array.Empty<string>());
+
+        var report = ReviewReport.Compute(content, _ => true, System.Array.Empty<string>(), checks);
+
+        report.FootnoteIssues.Should().BeEmpty();
+        report.Skipped.Should().Contain("footnotes");
+    }
 }

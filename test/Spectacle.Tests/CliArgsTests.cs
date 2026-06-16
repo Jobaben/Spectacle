@@ -732,4 +732,48 @@ public class CliArgsTests
             .Should().BeOfType<CliCommand.Review>().Subject;
         r.Skip.Should().Equal("lint", "paths");
     }
+
+    [Fact]
+    public void Check_link_refs_after_path_is_CheckLinkRefs()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-link-refs" })
+            .Should().BeOfType<CliCommand.CheckLinkRefs>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_link_refs_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-link-refs", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckLinkRefs>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_link_refs_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-references" }).Should().BeOfType<CliCommand.CheckLinkRefs>();
+
+    [Fact]
+    public void Check_link_refs_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-link-refs" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_footnotes_after_path_is_CheckFootnotes()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-footnotes" })
+            .Should().BeOfType<CliCommand.CheckFootnotes>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_footnotes_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-footnotes", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckFootnotes>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_footnotes_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-notes" }).Should().BeOfType<CliCommand.CheckFootnotes>();
+
+    [Fact]
+    public void Check_footnotes_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-footnotes" }).Should().BeOfType<CliCommand.Help>();
 }

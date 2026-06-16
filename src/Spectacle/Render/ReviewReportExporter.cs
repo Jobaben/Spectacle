@@ -98,6 +98,15 @@ public static class ReviewReportExporter
         foreach (var h in r.HeadingNumberingIssues)
             sb.Append("    line ").Append(h.Line).Append("  [").Append(h.Rule).Append("] ").AppendLine(h.Message);
 
+        sb.Append("  link-refs (").Append(r.LinkRefIssues.Count).AppendLine("):");
+        foreach (var lr in r.LinkRefIssues)
+            sb.Append("    line ").Append(lr.Line).Append("  ").Append(lr.Reference)
+              .Append(" — no definition for '").Append(lr.Label).AppendLine("'");
+
+        sb.Append("  footnotes (").Append(r.FootnoteIssues.Count).AppendLine("):");
+        foreach (var fn in r.FootnoteIssues)
+            sb.Append("    line ").Append(fn.Line).Append("  [^").Append(fn.Label).AppendLine("] — no matching definition");
+
         // Advisories are guidance, not gate failures: shown after the issues, never in the count.
         sb.Append("  advisories (").Append(r.AdvisoryCount).AppendLine(") — not gating:");
         foreach (var f in r.FenceAdvisories)
@@ -132,6 +141,8 @@ public static class ReviewReportExporter
             numbering = r.NumberingIssues,
             bareUrls = r.BareUrlIssues,
             headingNumbering = r.HeadingNumberingIssues,
+            linkRefs = r.LinkRefIssues,
+            footnotes = r.FootnoteIssues,
             // Advisories are reported but excluded from issueCount — guidance, not gate failures.
             advisoryCount = r.AdvisoryCount,
             advisories = new { prose = r.ProseAdvisories, fences = r.FenceAdvisories },
@@ -194,6 +205,8 @@ public static class ReviewReportExporter
         Section(sb, prefix, "numbering", r.NumberingIssues, n => $"`{n.Rule}` {n.Message}", n => n.Line);
         Section(sb, prefix, "bare-urls", r.BareUrlIssues, u => u.Url, u => u.Line);
         Section(sb, prefix, "heading-numbering", r.HeadingNumberingIssues, h => $"`{h.Rule}` {h.Message}", h => h.Line);
+        Section(sb, prefix, "link-refs", r.LinkRefIssues, lr => $"{lr.Reference} — no definition for `{lr.Label}`", lr => lr.Line);
+        Section(sb, prefix, "footnotes", r.FootnoteIssues, fn => $"`[^{fn.Label}]` — no matching definition", fn => fn.Line);
     }
 
     /// <summary>
