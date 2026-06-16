@@ -30,7 +30,9 @@ public sealed record ReviewReport(
     IReadOnlyList<FenceIssue>? FenceWarnings = null,
     IReadOnlyList<NumberingIssue>? Numbering = null,
     IReadOnlyList<BareUrl>? BareUrls = null,
-    IReadOnlyList<HeadingNumberingIssue>? HeadingNumbering = null)
+    IReadOnlyList<HeadingNumberingIssue>? HeadingNumbering = null,
+    IReadOnlyList<UndefinedReference>? LinkRefs = null,
+    IReadOnlyList<UndefinedFootnote>? Footnotes = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
@@ -57,6 +59,12 @@ public sealed record ReviewReport(
     /// <summary>Manually numbered headings whose section numbers are out of sequence.</summary>
     public IReadOnlyList<HeadingNumberingIssue> HeadingNumberingIssues => HeadingNumbering ?? Array.Empty<HeadingNumberingIssue>();
 
+    /// <summary>Reference-style links whose label has no matching definition (renders as broken literal text).</summary>
+    public IReadOnlyList<UndefinedReference> LinkRefIssues => LinkRefs ?? Array.Empty<UndefinedReference>();
+
+    /// <summary>Footnote references with no matching definition (renders as broken literal text).</summary>
+    public IReadOnlyList<UndefinedFootnote> FootnoteIssues => Footnotes ?? Array.Empty<UndefinedFootnote>();
+
     /// <summary>
     /// Count of advisory findings — hedging prose and untagged code fences. Surfaced in the
     /// verdict so the one command an agent runs sees this guidance too, but deliberately
@@ -71,7 +79,7 @@ public sealed record ReviewReport(
         Lint.Count + Structure.Count + Links.Count + Tables.Count + Fences.Count + Paths.Count
         + Duplication.Count + AltText.Count + LinkTextIssues.Count + EmphasisHeadings.Count
         + Sections.Count + TocIssues.Count + NumberingIssues.Count + BareUrlIssues.Count
-        + HeadingNumberingIssues.Count;
+        + HeadingNumberingIssues.Count + LinkRefIssues.Count + FootnoteIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -167,6 +175,10 @@ public sealed record ReviewReport(
             BareUrls: Run("bare-urls", () => BareUrlChecker.Check(content), u => u.Line),
             // A spec that never numbers its headings is unaffected.
             HeadingNumbering: Run("heading-numbering", () => HeadingNumberingChecker.Check(content), h => h.Line),
+            // A spec with no reference-style links is unaffected.
+            LinkRefs: Run("link-refs", () => LinkRefChecker.Check(content), r => r.Line),
+            // A spec with no footnotes is unaffected.
+            Footnotes: Run("footnotes", () => FootnoteChecker.Check(content), f => f.Line),
             // Advisories are guidance, not gating defects, so they are computed unconditionally —
             // independent of the gate selection (their ids never appear in --only/--skip) and never
             // counted in IssueCount. The fence advisory is the no-language rule the gate's fence

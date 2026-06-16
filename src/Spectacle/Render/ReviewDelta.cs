@@ -107,6 +107,10 @@ public sealed record ReviewDelta(
         // Identity excludes line, so a bare URL keys on the URL text — a fix is the same URL gone.
         all.AddRange(r.BareUrlIssues.Select(u => new DeltaFinding("bare-urls", BareUrlChecker.BareUrlRule, u.Line, u.Url)));
         all.AddRange(r.HeadingNumberingIssues.Select(h => new DeltaFinding("heading-numbering", h.Rule, h.Line, h.Message)));
+        // Identity excludes line, so an undefined reference keys on the failed label — a fix is
+        // that label gone (defined, or the reference removed).
+        all.AddRange(r.LinkRefIssues.Select(lr => new DeltaFinding("link-refs", LinkRefChecker.UndefinedRule, lr.Line, $"'{lr.Label}'")));
+        all.AddRange(r.FootnoteIssues.Select(fn => new DeltaFinding("footnotes", FootnoteChecker.UndefinedRule, fn.Line, $"'[^{fn.Label}]'")));
         return all;
     }
 }

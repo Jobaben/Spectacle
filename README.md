@@ -41,6 +41,8 @@ Spectacle.exe <file> --check-toc [--json]      Report a table of contents out of
 Spectacle.exe <file> --check-numbering [--json]  Report ordered lists whose numbering is out of sequence, then exit (non-zero if any)
 Spectacle.exe <file> --check-bare-urls [--json]  Report bare (auto-linked) URLs that should be descriptive links, then exit (non-zero if any)
 Spectacle.exe <file> --check-heading-numbering [--json]  Report manually numbered headings out of sequence, then exit (non-zero if any)
+Spectacle.exe <file> --check-link-refs [--json]  Report reference-style links whose label has no definition, then exit (non-zero if any)
+Spectacle.exe <file> --check-footnotes [--json]  Report footnote references with no matching definition, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif|--md]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
@@ -278,12 +280,38 @@ style) or *strictly consecutive* from whatever the first heading starts at; anyt
 `out-of-sequence` finding, anchored at the first heading that breaks the run. It exits non-zero when a
 run is out of sequence, so it can gate a pipeline; add `--json` for structured findings.
 
+`--check-link-refs` validates *reference-style* links and images — the `[visible text][label]`
+(full) and `[label][]` (collapsed) forms whose target lives in a separate `[label]: url`
+definition. When the definition is missing, CommonMark renders the reference as the *literal
+bracketed text*: `[the API docs][api]` with no `[api]:` definition ships to the reader as the
+broken string `[the API docs][api]`. AI agents produce exactly this when they restructure a spec
+and drop the definition (or cite a label they never define). Because the unresolved reference is
+plain text — never a link on the parsed document — `--check-links` (which validates resolved
+`#anchor` targets) cannot see it; this check scans the raw reference syntax instead. Definitions
+are read from the parsed document, so indentation, link titles, and multi-line targets resolve
+correctly, and label matching follows CommonMark (case-insensitive, internal whitespace
+collapsed). Only the full and collapsed forms are flagged: an undefined *shortcut* reference
+(`[label]`) is, by the spec, indistinguishable from ordinary bracketed prose and renders cleanly,
+so it is never a defect; references inside code spans and fenced blocks are skipped. It exits
+non-zero when any reference has no definition, so it can gate a pipeline; add `--json` for
+structured findings.
+
+`--check-footnotes` is the footnote analogue: it flags footnote references (`[^id]`) that have no
+matching `[^id]: …` definition. As with an unresolved reference link, Markdig renders an undefined
+footnote marker as the literal text `[^id]` rather than a citation, so a reader sees a stray
+bracketed token where a source should be — a common artifact when an agent cites a footnote it
+forgot to define, or deletes a definition without removing its references. The definition set is
+read from the parsed document; a definition's own opening marker (`[^id]:`) is never treated as a
+reference, label matching is case-insensitive, and markers inside code are ignored. It exits
+non-zero when any footnote reference is undefined, so it can gate a pipeline; add `--json` for
+structured findings.
+
 `--review` is the one-shot verdict: it runs the whole gating battery together — `--lint`,
 `--check-structure`, `--check-links`, `--check-tables`, `--check-fences` (unclosed fences only —
 the advisory missing-tag rule is surfaced separately, see below), `--check-paths`,
 `--check-duplication`, `--check-alt-text`, `--check-link-text`, `--check-emphasis-heading`,
 `--check-sections`, `--check-toc` (a no-op unless the spec has a TOC), `--check-numbering`,
-`--check-bare-urls`, and `--check-heading-numbering` —
+`--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`, and `--check-footnotes` —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
@@ -361,7 +389,8 @@ project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single r
 `--review --only=structure,links` (run only those). Precedence: `--only` chooses the universe,
 then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
 `structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `link-text`,
-`emphasis-heading`, `sections`, `toc`, `numbering`, `bare-urls`, and `heading-numbering`; an unrecognized id is ignored with a warning. A disabled check is never silently
+`emphasis-heading`, `sections`, `toc`, `numbering`, `bare-urls`, `heading-numbering`, `link-refs`,
+and `footnotes`; an unrecognized id is ignored with a warning. A disabled check is never silently
 treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
 clean result can't be confused with one that simply ran fewer checks. The selection applies
 uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
@@ -389,8 +418,8 @@ keeping a clean result honest.
 `--outline`, `--checklist`, `--check-links`, `--diff`, `--check-structure`, `--check-tables`,
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
 `--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`,
-`--check-numbering`, `--check-bare-urls`, `--check-heading-numbering`, and `--review` all run
-headless and write to stdout.
+`--check-numbering`, `--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`,
+`--check-footnotes`, and `--review` all run headless and write to stdout.
 
 ## Keyboard
 

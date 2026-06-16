@@ -53,6 +53,8 @@ public static class SarifExporter
         ("numbering/out-of-sequence", "An ordered list whose item numbers are neither all the same nor strictly consecutive."),
         ("bare-urls/bare-url", "A bare (auto-linked) URL in prose that should be a descriptive Markdown link."),
         ("heading-numbering/out-of-sequence", "Manually numbered headings whose section numbers are neither all the same nor strictly consecutive."),
+        ("link-refs/undefined-reference", "A reference-style link or image whose label has no matching definition (renders as broken literal text)."),
+        ("footnotes/undefined-footnote", "A footnote reference whose label has no matching definition (renders as broken literal text)."),
     };
 
     public static string Build(IReadOnlyList<BatchReviewEntry> entries, string toolVersion)
@@ -118,6 +120,10 @@ public static class SarifExporter
             yield return Result($"bare-urls/{BareUrlChecker.BareUrlRule}", $"bare URL: {u.Url}", uri, u.Line);
         foreach (var h in r.HeadingNumberingIssues)
             yield return Result($"heading-numbering/{h.Rule}", h.Message, uri, h.Line);
+        foreach (var lr in r.LinkRefIssues)
+            yield return Result($"link-refs/{LinkRefChecker.UndefinedRule}", $"{lr.Reference}: no definition for '{lr.Label}'", uri, lr.Line);
+        foreach (var fn in r.FootnoteIssues)
+            yield return Result($"footnotes/{FootnoteChecker.UndefinedRule}", $"footnote '[^{fn.Label}]' has no matching definition", uri, fn.Line);
     }
 
     private static object Result(string ruleId, string message, string uri, int line) => new
