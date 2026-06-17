@@ -87,7 +87,7 @@ public partial class MainWindow : Window, IPreviewSink
     {
         SourceInitialized -= ApplyStartupGeometry;
 
-        const double startupWidth = 900;
+        const double startupWidth = 915;
         var workArea = SystemParameters.WorkArea;
 
         WindowStartupLocation = WindowStartupLocation.Manual;
