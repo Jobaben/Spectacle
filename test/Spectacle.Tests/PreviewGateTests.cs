@@ -106,13 +106,17 @@ public class PreviewGateTests
     [Fact]
     public void A_closing_script_tag_in_a_finding_cannot_break_out_of_the_payload()
     {
-        // Same guard the annotations and outline payloads use. Front-matter values are echoed
-        // verbatim into the payload, so the document's own text reaches an inline <script> and `</`
-        // has to be escaped before the browser can read it as a closing tag.
-        var html = Build(Verdict("---\nnote: </script><script>alert(1)</script>\n---\n\n# T\n\nText.\n"));
+        // Front-matter values are echoed verbatim into the payload, so the document's own text
+        // reaches an inline <script> — where a closing tag would end the script early and the rest
+        // would be parsed as markup.
+        const string hostile = "</script><script>alert(1)</script>";
+        var html = Build(Verdict($"---\nnote: {hostile}\n---\n\n# T\n\nText.\n"));
 
-        html.Should().NotContain("</script><script>alert(1)");
-        html.Should().Contain("<\\/script>");
+        // The browser never sees a closing tag it could act on...
+        html.Should().NotContain("alert(1)</script>");
+        // ...and the value still arrives intact for the panel that renders it.
+        Payload(html).GetProperty("metadata")[0].GetProperty("value").GetString()
+            .Should().Be(hostile);
     }
 
     [Fact]

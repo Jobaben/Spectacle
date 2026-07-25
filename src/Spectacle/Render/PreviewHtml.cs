@@ -149,8 +149,12 @@ public static class PreviewHtml
             }),
         };
 
-        // Same `</` -> `<\/` guard as the other payloads: a finding quoting `</script>` from the
-        // document would otherwise terminate this inline <script> early.
+        // A finding's message and a front-matter value both carry the document's own text into this
+        // inline <script>, where a closing tag would end the script early and the rest would be
+        // parsed as markup. Two things prevent it: PayloadOpts keeps the default JavaScript
+        // encoder, which escapes every `<` to a \u003C sequence outright, and the `</` -> `<\/` rewrite below
+        // covers the same ground for any value the encoder passes through. JSON decodes both back
+        // to the original string, so the JS side reads exactly what the document said.
         return JsonSerializer.Serialize(payload, PayloadOpts).Replace("</", "<\\/");
     }
 

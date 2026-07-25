@@ -51,6 +51,18 @@ public class FrontMatterRenderingTests
     }
 
     [Fact]
+    public void The_header_is_not_a_taggable_block()
+    {
+        // Markdig models the header as a CodeBlock, so it slips into anything that walks blocks by
+        // kind. It renders to nothing, so tagging it would mint a block id with no element in the
+        // document — a block a comment could anchor to but never be shown on.
+        var blocks = new MdRenderer().Render(WithHeader).Blocks;
+
+        blocks.Should().NotContain(b => b.OriginalText.Contains("title: Auth design"));
+        blocks.Select(b => b.Kind).Should().NotContain("code");
+    }
+
+    [Fact]
     public void The_header_does_not_appear_in_a_block_level_diff()
     {
         // Only the prose changed; the metadata header is not a block, so it cannot register as one.
