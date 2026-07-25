@@ -679,16 +679,24 @@ the badge imply a full pass.
 ### Verifying it
 
 The xUnit suite covers the checks, the grading, the exporters, and the payload the preview injects
-(`dotnet test test/Spectacle.Tests`). The overlay's own behaviour — what the badge and panel build
-from that payload, and how they answer `v`, the arrows, `Enter` and `Esc` — is covered separately,
-because none of it is reachable from C#:
+(`dotnet test test/Spectacle.Tests`). The overlay's own behaviour is covered separately, because none
+of it is reachable from C# — and in **real Chromium**, which is what WebView2 is, so the test
+exercises the same engine the reader renders in:
 
 ```bash
-node test/js/preview-gate.dom.test.js
+cd test/js && npm install && npx playwright install chromium && npm test
 ```
 
-It runs against a small DOM stub rather than a headless browser: the script touches a boring slice
-of the DOM API, and a stub keeps the check dependency-free. CI runs both.
+It asserts what the badge, the metadata card and the findings panel actually lay out, that `v` /
+arrows / `Enter` / `Esc` do what the help sheet claims, that jumping to a finding scrolls to and
+flashes the right block, and that the panel neither steals keys from the other overlays nor opens
+underneath them.
+
+This started out as a test against a hand-rolled DOM stub. The stub passed every assertion while
+three real defects were live — the overlay ignored the containment contract the other overlays
+share, it opened underneath the modal help sheet, and the empty panel offered a jump with nothing to
+jump to. A stub only checks the logic you thought to model, so it was replaced rather than kept
+alongside. CI runs both suites.
 
 ### Tuning the gate
 

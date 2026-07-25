@@ -1,0 +1,11 @@
+{
+  "name": "spectacle-preview-tests",
+  "private": true,
+  "description": "Browser test for the reader's preview overlay. Chromium only — WebView2 is Chromium, so this is the same engine the reader renders in.",
+  "scripts": {
+    "test": "node preview-gate.browser.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

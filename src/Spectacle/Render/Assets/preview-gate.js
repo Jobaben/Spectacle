@@ -182,7 +182,10 @@
 
     var footer = document.createElement("div");
     footer.className = "sp-gate-footer";
-    footer.textContent = "Enter to jump to the line · Esc to close";
+    // Don't offer a jump when there is nothing to jump to.
+    footer.textContent = findings.length
+      ? "Enter to jump to the line · Esc to close"
+      : "Esc to close";
     panel.appendChild(footer);
 
     document.body.appendChild(panel);
@@ -290,44 +293,55 @@
 
   // -------- Key handling (capture phase: runs before keynav) --------
 
+  // The same guard preview-outline.js applies to "t". Another overlay that owns the screen — the
+  // keyboard-help sheet, re-anchor mode — or a field taking input must not have its key stolen, or
+  // "v" opens this panel underneath something modal.
+  function blockedTarget(target) {
+    if (document.body.classList && document.body.classList.contains("sp-reanchor-mode")) return true;
+    var help = document.getElementById("sp-help");
+    if (help && !help.hidden) return true;
+    var el = target || document.activeElement;
+    if (el && el.isContentEditable === true) return true;
+    return !!(el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT"));
+  }
+
   function onKeyDown(e) {
     if (!panelEl) return;
 
     if (!isOpen()) {
-      // "v" for verdict. Bare only, and never while typing into a comment composer or the find
-      // bar, so the shortcut can't swallow a character.
-      if (e.key === "v" && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
+      // "v" for verdict, bare only.
+      if (e.key === "v" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (blockedTarget(e.target)) return;
         e.preventDefault();
-        e.stopPropagation();
+        // stopImmediatePropagation, not stopPropagation: the other overlays are capture listeners
+        // on this same element, so only the "immediate" form keeps the key away from them.
+        e.stopImmediatePropagation();
         open();
       }
       return;
     }
 
-    switch (e.key) {
-      case "Escape":
-        e.preventDefault(); e.stopPropagation(); close(); return;
-      case "ArrowDown":
-        e.preventDefault(); e.stopPropagation(); setSelected(selected + 1); return;
-      case "ArrowUp":
-        e.preventDefault(); e.stopPropagation(); setSelected(selected - 1); return;
-      case "Home":
-        e.preventDefault(); e.stopPropagation(); setSelected(0); return;
-      case "End":
-        e.preventDefault(); e.stopPropagation(); setSelected(optionEls.length - 1); return;
-      case "Enter":
-        e.preventDefault(); e.stopPropagation(); activate(-1); return;
-      default:
-        // While the panel owns the screen, keep every other key away from the document's own
-        // navigation — the same containment the find bar and outline apply.
-        e.stopPropagation();
-    }
-  }
+    // While open, the panel keeps every key away from the document behind it — otherwise "g", "?"
+    // and the arrows would drive the page the reader can still see.
+    //
+    // The containment reaches as far as script order allows: capture listeners fire in registration
+    // order, and preview-find.js and preview-outline.js are loaded first, so those two still take
+    // their own shortcuts (Ctrl+F, "t") from under this panel. That asymmetry already exists between
+    // find and outline for the same reason, and it is harmless — both open beside this panel rather
+    // than over it, and Esc closes whichever has focus.
+    e.stopImmediatePropagation();
 
-  function isTyping(target) {
-    if (!target || !target.tagName) return false;
-    var tag = target.tagName.toLowerCase();
-    return tag === "input" || tag === "textarea" || target.isContentEditable === true;
+    switch (e.key) {
+      case "Escape": e.preventDefault(); close(); return;
+      case "ArrowDown": e.preventDefault(); setSelected(selected + 1); return;
+      case "ArrowUp": e.preventDefault(); setSelected(selected - 1); return;
+      case "Home": e.preventDefault(); setSelected(0); return;
+      case "End": e.preventDefault(); setSelected(optionEls.length - 1); return;
+      case "Enter": e.preventDefault(); activate(-1); return;
+      // The shortcut is a toggle, so the same key closes it — matching "t" on the outline.
+      case "v": e.preventDefault(); close(); return;
+      default: e.preventDefault(); return;
+    }
   }
 
   // -------- Init --------
