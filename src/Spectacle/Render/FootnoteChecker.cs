@@ -29,7 +29,7 @@ public static class FootnoteChecker
     public const string UndefinedRule = "undefined-footnote";
 
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().UseFootnotes().Build();
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().UseYamlFrontMatter().UseFootnotes().Build();
 
     // [^id] — a footnote marker. The negative lookahead for ':' skips a definition's own opening
     // marker ([^id]: …), leaving only references. Labels carry no whitespace or brackets.

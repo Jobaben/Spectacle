@@ -4,11 +4,16 @@ name: CI
 # Windows (the Windows Desktop runtime is Windows-only). This workflow is the
 # authoritative "all tests pass" gate: it runs the full xUnit suite on
 # windows-latest for every push to main and every pull request.
+#
+# Feature branches build here too. Because the suite cannot run anywhere but
+# Windows, a branch developed elsewhere has no way to know it even compiles until
+# CI says so — waiting for a pull request to find that out is a slow loop.
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'claude/**', 'feature/**' ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   test:

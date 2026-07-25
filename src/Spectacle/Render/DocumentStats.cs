@@ -29,6 +29,7 @@ public sealed record DocumentStats(
 
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseYamlFrontMatter()
         .Build();
 
     public static DocumentStats Compute(string? markdown)

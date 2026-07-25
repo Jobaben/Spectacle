@@ -19,7 +19,7 @@ public sealed record SpecLintFinding(string Rule, int Line, string Message);
 public static class SpecLinter
 {
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().UseYamlFrontMatter().Build();
 
     private static readonly (string Label, Regex Pattern)[] Markers =
     {

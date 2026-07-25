@@ -26,6 +26,7 @@ public static class AltTextChecker
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseYamlFrontMatter()
         .UsePreciseSourceLocation()
         .Build();
 

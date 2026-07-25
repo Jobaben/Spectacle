@@ -20,22 +20,31 @@ public static class ConfigScaffold
     public const string FileName = ".spectacle.json";
 
     /// <summary>
-    /// The documented starter config: a sensible required-section template and an empty
-    /// <c>disabledChecks</c> list, with a <c>"//"</c> note (an unknown key the tolerant parser
-    /// ignores) explaining each field and naming every valid check id.
+    /// The documented starter config: a sensible required-section template, an empty
+    /// <c>disabledChecks</c> list, an empty front-matter template, and the gate's grading policy
+    /// at its defaults — with a <c>"//"</c> note per field (an unknown key the tolerant parser
+    /// ignores) explaining what it does and naming every valid check id.
     /// </summary>
     public static string Template()
     {
         var ids = string.Join(", ", ReviewChecks.All);
         return $$"""
             {
-              "//": "Spectacle project config. 'requiredSections' lists headings every spec under this folder must contain (enforced by --check-sections and --review). 'disabledChecks' turns off gating checks for --review by id. Valid ids: {{ids}}.",
+              "//": "Spectacle project config. Every key is optional; an unknown key is ignored.",
+              "//requiredSections": "Headings every document under this folder must contain (enforced by --check-sections and --review).",
               "requiredSections": [
                 "Overview",
                 "Acceptance Criteria",
                 "Non-Goals"
               ],
-              "disabledChecks": []
+              "//requiredFrontMatter": "YAML front-matter keys every document must declare — how a workflow makes its own output traceable (enforced by --check-front-matter and --gate). A dotted key reads a nested field, e.g. 'run.model'. Leave empty if this project does not use front matter.",
+              "requiredFrontMatter": [],
+              "//disabledChecks": "Gating checks to turn off, by id. Valid ids: {{ids}}.",
+              "disabledChecks": [],
+              "//severity": "Regrade a check or a single rule for --gate: 'error' (blocks), 'warning' (reported, blocks only at --fail-on=warning), 'info' (advice, never blocks). A rule id wins over its check id. Prefer this over disabledChecks: a downgraded rule keeps appearing in every report, a disabled one disappears.",
+              "severity": {},
+              "//failOn": "The lowest severity that fails --gate: 'error' (default) or 'warning'.",
+              "failOn": "error"
             }
             """;
     }

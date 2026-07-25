@@ -31,6 +31,7 @@ public static class TocChecker
 
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseYamlFrontMatter()
         .UseAutoIdentifiers()
         .UseGenericAttributes()
         .UsePreciseSourceLocation()

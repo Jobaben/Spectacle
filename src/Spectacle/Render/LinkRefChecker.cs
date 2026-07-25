@@ -38,7 +38,7 @@ public static class LinkRefChecker
     public const string UndefinedRule = "undefined-reference";
 
     private static readonly MarkdownPipeline Pipeline =
-        new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        new MarkdownPipelineBuilder().UseAdvancedExtensions().UseYamlFrontMatter().Build();
 
     // [text][label]  or the collapsed [text][] — the explicit label group may be empty.
     // Backslash escapes are honoured so an escaped bracket inside text/label is not a delimiter.

@@ -20,6 +20,7 @@
         { key: "?",                   label: "Open this help",             action: "help.toggle" },
         { key: "Ctrl+F",             label: "Find in document",           action: "find.open" /* preview-find.js */ },
         { key: "t",                   label: "Toggle document outline",    action: "outline.toggle" /* preview-outline.js */ },
+        { key: "v",                   label: "Toggle quality gate verdict", action: "gate.toggle" /* preview-gate.js */ },
         { key: "gg",                  label: "Jump to first",              action: "nav.first" },
         { key: "G",                   label: "Jump to last",               action: "nav.last" }
       ]
@@ -30,6 +31,15 @@
         { key: "Enter / ⇧Enter",      label: "Next / previous match",      action: null /* preview-find.js */ },
         { key: "F3 / ⇧F3",            label: "Next / previous match",      action: null /* preview-find.js */ },
         { key: "Esc",                 label: "Close find",                 action: null /* preview-find.js */ }
+      ]
+    },
+    "in-gate": {
+      title: "Gate panel",
+      rows: [
+        { key: "↑ / ↓",               label: "Move selection",             action: null /* preview-gate.js */ },
+        { key: "Home / End",          label: "First / last finding",       action: null /* preview-gate.js */ },
+        { key: "Enter",               label: "Jump to the finding's line", action: null /* preview-gate.js */ },
+        { key: "Esc",                 label: "Close gate panel",           action: null /* preview-gate.js */ }
       ]
     },
     "in-outline": {
@@ -348,7 +358,7 @@
 
     // KEYMAP sections in spec order; "in-help" is omitted intentionally.
     var sectionOrder = [
-      "global", "preview-wide", "in-find", "in-outline", "on-block", "on-card",
+      "global", "preview-wide", "in-find", "in-outline", "in-gate", "on-block", "on-card",
       "on-orphan", "in-composer", "in-reanchor"
     ];
     sectionOrder.forEach(function (key) {
