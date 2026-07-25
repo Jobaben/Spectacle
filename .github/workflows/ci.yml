@@ -34,3 +34,8 @@ jobs:
 
       - name: Test
         run: dotnet test test/Spectacle.Tests/Spectacle.Tests.csproj -c Release --no-build
+
+      # The preview's JavaScript is not reachable from the xUnit suite, and the gate badge is
+      # load-bearing rather than decoration. Node is already on the runner, so this costs nothing.
+      - name: Test the preview overlay
+        run: node test/js/preview-gate.dom.test.js

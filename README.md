@@ -676,6 +676,20 @@ The verdict shown is not the reader's approximation of the gate — it is the sa
 pipeline are the same statement. Where coverage was reduced, the panel says so instead of letting
 the badge imply a full pass.
 
+### Verifying it
+
+The xUnit suite covers the checks, the grading, the exporters, and the payload the preview injects
+(`dotnet test test/Spectacle.Tests`). The overlay's own behaviour — what the badge and panel build
+from that payload, and how they answer `v`, the arrows, `Enter` and `Esc` — is covered separately,
+because none of it is reachable from C#:
+
+```bash
+node test/js/preview-gate.dom.test.js
+```
+
+It runs against a small DOM stub rather than a headless browser: the script touches a boring slice
+of the DOM API, and a stub keeps the check dependency-free. CI runs both.
+
 ### Tuning the gate
 
 The one-shot verdict is otherwise all-or-nothing. Two controls let a team adopt it without
