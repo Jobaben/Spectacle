@@ -107,6 +107,26 @@ opinion nobody asked for — the moment the two disagreed, the reader's would st
   tags are out of scope; an unrecognized construct is skipped, not an error.
 - **Not a replacement for `--review`.** The old verdict and its exit code are unchanged.
 
+## How this is verified
+
+Three layers, because no single one reaches the whole product:
+
+| Layer | Where | What it proves |
+|---|---|---|
+| Checks, grading, exporters, the injected payload | xUnit, Windows CI | the verdict is right, and every output carries it |
+| Host → gate → HTML, live re-grade on file change | xUnit against a real file through `FileDocument` and `PreviewPipeline`'s `IPreviewSink` | a verdict actually reaches the WebView, tracks the file, and equals the CLI's for the same document and config |
+| Overlay layout and interaction | Playwright in real Chromium, Linux CI | what the reader will actually see and do — WebView2 *is* Chromium |
+
+The middle and outer layers were added after the fact, and both earned their place immediately. The
+browser layer replaced a hand-rolled DOM stub that had passed all of its assertions while four real
+defects were live (broken key containment, the panel opening under the modal help sheet, a dead
+toggle, and a jump offered with nothing to jump to). A stub only checks the logic you thought to
+model.
+
+What remains outside automated coverage is the WPF window itself — chrome, the WebView2 control's own
+plumbing, and file-association registration. Those are thin, unchanged by this work, and the seam
+below them (`IPreviewSink`) is covered.
+
 ## Acceptance criteria
 
 - [x] Front matter renders as metadata, not as an `h2`, and is excluded from the outline, the
@@ -124,3 +144,6 @@ opinion nobody asked for — the moment the two disagreed, the reader's would st
 - [x] The reader's verdict equals the command's verdict for the same document and config.
 - [x] Every rule the finding stream can emit is catalogued with a description and a remedy.
 - [x] Reduced coverage (disabled checks, inline suppressions) is stated in every output.
+- [x] The overlay follows the same key-containment and blocked-target contract as the reader's other
+      overlays, verified in a real browser.
+- [x] Rewriting the file under the watcher re-grades the badge without reopening the document.
