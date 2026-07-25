@@ -616,6 +616,52 @@ document from standard input, so a generator can pipe straight into the gate wit
 my-agent write --spec auth | Spectacle.exe - --gate --json
 ```
 
+### A CI job, end to end
+
+```yaml
+# .github/workflows/docs-gate.yml
+name: Docs gate
+on: [pull_request]
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+
+      - name: Build Spectacle
+        run: dotnet publish src/Spectacle -p:PublishProfile=win-x64
+
+      # Inline annotations on the diff, whatever the outcome. `|| true` keeps the
+      # annotations from being the step that fails the job — the gate below owns that.
+      - name: Annotate findings
+        run: publish/win-x64/Spectacle.exe docs --gate --github || exit 0
+
+      # The gate itself. Exits non-zero only at or above the project's threshold.
+      - name: Gate
+        id: gate
+        run: publish/win-x64/Spectacle.exe docs --gate --md > gate.md
+
+      # On failure, leave the reviewer the report and the authoring agent its brief.
+      - name: Publish the report
+        if: failure()
+        run: |
+          Get-Content gate.md >> $env:GITHUB_STEP_SUMMARY
+          publish/win-x64/Spectacle.exe docs/design.md --fix-brief brief.md
+        shell: pwsh
+
+      - name: Upload the revision brief
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: revision-brief, path: brief.md }
+```
+
+Swap `--github` for `--sarif` plus `github/codeql-action/upload-sarif` if the repository has code
+scanning enabled, or `--junit` if your platform reads test reports. The gate step is the same either
+way — the formats are views of one verdict, not separate runs.
+
 ### The gate in the reader
 
 Open a document and the gate is already there. A badge in the bottom-right corner shows
