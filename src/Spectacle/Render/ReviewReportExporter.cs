@@ -107,6 +107,14 @@ public static class ReviewReportExporter
         foreach (var fn in r.FootnoteIssues)
             sb.Append("    line ").Append(fn.Line).Append("  [^").Append(fn.Label).AppendLine("] — no matching definition");
 
+        sb.Append("  front-matter (").Append(r.FrontMatterIssues.Count).AppendLine("):");
+        foreach (var fm in r.FrontMatterIssues)
+            sb.Append("    line ").Append(fm.Line).Append("  [").Append(fm.Rule).Append("] ").AppendLine(fm.Message);
+
+        sb.Append("  ai-artifacts (").Append(r.AiArtifactIssues.Count).AppendLine("):");
+        foreach (var a in r.AiArtifactIssues)
+            sb.Append("    line ").Append(a.Line).Append("  [").Append(a.Rule).Append("] ").AppendLine(a.Message);
+
         // Advisories are guidance, not gate failures: shown after the issues, never in the count.
         sb.Append("  advisories (").Append(r.AdvisoryCount).AppendLine(") — not gating:");
         foreach (var f in r.FenceAdvisories)
@@ -143,6 +151,8 @@ public static class ReviewReportExporter
             headingNumbering = r.HeadingNumberingIssues,
             linkRefs = r.LinkRefIssues,
             footnotes = r.FootnoteIssues,
+            frontMatter = r.FrontMatterIssues,
+            aiArtifacts = r.AiArtifactIssues,
             // Advisories are reported but excluded from issueCount — guidance, not gate failures.
             advisoryCount = r.AdvisoryCount,
             advisories = new { prose = r.ProseAdvisories, fences = r.FenceAdvisories },
@@ -207,6 +217,8 @@ public static class ReviewReportExporter
         Section(sb, prefix, "heading-numbering", r.HeadingNumberingIssues, h => $"`{h.Rule}` {h.Message}", h => h.Line);
         Section(sb, prefix, "link-refs", r.LinkRefIssues, lr => $"{lr.Reference} — no definition for `{lr.Label}`", lr => lr.Line);
         Section(sb, prefix, "footnotes", r.FootnoteIssues, fn => $"`[^{fn.Label}]` — no matching definition", fn => fn.Line);
+        Section(sb, prefix, "front-matter", r.FrontMatterIssues, fm => $"`{fm.Rule}` {fm.Message}", fm => fm.Line);
+        Section(sb, prefix, "ai-artifacts", r.AiArtifactIssues, a => $"`{a.Rule}` {a.Message}", a => a.Line);
     }
 
     /// <summary>

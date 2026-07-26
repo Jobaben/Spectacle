@@ -4,6 +4,34 @@ A Windows-only Markdown viewer. Renders `.md` / `.markdown` files with VS Code-p
 Dark theme. WCAG-accessible. No editing. Export any document to a self-contained HTML file,
 and see live word count / reading time in the status bar.
 
+It is also a **quality gate for Markdown an AI workflow wrote**. Open a generated document and a
+badge in the corner tells you whether it passes, with every finding and its fix one keypress away
+(`v`). Run the same thing headlessly and you get an exit code:
+
+```bash
+Spectacle.exe design.md --gate                 # 0 = ship it, 1 = findings, 2 = bad input
+Spectacle.exe design.md --fix-brief brief.md   # the revision list, addressed to the authoring agent
+my-agent write | Spectacle.exe - --gate --json # gate a document that was never written to disk
+```
+
+The gate is one command over ~30 rules, graded by severity, configured once per project, and
+emitted in whatever your pipeline reads — its own JSON, SARIF, GitHub Actions annotations, JUnit
+XML, or Markdown for a pull request. Four things make it a *workflow* gate rather than a linter:
+
+- **Front matter is data.** The YAML header a workflow stamps on its output is parsed, validated
+  against a required-key template, rendered as a metadata card, and echoed into the verdict so a
+  downstream step can route on it — instead of being read as prose. See
+  [The metadata header](#the-metadata-header).
+- **Generation residue is a defect.** Unsubstituted `{{tokens}}`, "Certainly! Here's the updated…",
+  "rest of the file unchanged", `path/to/file` links — the failures that only happen when a model
+  writes the file. See [Generation residue](#generation-residue).
+- **Findings come with fixes.** `--fix-brief` rewrites the verdict as instructions for the tool
+  that authored the document, ordered so applying one never invalidates the next one's line
+  number. See [Closing the loop](#closing-the-loop-with---fix-brief).
+- **The reader shows the same verdict.** Not an approximation of it — literally the same computed
+  result, so a green badge and a green pipeline are the same statement. See
+  [The gate in the reader](#the-gate-in-the-reader).
+
 ## Install
 
 1. `dotnet publish src/Spectacle -p:PublishProfile=win-x64`
@@ -17,6 +45,9 @@ and see live word count / reading time in the status bar.
 ## Usage
 
 ```text
+Spectacle.exe <file|dir> --gate [--json|--md|--sarif|--github|--junit] [--fail-on=error|warning] [--only=a,b|--skip=a,b]
+                                               Run every check, grade each finding, then exit (non-zero only at or above the threshold)
+Spectacle.exe <file> --fix-brief [out] [--json]  Write the gate's findings as revision instructions for the authoring tool, then exit
 Spectacle.exe <file.md|file.markdown>          Open and render
 Spectacle.exe <file> --stats                   Print word count, reading time and structure, then exit
 Spectacle.exe <file> --export-html [out.html]  Export a self-contained HTML file, then exit
@@ -43,8 +74,10 @@ Spectacle.exe <file> --check-bare-urls [--json]  Report bare (auto-linked) URLs 
 Spectacle.exe <file> --check-heading-numbering [--json]  Report manually numbered headings out of sequence, then exit (non-zero if any)
 Spectacle.exe <file> --check-link-refs [--json]  Report reference-style links whose label has no definition, then exit (non-zero if any)
 Spectacle.exe <file> --check-footnotes [--json]  Report footnote references with no matching definition, then exit (non-zero if any)
-Spectacle.exe <file> --review [--json|--sarif|--md] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
-Spectacle.exe <dir> --review [--json|--sarif|--md]  Review every spec under a folder at once, then exit (non-zero if any issues)
+Spectacle.exe <file> --check-front-matter ["a,b"] [--config=<cfg>] [--json]  Report a missing/unclosed/incomplete YAML metadata header, then exit (non-zero if any)
+Spectacle.exe <file> --check-ai-artifacts [--json]  Report generation residue (unfilled tokens, chat framing, truncation markers, placeholder targets), then exit (non-zero if any)
+Spectacle.exe <file> --review [--json|--sarif|--md|--github|--junit] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
+Spectacle.exe <dir> --review [--json|--sarif|--md|--github|--junit]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
 Spectacle.exe --init-config [path] [--force]   Scaffold a documented .spectacle.json (refuses to overwrite without --force), then exit
 Spectacle.exe --register                       Register file association
@@ -139,12 +172,26 @@ it on every invocation. The config is a JSON object with a `requiredSections` st
 { "requiredSections": ["Overview", "Acceptance Criteria", "Non-Goals"] }
 ```
 
-The same config also declares the team's **gate** — which checks `--review` runs (see
-"Tuning the gate" below) — via a `disabledChecks` array:
+The same config declares everything else the gate needs, so one file per project is the whole
+setup:
 
 ```json
-{ "requiredSections": ["Overview"], "disabledChecks": ["duplication", "alt-text"] }
+{
+  "requiredSections": ["Overview", "Acceptance Criteria", "Non-Goals"],
+  "requiredFrontMatter": ["workflow", "stage", "run.model"],
+  "disabledChecks": ["duplication"],
+  "severity": { "bare-urls": "warning", "toc/missing-from-toc": "error" },
+  "failOn": "error"
+}
 ```
+
+| Key | What it does |
+|---|---|
+| `requiredSections` | Headings every document must contain (`--check-sections`, `--review`, `--gate`) |
+| `requiredFrontMatter` | YAML metadata keys every document must declare, dotted for a nested field — see [The metadata header](#the-metadata-header) |
+| `disabledChecks` | Gating checks to turn off, by id — see [Tuning the gate](#tuning-the-gate) |
+| `severity` | Regrade a check or a single rule for `--gate` — see [Severities](#severities-and-why-they-beat-switching-checks-off) |
+| `failOn` | The lowest severity that fails `--gate` (`error`, the default, or `warning`) |
 
 Discovery walks up from the spec's own directory and takes the nearest `.spectacle.json`
 (the "closest config wins" rule editors and linters use), so a spec inherits the settings of
@@ -155,9 +202,10 @@ non-zero with a hint rather than silently passing).
 
 `--init-config` scaffolds that file so a team can adopt the project gate in one step instead
 of authoring JSON by hand. It writes a documented `.spectacle.json` — a starter
-`requiredSections` template, an empty `disabledChecks`, and a `"//"` note that explains each
-field and names every valid check id (sourced from the live check set, so the scaffold can't
-advertise a stale one) — to the current directory, to a directory you name (`--init-config
+`requiredSections` template, an empty `requiredFrontMatter` and `disabledChecks`, the grading
+policy at its defaults, and a `"//"` note per field explaining what it does and naming every valid
+check id (sourced from the live check set, so the scaffold can't advertise a stale one) — to the
+current directory, to a directory you name (`--init-config
 specs`), or to an explicit path. Editing it is the point: trim the required sections to your
 template and list any checks you want off. Writing over an existing config would discard a
 team's tuning, so it **refuses to overwrite** unless you pass `--force`; it prints the full
@@ -311,7 +359,9 @@ structured findings.
 the advisory missing-tag rule is surfaced separately, see below), `--check-paths`,
 `--check-duplication`, `--check-alt-text`, `--check-link-text`, `--check-emphasis-heading`,
 `--check-sections`, `--check-toc` (a no-op unless the spec has a TOC), `--check-numbering`,
-`--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`, and `--check-footnotes` —
+`--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`, `--check-footnotes`,
+`--check-front-matter` (a no-op unless the project declares a metadata template or the header is
+malformed), and `--check-ai-artifacts` —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
@@ -377,6 +427,277 @@ while the revision still carries any issue (new or persisting), matching plain `
 "spec must be clean" gate; add `--json` for structured `fixed` / `new` / `persisting` arrays an
 agent can act on.
 
+## The workflow gate
+
+`--review` answers "does this document have problems?" `--gate` answers the question a pipeline
+actually asks: **may this document proceed?** They run the same checks; the gate adds the three
+things that make the answer usable unattended — a severity for every finding, a threshold that
+decides what blocks, and an honest account of what was and wasn't checked.
+
+```console
+$ Spectacle.exe design.md --gate
+design.md — GATE FAIL
+  2 blocking · 2 error, 1 warning, 1 advisory · threshold: error
+  metadata: workflow=spec-writer · stage=draft · run.model=opus
+  coverage: 1 finding(s) suppressed inline · checks off: duplication
+  grades: bare-urls=warning
+
+  error    line   7  ai-artifacts/assistant-voice     assistant framing 'Certainly!' — the text addresses whoever prompted it…
+  error    line  22  front-matter/missing-key         front matter is missing required key 'reviewer'
+  warning  line  34  bare-urls/bare-url               bare URL: https://internal.example/api
+  info     line  41  prose/hedge                      hedging: 'should probably'
+
+  tasks: 3/7 checklist item(s) complete
+  next: --fix-brief writes the revision list for the authoring agent
+```
+
+Exit codes are the contract: **0** nothing at or above the threshold, **1** something was,
+**2** the input could not be read. A single file and a directory take the same path — point
+`--gate` at a folder and the set passes only if every document in it does.
+
+### Severities, and why they beat switching checks off
+
+Every rule has a severity: `error` blocks, `warning` is reported and blocks only when you ask it
+to, `info` is advice and never blocks whatever the threshold. Regrade any check or any single rule
+in `.spectacle.json`:
+
+```json
+{
+  "severity": { "bare-urls": "warning", "duplication": "info", "toc/missing-from-toc": "error" },
+  "failOn": "error"
+}
+```
+
+A rule id (`toc/missing-from-toc`) wins over its check id (`toc`), the same specificity rule every
+linter uses. `--fail-on=warning` raises the bar for one run without touching the config.
+
+Prefer this over `disabledChecks`. A downgraded rule keeps appearing in every report, every CI
+annotation and the reader's panel — you just stop failing the build on it. A disabled rule
+disappears, and nobody looks at it again.
+
+### The metadata header
+
+An AI workflow stamps provenance into YAML front matter: which agent wrote the document, from which
+prompt, at which stage. Spectacle treats that as data rather than prose.
+
+First, it renders. Without the front-matter extension, CommonMark reads `title: Draft` followed by
+the closing `---` as a **setext heading** — so the metadata header silently becomes the document's
+first `h2`, landing in the outline, the heading hierarchy, and the table-of-contents check on
+essentially every generated document. Spectacle parses the header out, shows it as a metadata card
+at the top of the preview, and hands every content check the body alone (with line numbers
+preserved, so findings still point at the right line of the real file).
+
+Second, it is enforced. Declare the keys every document must carry and the gate holds each one to
+them:
+
+```json
+{ "requiredFrontMatter": ["workflow", "stage", "reviewer", "run.model"] }
+```
+
+A dotted key reads a nested field, so `run.model` matches:
+
+```markdown
+---
+workflow: spec-writer
+stage: draft
+reviewer: unassigned
+run:
+  model: opus
+---
+```
+
+Six rules: `missing-front-matter` (a template is declared and the header is absent),
+`unclosed-front-matter` (opened with `---`, never closed — what a truncated response looks like, and
+no parser will read it as metadata), `missing-key`, `empty-value` (the key is there but blank: a
+template copied and never filled in, which is worse than absent because it looks complete),
+`duplicate-key` (YAML keeps the last, so the value a reader sees and the value a parser returns can
+differ), and `misplaced-front-matter` (a second header further down the document — the signature of
+concatenated generator output, which renders as a stray heading and a horizontal rule).
+
+With no template declared, the check reports only genuine malformations, so a project that does not
+use front matter is completely unaffected. `--check-front-matter` runs it alone, and its `--json`
+also hands you the parsed metadata — one call both validates the header and returns the values to
+route on. The verdict echoes them too, under `documents[].metadata`.
+
+### Generation residue
+
+Every other check in Spectacle would pass a document that opens with "Certainly! Here's the updated
+specification:" and ends with "…rest of the file unchanged". Those failures only happen when a model
+writes the file, they are exactly what a human reviewer catches in two seconds, and no Markdown
+linter catches them at all. `--check-ai-artifacts` (the `ai-artifacts` gate check) closes that gap:
+
+| Rule | What it catches |
+|---|---|
+| `unfilled-template` | `{{title}}`, `${VERSION}`, `<PROJECT_NAME>`, `%SCOPE%`, `[INSERT SUMMARY]`, a rule of underscores — the template reached the reader instead of the value |
+| `assistant-voice` | "Certainly!", "As an AI language model", "I've updated the section", "Let me know if you…" — text addressed to whoever prompted it rather than whoever reads it |
+| `truncated-output` | "[…]", "(truncated)", "rest of the file unchanged", "content continues" — a marker standing where content should be |
+| `placeholder-target` | links to `path/to/file`, `your-org/your-repo`, `{{url}}`, a bare `#` — what a model writes when it needs a URL and has none |
+
+Fenced code and inline code spans are skipped, so a docs page about templating can show `` `{{name}}` ``
+freely, and a thematic break written with underscores is punctuation rather than a blank to fill.
+The reserved `example.com` domain is deliberately **not** flagged: it exists so documentation can
+show a URL that points nowhere on purpose. At most one finding per rule per line, so a dense line
+reports once instead of burying the rest of the verdict.
+
+### Closing the loop with `--fix-brief`
+
+A verdict describes findings to a *reader*: a rule id, a line, a message. An authoring agent handed
+that has to infer what "toc/stale-toc-entry at line 40" wants done — and will sometimes infer wrong,
+or helpfully rewrite half the document on the way past. `--fix-brief` removes the inference:
+
+```console
+$ Spectacle.exe design.md --fix-brief
+# Revision brief — design.md
+
+`design.md` **does not pass** its quality gate. Apply the required fixes below,
+then re-run the gate to confirm.
+
+- Verdict: **fail** — 2 blocking (2 error, 1 warning, 1 advisory), threshold `error`
+- Re-check with: `Spectacle.exe "design.md" --gate`
+- Document declares: `workflow` = spec-writer, `stage` = draft
+
+## How to apply this brief
+
+1. Change only what the findings below ask for. Leave every other line exactly as it is.
+2. Work top to bottom through this list — it is ordered from the end of the document backwards, so
+   each line number is still correct when you reach it.
+…
+
+## Required fixes (2)
+
+### 1. Line 22 — `front-matter/missing-key`
+
+- What was found: front matter is missing required key 'reviewer'
+- Why it matters: A key the project's metadata template requires is absent from the header.
+- **Do this:** Add the key to the front matter with its real value.
+```
+
+Three details do the work. Each finding carries the concrete edit that resolves it, from the rule
+catalogue — so the brief is actionable without a human translating rule ids. The findings are
+ordered **bottom-up**, because an edit at line 22 shifts every line after it and a top-down list
+hands the tool stale line numbers halfway through the pass. And the scope is stated explicitly, so a
+fix pass stays a fix pass rather than becoming a rewrite; a tool that genuinely cannot comply is
+pointed at inline suppression instead of left to mangle the document.
+
+`--json` gives the same content as an ordered instruction list for a tool that would rather be
+handed fields than prose. With an output path it writes a file; without one it prints to stdout.
+Either way its exit code mirrors the gate it reports on, so a pipeline can write the brief and
+branch on the same call:
+
+```bash
+Spectacle.exe design.md --gate || {
+  Spectacle.exe design.md --fix-brief brief.md
+  my-agent revise design.md --instructions brief.md
+  Spectacle.exe design.md --gate            # and around again
+}
+```
+
+### Formats for whatever your pipeline reads
+
+The same verdict, five ways. `--json` is Spectacle's own shape (a `documents` array, so one file and
+one folder parse identically, with counts, coverage, metadata and per-finding descriptions and
+remedies). `--md` is a pull-request comment. The other three are for CI:
+
+- `--sarif` — SARIF 2.1.0 for GitHub code scanning, Azure DevOps and friends. Severities map to
+  SARIF levels (`error` / `warning` / `note`), and the tool driver publishes the whole rule
+  catalogue with descriptions and fixes up front.
+- `--github` — GitHub Actions workflow commands (`::error file=…,line=…,title=…::message`), so
+  findings annotate the diff inline. No code-scanning setup and no upload step: any runner that can
+  echo a line gets annotations. Advisories arrive as `::notice`.
+- `--junit` — JUnit XML, so a documentation gate becomes rows in the test report a team already
+  reads. One `testsuite` per document, one `testcase` per rule that fired; advisories are `skipped`
+  rather than `failure`, and a clean document still reports one passing case (an empty suite reads
+  as "nothing ran", which is the opposite of the fact being reported).
+
+`--github` and `--junit` work on `--review` too. And anywhere a file is expected, `-` reads the
+document from standard input, so a generator can pipe straight into the gate without touching disk:
+
+```bash
+my-agent write --spec auth | Spectacle.exe - --gate --json
+```
+
+### A CI job, end to end
+
+```yaml
+# .github/workflows/docs-gate.yml
+name: Docs gate
+on: [pull_request]
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+
+      - name: Build Spectacle
+        run: dotnet publish src/Spectacle -p:PublishProfile=win-x64
+
+      # Inline annotations on the diff, whatever the outcome. `|| true` keeps the
+      # annotations from being the step that fails the job — the gate below owns that.
+      - name: Annotate findings
+        run: publish/win-x64/Spectacle.exe docs --gate --github || exit 0
+
+      # The gate itself. Exits non-zero only at or above the project's threshold.
+      - name: Gate
+        id: gate
+        run: publish/win-x64/Spectacle.exe docs --gate --md > gate.md
+
+      # On failure, leave the reviewer the report and the authoring agent its brief.
+      - name: Publish the report
+        if: failure()
+        run: |
+          Get-Content gate.md >> $env:GITHUB_STEP_SUMMARY
+          publish/win-x64/Spectacle.exe docs/design.md --fix-brief brief.md
+        shell: pwsh
+
+      - name: Upload the revision brief
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: revision-brief, path: brief.md }
+```
+
+Swap `--github` for `--sarif` plus `github/codeql-action/upload-sarif` if the repository has code
+scanning enabled, or `--junit` if your platform reads test reports. The gate step is the same either
+way — the formats are views of one verdict, not separate runs.
+
+### The gate in the reader
+
+Open a document and the gate is already there. A badge in the bottom-right corner shows
+`GATE PASS` / `GATE FAIL` with the counts; press `v` (or click it) for a panel listing every
+finding with its severity, line, rule and fix. Select one and the preview scrolls to that line and
+flashes the block. Front matter renders as a metadata card at the top rather than as a stray
+heading. The badge re-grades on every render, so an agent rewriting the file under the watcher
+moves it live.
+
+The verdict shown is not the reader's approximation of the gate — it is the same computed
+`GateVerdict`, with the same project config and the same grades, so a green badge and a green
+pipeline are the same statement. Where coverage was reduced, the panel says so instead of letting
+the badge imply a full pass.
+
+### Verifying it
+
+The xUnit suite covers the checks, the grading, the exporters, and the payload the preview injects
+(`dotnet test test/Spectacle.Tests`). The overlay's own behaviour is covered separately, because none
+of it is reachable from C# — and in **real Chromium**, which is what WebView2 is, so the test
+exercises the same engine the reader renders in:
+
+```bash
+cd test/js && npm install && npx playwright install chromium && npm test
+```
+
+It asserts what the badge, the metadata card and the findings panel actually lay out, that `v` /
+arrows / `Enter` / `Esc` do what the help sheet claims, that jumping to a finding scrolls to and
+flashes the right block, and that the panel neither steals keys from the other overlays nor opens
+underneath them.
+
+This started out as a test against a hand-rolled DOM stub. The stub passed every assertion while
+three real defects were live — the overlay ignored the containment contract the other overlays
+share, it opened underneath the modal help sheet, and the empty panel offered a jump with nothing to
+jump to. A stub only checks the logic you thought to model, so it was replaced rather than kept
+alongside. CI runs both suites.
+
 ### Tuning the gate
 
 The one-shot verdict is otherwise all-or-nothing. Two controls let a team adopt it without
@@ -390,7 +711,7 @@ project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single r
 then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
 `structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `link-text`,
 `emphasis-heading`, `sections`, `toc`, `numbering`, `bare-urls`, `heading-numbering`, `link-refs`,
-and `footnotes`; an unrecognized id is ignored with a warning. A disabled check is never silently
+`footnotes`, `front-matter`, and `ai-artifacts`; an unrecognized id is ignored with a warning. A disabled check is never silently
 treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
 clean result can't be confused with one that simply ran fewer checks. The selection applies
 uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
@@ -419,7 +740,8 @@ keeping a clean result honest.
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
 `--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`,
 `--check-numbering`, `--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`,
-`--check-footnotes`, and `--review` all run headless and write to stdout.
+`--check-footnotes`, `--check-front-matter`, `--check-ai-artifacts`, `--review`, `--gate`, and
+`--fix-brief` all run headless and write to stdout.
 
 ## Keyboard
 
@@ -447,6 +769,7 @@ Spectacle can be operated entirely without a mouse. Press `?` inside the preview
 | G | Jump to last |
 | Ctrl+F | Find in document (Enter / Shift+Enter or F3 / Shift+F3 to cycle matches, Esc to close) |
 | t | Toggle the document outline (↑ / ↓ to move, Enter to jump, Esc to close) |
+| v | Toggle the quality gate verdict (↑ / ↓ to move, Enter to jump to the line, Esc to close) |
 | ? | Show keyboard help overlay |
 
 ### On a focused block

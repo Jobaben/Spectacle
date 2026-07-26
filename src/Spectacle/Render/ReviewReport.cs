@@ -32,7 +32,9 @@ public sealed record ReviewReport(
     IReadOnlyList<BareUrl>? BareUrls = null,
     IReadOnlyList<HeadingNumberingIssue>? HeadingNumbering = null,
     IReadOnlyList<UndefinedReference>? LinkRefs = null,
-    IReadOnlyList<UndefinedFootnote>? Footnotes = null)
+    IReadOnlyList<UndefinedFootnote>? Footnotes = null,
+    IReadOnlyList<FrontMatterFinding>? FrontMatterFindings = null,
+    IReadOnlyList<AiArtifact>? AiArtifacts = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
@@ -65,6 +67,12 @@ public sealed record ReviewReport(
     /// <summary>Footnote references with no matching definition (renders as broken literal text).</summary>
     public IReadOnlyList<UndefinedFootnote> FootnoteIssues => Footnotes ?? Array.Empty<UndefinedFootnote>();
 
+    /// <summary>Defects in the document's YAML metadata header (missing/blank required keys, unclosed, misplaced).</summary>
+    public IReadOnlyList<FrontMatterFinding> FrontMatterIssues => FrontMatterFindings ?? Array.Empty<FrontMatterFinding>();
+
+    /// <summary>Residue of generation: unfilled template tokens, chat framing, truncation markers, placeholder targets.</summary>
+    public IReadOnlyList<AiArtifact> AiArtifactIssues => AiArtifacts ?? Array.Empty<AiArtifact>();
+
     /// <summary>
     /// Count of advisory findings — hedging prose and untagged code fences. Surfaced in the
     /// verdict so the one command an agent runs sees this guidance too, but deliberately
@@ -79,7 +87,8 @@ public sealed record ReviewReport(
         Lint.Count + Structure.Count + Links.Count + Tables.Count + Fences.Count + Paths.Count
         + Duplication.Count + AltText.Count + LinkTextIssues.Count + EmphasisHeadings.Count
         + Sections.Count + TocIssues.Count + NumberingIssues.Count + BareUrlIssues.Count
-        + HeadingNumberingIssues.Count + LinkRefIssues.Count + FootnoteIssues.Count;
+        + HeadingNumberingIssues.Count + LinkRefIssues.Count + FootnoteIssues.Count
+        + FrontMatterIssues.Count + AiArtifactIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -117,8 +126,14 @@ public sealed record ReviewReport(
         string content,
         Func<string, bool> targetExists,
         IReadOnlyList<string> requiredSections,
-        ReviewChecks checks)
+        ReviewChecks checks,
+        IReadOnlyList<string>? requiredFrontMatter = null)
     {
+        // Every prose check reads the *body*: the YAML metadata header is data, and a CommonMark
+        // parser reads it as a setext heading, so leaving it in would put a phantom h2 in the
+        // outline of every generated document. Strip blanks the header's lines rather than removing
+        // them, so a finding's line number still points at the right line of the real file.
+        var body = FrontMatter.Strip(content);
         var suppressions = InlineSuppressions.Parse(content);
         var suppressed = 0;
 
@@ -139,28 +154,28 @@ public sealed record ReviewReport(
             return kept;
         }
 
-        var checklist = ChecklistAnalyzer.Analyze(content);
+        var checklist = ChecklistAnalyzer.Analyze(body);
         return new ReviewReport(
-            Lint: Run("lint", () => SpecLinter.Lint(content), f => f.Line),
-            Structure: Run("structure", () => StructureChecker.Check(content), f => f.Line),
-            Links: Run("links", () => LinkChecker.Check(content), b => b.Line),
-            Tables: Run("tables", () => TableChecker.Check(content), t => t.Line),
+            Lint: Run("lint", () => SpecLinter.Lint(body), f => f.Line),
+            Structure: Run("structure", () => StructureChecker.Check(body), f => f.Line),
+            Links: Run("links", () => LinkChecker.Check(body), b => b.Line),
+            Tables: Run("tables", () => TableChecker.Check(body), t => t.Line),
             // Only the rendering defect (an unclosed fence) gates the verdict; a missing
             // language tag is advisory — it surfaces under FenceWarnings below (and the
             // dedicated --check-fences), never in the gating count.
             Fences: Run("fences",
-                () => FenceChecker.Check(content).Where(f => f.Rule == FenceChecker.UnclosedRule).ToList(),
+                () => FenceChecker.Check(body).Where(f => f.Rule == FenceChecker.UnclosedRule).ToList(),
                 f => f.Line),
-            Paths: Run("paths", () => LinkPathChecker.Check(content, targetExists), p => p.Line),
-            Duplication: Run("duplication", () => DuplicateBlockChecker.Check(content), d => d.Line),
-            AltText: Run("alt-text", () => AltTextChecker.Check(content), a => a.Line),
-            LinkText: Run("link-text", () => LinkTextChecker.Check(content), l => l.Line),
-            EmphasisHeadings: Run("emphasis-heading", () => EmphasisHeadingChecker.Check(content), e => e.Line),
+            Paths: Run("paths", () => LinkPathChecker.Check(body, targetExists), p => p.Line),
+            Duplication: Run("duplication", () => DuplicateBlockChecker.Check(body), d => d.Line),
+            AltText: Run("alt-text", () => AltTextChecker.Check(body), a => a.Line),
+            LinkText: Run("link-text", () => LinkTextChecker.Check(body), l => l.Line),
+            EmphasisHeadings: Run("emphasis-heading", () => EmphasisHeadingChecker.Check(body), e => e.Line),
             // No template (empty list) means nothing is required, so this is a no-op —
             // preserving the verdict for specs reviewed without a .spectacle.json. A missing
             // section has no line, so inline line directives never apply; only the gate toggles it.
             Sections: checks.Has("sections")
-                ? RequiredSectionsChecker.Check(content, requiredSections)
+                ? RequiredSectionsChecker.Check(body, requiredSections)
                 : Array.Empty<MissingSection>(),
             ChecklistTotal: checklist.Count,
             ChecklistDone: checklist.Count(i => i.Checked),
@@ -168,22 +183,31 @@ public sealed record ReviewReport(
             SuppressedCount: suppressed,
             // No TOC in the spec means no findings, so a spec without one is unaffected — the
             // same "enforced only when present" stance the section template uses.
-            Toc: Run("toc", () => TocChecker.Check(content), t => t.Line),
+            Toc: Run("toc", () => TocChecker.Check(body), t => t.Line),
             // A spec with no ordered lists (or only well-numbered ones) is unaffected.
-            Numbering: Run("numbering", () => NumberingChecker.Check(content), n => n.Line),
+            Numbering: Run("numbering", () => NumberingChecker.Check(body), n => n.Line),
             // A spec with no bare URLs is unaffected.
-            BareUrls: Run("bare-urls", () => BareUrlChecker.Check(content), u => u.Line),
+            BareUrls: Run("bare-urls", () => BareUrlChecker.Check(body), u => u.Line),
             // A spec that never numbers its headings is unaffected.
-            HeadingNumbering: Run("heading-numbering", () => HeadingNumberingChecker.Check(content), h => h.Line),
+            HeadingNumbering: Run("heading-numbering", () => HeadingNumberingChecker.Check(body), h => h.Line),
             // A spec with no reference-style links is unaffected.
-            LinkRefs: Run("link-refs", () => LinkRefChecker.Check(content), r => r.Line),
+            LinkRefs: Run("link-refs", () => LinkRefChecker.Check(body), r => r.Line),
             // A spec with no footnotes is unaffected.
-            Footnotes: Run("footnotes", () => FootnoteChecker.Check(content), f => f.Line),
+            Footnotes: Run("footnotes", () => FootnoteChecker.Check(body), f => f.Line),
+            // The one check that reads the *raw* document: its subject is the metadata header the
+            // others deliberately look past. With no required-key template it reports only genuine
+            // malformations (unclosed, duplicated, misplaced), so a project that does not use front
+            // matter is unaffected.
+            FrontMatterFindings: Run("front-matter",
+                () => FrontMatterChecker.Check(content, requiredFrontMatter ?? Array.Empty<string>()),
+                f => f.Line),
+            // A document written by hand carries none of this residue, so this is silent on one.
+            AiArtifacts: Run("ai-artifacts", () => AiArtifactChecker.Check(body), a => a.Line),
             // Advisories are guidance, not gating defects, so they are computed unconditionally —
             // independent of the gate selection (their ids never appear in --only/--skip) and never
             // counted in IssueCount. The fence advisory is the no-language rule the gate's fence
             // check deliberately drops (it keeps only the unclosed-fence rendering defect).
-            Prose: ProseChecker.Check(content),
-            FenceWarnings: FenceChecker.Check(content).Where(f => f.Rule == FenceChecker.NoLanguageRule).ToList());
+            Prose: ProseChecker.Check(body),
+            FenceWarnings: FenceChecker.Check(body).Where(f => f.Rule == FenceChecker.NoLanguageRule).ToList());
     }
 }

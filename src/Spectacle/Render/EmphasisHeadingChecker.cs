@@ -29,6 +29,7 @@ public static class EmphasisHeadingChecker
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseYamlFrontMatter()
         .UsePreciseSourceLocation()
         .Build();
 

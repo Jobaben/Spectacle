@@ -24,6 +24,7 @@ public static class LinkPathChecker
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseYamlFrontMatter()
         .UsePreciseSourceLocation()
         .Build();
 

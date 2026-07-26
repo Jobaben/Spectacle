@@ -35,6 +35,8 @@ public abstract record CliCommand
     public sealed record CheckHeadingNumbering(string Path, bool Json) : CliCommand;
     public sealed record CheckLinkRefs(string Path, bool Json) : CliCommand;
     public sealed record CheckFootnotes(string Path, bool Json) : CliCommand;
+    public sealed record CheckFrontMatter(string Path, string? Required, bool Json, string? ConfigPath = null) : CliCommand;
+    public sealed record CheckAiArtifacts(string Path, bool Json) : CliCommand;
     public sealed record Review(
         string Path,
         bool Json,
@@ -42,7 +44,35 @@ public abstract record CliCommand
         bool Sarif = false,
         IReadOnlyList<string>? Only = null,
         IReadOnlyList<string>? Skip = null,
-        bool Md = false) : CliCommand;
+        bool Md = false,
+        bool Github = false,
+        bool Junit = false) : CliCommand;
+
+    /// <summary>
+    /// The graded gate: one verdict for a document or a folder, in whichever format the pipeline
+    /// consumes, with the pass/fail threshold overridable for a single run.
+    /// </summary>
+    public sealed record Gate(
+        string Path,
+        bool Json = false,
+        bool Md = false,
+        bool Sarif = false,
+        bool Github = false,
+        bool Junit = false,
+        string? FailOn = null,
+        IReadOnlyList<string>? Only = null,
+        IReadOnlyList<string>? Skip = null,
+        string? ConfigPath = null) : CliCommand;
+
+    /// <summary>The gate's findings rewritten as revision instructions for the authoring tool.</summary>
+    public sealed record FixBrief(
+        string Path,
+        string? OutputPath = null,
+        bool Json = false,
+        string? FailOn = null,
+        IReadOnlyList<string>? Only = null,
+        IReadOnlyList<string>? Skip = null,
+        string? ConfigPath = null) : CliCommand;
 }
 
 public static class CliArgs
@@ -60,7 +90,9 @@ public static class CliArgs
         var flags = new List<string>();
         foreach (var a in args)
         {
-            if (a.StartsWith('-')) flags.Add(a);
+            // A lone "-" is the conventional name for standard input, not a flag — it lets a
+            // generator pipe a document straight into a check without touching disk.
+            if (a.Length > 1 && a.StartsWith('-')) flags.Add(a);
             else if (path is null) path = a;
             else secondPositional ??= a;
         }
@@ -167,6 +199,52 @@ public static class CliArgs
         if (flags.Contains("--check-footnotes") || flags.Contains("--check-notes"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckFootnotes(path, flags.Contains("--json"));
 
+        // --check-front-matter takes its required-key template as a second positional
+        // comma-separated list, exactly as --check-sections takes its section template; when
+        // omitted the keys come from `requiredFrontMatter` in the resolved .spectacle.json.
+        if (flags.Contains("--check-front-matter") || flags.Contains("--check-metadata"))
+            return path is null
+                ? new CliCommand.Help()
+                : new CliCommand.CheckFrontMatter(
+                    path, secondPositional, flags.Contains("--json"), FlagValue(flags, "--config="));
+
+        if (flags.Contains("--check-ai-artifacts") || flags.Contains("--check-ai"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckAiArtifacts(path, flags.Contains("--json"));
+
+        // --gate is the graded verdict: the same checks as --review, but each finding reported at
+        // its configured severity and only findings at or above the threshold failing the run. It
+        // takes a file or a directory and emits any of the pipeline formats.
+        if (flags.Contains("--gate"))
+        {
+            if (path is null) return new CliCommand.Help();
+            return new CliCommand.Gate(
+                path,
+                Json: flags.Contains("--json"),
+                Md: flags.Contains("--md") || flags.Contains("--markdown"),
+                Sarif: flags.Contains("--sarif"),
+                Github: flags.Contains("--github") || flags.Contains("--gh"),
+                Junit: flags.Contains("--junit"),
+                FailOn: FlagValue(flags, "--fail-on="),
+                Only: FlagValueList(flags, "--only="),
+                Skip: FlagValueList(flags, "--skip="),
+                ConfigPath: FlagValue(flags, "--config="));
+        }
+
+        // --fix-brief writes the gate's findings as revision instructions; its optional second
+        // positional is the output file (mirroring --export-html), defaulting to stdout.
+        if (flags.Contains("--fix-brief") || flags.Contains("--brief"))
+        {
+            if (path is null) return new CliCommand.Help();
+            return new CliCommand.FixBrief(
+                path,
+                OutputPath: secondPositional,
+                Json: flags.Contains("--json"),
+                FailOn: FlagValue(flags, "--fail-on="),
+                Only: FlagValueList(flags, "--only="),
+                Skip: FlagValueList(flags, "--skip="),
+                ConfigPath: FlagValue(flags, "--config="));
+        }
+
         // --review takes a single spec, a directory (batch review), and optionally a
         // baseline to diff against. --baseline names the older version via the second
         // positional, mirroring how --diff consumes it; the second positional is left as
@@ -180,7 +258,9 @@ public static class CliArgs
             return new CliCommand.Review(
                 path, flags.Contains("--json"), baseline, flags.Contains("--sarif"),
                 FlagValueList(flags, "--only="), FlagValueList(flags, "--skip="),
-                flags.Contains("--md") || flags.Contains("--markdown"));
+                flags.Contains("--md") || flags.Contains("--markdown"),
+                flags.Contains("--github") || flags.Contains("--gh"),
+                flags.Contains("--junit"));
         }
 
         // No recognized flag: open the file if we have one, otherwise show help

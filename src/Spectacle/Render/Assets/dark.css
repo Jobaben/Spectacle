@@ -6,5 +6,11 @@
   --focus: #7cb7ff;
   --rule: #3c3c3c;
   --code-bg: #252526;
+  /* Gate severities. Chosen for >=4.5:1 on --bg so a finding's label is readable, and kept
+     distinguishable by hue as well as by its text label. */
+  --gate-pass: #89d185;
+  --gate-error: #f48771;
+  --gate-warning: #dcdcaa;
+  --gate-info: #9cdcfe;
 }
 html, body { background: var(--bg); color: var(--fg); }

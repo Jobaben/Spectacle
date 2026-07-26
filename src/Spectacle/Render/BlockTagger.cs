@@ -72,6 +72,11 @@ internal static class BlockTagger
 
     private static string? KindOf(Block block) => block switch
     {
+        // Markdig models a YAML front-matter header as a CodeBlock, so it must be excluded ahead
+        // of the code cases. It renders to nothing, so tagging it would mint a block id with no
+        // element in the document — a block a comment could anchor to but never be shown on, and a
+        // phantom "code block" in the structural diff of every document that carries metadata.
+        Markdig.Extensions.Yaml.YamlFrontMatterBlock => null,
         HeadingBlock => "heading",
         ParagraphBlock => "paragraph",
         FencedCodeBlock => "code",

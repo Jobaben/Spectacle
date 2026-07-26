@@ -14,8 +14,13 @@ namespace Spectacle.Render;
 /// Every report is one set of <c>results</c> sharing the same artifact URI, so a single
 /// file and a whole batch take the same path. The checklist tally is informational, not a
 /// defect, so it is not emitted as a result. Each finding becomes one result with a
-/// <c>category/rule</c> rule id, an <c>error</c> level (these are the issues that fail the
-/// <c>--review</c> gate), a message, and a one-based line location.
+/// <c>category/rule</c> rule id, a level mapped from its graded severity, a message, and a
+/// one-based line location — advisory findings included, at SARIF's <c>note</c> level, so a
+/// dashboard shows the guidance without failing on it.
+///
+/// The findings come from <see cref="FindingStream"/> and the rule descriptions from
+/// <see cref="RuleCatalog"/>, so a new check appears in SARIF — result and catalogue entry
+/// both — without this file changing at all.
 /// </summary>
 public static class SarifExporter
 {
@@ -28,38 +33,20 @@ public static class SarifExporter
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    // The full rule catalogue, by stable rule id, with a human-readable description. Listed
-    // up front in the tool driver so consumers get descriptions even for rules that did not
-    // fire in this run.
-    private static readonly (string Id, string Description)[] Catalog =
-    {
-        ("lint/placeholder", "Leftover placeholder marker (TODO, TBD, FIXME, …) in spec prose."),
-        ("lint/empty-section", "A heading with no content of its own and no subsection beneath it."),
-        ("structure/multiple-h1", "More than one top-level (h1) heading."),
-        ("structure/skipped-level", "A heading skips a level (e.g. h1 jumps to h3)."),
-        ("structure/duplicate-heading", "Duplicate heading text, which also yields ambiguous anchors."),
-        ("links", "A broken internal link (unresolved anchor or empty target)."),
-        ("tables", "A malformed GFM pipe table (row cell count differs from the header)."),
-        ("fences/unclosed-fence", "A fenced code block opened but never closed."),
-        ("paths", "A relative link/image target that does not exist on disk."),
-        ("duplication", "A block (paragraph, list item, code, table) repeated verbatim elsewhere."),
-        ("alt-text", "An image with no alt text (empty description)."),
-        ("link-text/non-descriptive", "A link whose visible text (e.g. 'click here', 'more') names no destination."),
-        ("link-text/empty", "A link with empty or whitespace-only visible text."),
-        ("emphasis-heading", "An emphasized line used as a fake heading instead of a real heading."),
-        ("sections", "A required section (by the spec template) is missing from the document."),
-        ("toc/stale-toc-entry", "A table-of-contents entry pointing at a heading that does not exist."),
-        ("toc/missing-from-toc", "A section heading (at a level the table of contents covers) with no entry."),
-        ("numbering/out-of-sequence", "An ordered list whose item numbers are neither all the same nor strictly consecutive."),
-        ("bare-urls/bare-url", "A bare (auto-linked) URL in prose that should be a descriptive Markdown link."),
-        ("heading-numbering/out-of-sequence", "Manually numbered headings whose section numbers are neither all the same nor strictly consecutive."),
-        ("link-refs/undefined-reference", "A reference-style link or image whose label has no matching definition (renders as broken literal text)."),
-        ("footnotes/undefined-footnote", "A footnote reference whose label has no matching definition (renders as broken literal text)."),
-    };
+    /// <summary>
+    /// Builds the log with every rule at its catalogued default severity.
+    /// </summary>
+    public static string Build(IReadOnlyList<BatchReviewEntry> entries, string toolVersion) =>
+        Build(entries, toolVersion, GatePolicy.Default);
 
-    public static string Build(IReadOnlyList<BatchReviewEntry> entries, string toolVersion)
+    /// <summary>
+    /// Builds the log with severities graded by <paramref name="policy"/>, so a rule a project has
+    /// downgraded to a warning arrives in the CI dashboard as a warning rather than an error.
+    /// </summary>
+    public static string Build(
+        IReadOnlyList<BatchReviewEntry> entries, string toolVersion, GatePolicy policy)
     {
-        var results = entries.SelectMany(e => ResultsFor(e.Path, e.Report)).ToList();
+        var results = entries.SelectMany(e => ResultsFor(e.Path, e.Report, policy)).ToList();
 
         var run = new
         {
@@ -70,10 +57,14 @@ public static class SarifExporter
                     name = "Spectacle",
                     informationUri = InformationUri,
                     version = toolVersion,
-                    rules = Catalog.Select(r => new
+                    // The full catalogue up front, so a consumer gets a description and a fix for
+                    // every rule Spectacle knows — including the ones that did not fire in this run.
+                    rules = RuleCatalog.All.Select(r => new
                     {
                         id = r.Id,
                         shortDescription = new { text = r.Description },
+                        help = new { text = r.Remedy },
+                        defaultConfiguration = new { level = SarifLevel(r.DefaultSeverity) },
                     }).ToArray(),
                 },
             },
@@ -92,44 +83,25 @@ public static class SarifExporter
         return JsonSerializer.Serialize(log, JsonOptions);
     }
 
-    private static IEnumerable<object> ResultsFor(string path, ReviewReport r)
+    private static IEnumerable<object> ResultsFor(string path, ReviewReport report, GatePolicy policy)
     {
         var uri = path.Replace('\\', '/');
-
-        foreach (var f in r.Lint) yield return Result($"lint/{f.Rule}", f.Message, uri, f.Line);
-        foreach (var f in r.Structure) yield return Result($"structure/{f.Rule}", f.Message, uri, f.Line);
-        foreach (var b in r.Links) yield return Result("links", $"{b.Target}: {b.Reason}", uri, b.Line);
-        foreach (var t in r.Tables) yield return Result("tables", t.Message, uri, t.Line);
-        foreach (var f in r.Fences) yield return Result($"fences/{f.Rule}", f.Message, uri, f.Line);
-        foreach (var p in r.Paths) yield return Result("paths", $"{p.Target}: {p.Reason}", uri, p.Line);
-        foreach (var d in r.Duplication)
-            yield return Result("duplication", $"{d.Kind} duplicates line {d.FirstLine}", uri, d.Line);
-        foreach (var a in r.AltText)
-            yield return Result("alt-text", $"image missing alt text: {(a.Target.Length == 0 ? "(no target)" : a.Target)}", uri, a.Line);
-        foreach (var l in r.LinkTextIssues)
-            yield return Result($"link-text/{LinkTextChecker.RuleOf(l)}", l.Reason, uri, l.Line);
-        foreach (var e in r.EmphasisHeadings)
-            yield return Result("emphasis-heading", $"emphasized line used as heading: '{e.Text}'", uri, e.Line);
-        // A missing section is a document-level defect with no line; anchor it at line 1 so it
-        // still carries a valid SARIF region (startLine must be >= 1).
-        foreach (var s in r.Sections)
-            yield return Result("sections", $"missing required section: '{s.Required}'", uri, 1);
-        foreach (var t in r.TocIssues) yield return Result($"toc/{t.Rule}", t.Message, uri, t.Line);
-        foreach (var n in r.NumberingIssues) yield return Result($"numbering/{n.Rule}", n.Message, uri, n.Line);
-        foreach (var u in r.BareUrlIssues)
-            yield return Result($"bare-urls/{BareUrlChecker.BareUrlRule}", $"bare URL: {u.Url}", uri, u.Line);
-        foreach (var h in r.HeadingNumberingIssues)
-            yield return Result($"heading-numbering/{h.Rule}", h.Message, uri, h.Line);
-        foreach (var lr in r.LinkRefIssues)
-            yield return Result($"link-refs/{LinkRefChecker.UndefinedRule}", $"{lr.Reference}: no definition for '{lr.Label}'", uri, lr.Line);
-        foreach (var fn in r.FootnoteIssues)
-            yield return Result($"footnotes/{FootnoteChecker.UndefinedRule}", $"footnote '[^{fn.Label}]' has no matching definition", uri, fn.Line);
+        return policy.Apply(FindingStream.All(report))
+            .Select(f => Result(f.RuleId, SarifLevel(f.Severity), f.Message, uri, f.Line));
     }
 
-    private static object Result(string ruleId, string message, string uri, int line) => new
+    // SARIF's own vocabulary: it calls the lowest reporting level "note", not "info".
+    private static string SarifLevel(GateSeverity severity) => severity switch
+    {
+        GateSeverity.Error => "error",
+        GateSeverity.Warning => "warning",
+        _ => "note",
+    };
+
+    private static object Result(string ruleId, string level, string message, string uri, int line) => new
     {
         ruleId,
-        level = "error",
+        level,
         message = new { text = message },
         locations = new[]
         {

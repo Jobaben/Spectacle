@@ -33,6 +33,7 @@ public static class NumberingChecker
 
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseYamlFrontMatter()
         .UsePreciseSourceLocation()
         .Build();
 

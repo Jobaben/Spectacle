@@ -111,6 +111,10 @@ public sealed record ReviewDelta(
         // that label gone (defined, or the reference removed).
         all.AddRange(r.LinkRefIssues.Select(lr => new DeltaFinding("link-refs", LinkRefChecker.UndefinedRule, lr.Line, $"'{lr.Label}'")));
         all.AddRange(r.FootnoteIssues.Select(fn => new DeltaFinding("footnotes", FootnoteChecker.UndefinedRule, fn.Line, $"'[^{fn.Label}]'")));
+        all.AddRange(r.FrontMatterIssues.Select(f => new DeltaFinding("front-matter", f.Rule, f.Line, f.Message)));
+        // Identity excludes line, so a generation artifact keys on the matched text — a fix is
+        // that exact residue gone, wherever the surrounding prose ended up.
+        all.AddRange(r.AiArtifactIssues.Select(a => new DeltaFinding("ai-artifacts", a.Rule, a.Line, $"'{a.Excerpt}'")));
         return all;
     }
 }

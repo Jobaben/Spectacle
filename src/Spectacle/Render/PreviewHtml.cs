@@ -25,6 +25,8 @@ public static class PreviewHtml
     private static readonly Lazy<string> FindJs = new(() => LoadAsset("preview-find.js"));
     private static readonly Lazy<string> OutlineCss = new(() => LoadAsset("preview-outline.css"));
     private static readonly Lazy<string> OutlineJs = new(() => LoadAsset("preview-outline.js"));
+    private static readonly Lazy<string> GateCss = new(() => LoadAsset("preview-gate.css"));
+    private static readonly Lazy<string> GateJs = new(() => LoadAsset("preview-gate.js"));
 
     private static readonly JsonSerializerOptions PayloadOpts = new()
     {
@@ -40,11 +42,22 @@ public static class PreviewHtml
 
     public static string Build(
         string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
-        IReadOnlyList<OutlineEntry>? outline)
+        IReadOnlyList<OutlineEntry>? outline) =>
+        Build(bodyHtml, baseHref, theme, matchResult, outline, verdict: null);
+
+    /// <summary>
+    /// Builds the preview document. <paramref name="verdict"/> is the gate result for the open
+    /// document; pass <c>null</c> for a preview with no gate overlay (the exported, static HTML
+    /// takes that path).
+    /// </summary>
+    public static string Build(
+        string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
+        IReadOnlyList<OutlineEntry>? outline, GateVerdict? verdict)
     {
         var themeCss = theme == PreviewTheme.HighContrast ? HcCss.Value : DarkCss.Value;
         var payloadJson = BuildPayload(matchResult);
         var outlineJson = BuildOutlinePayload(outline);
+        var gateJson = BuildGatePayload(verdict);
 
         return $$"""
             <!DOCTYPE html>
@@ -60,6 +73,7 @@ public static class PreviewHtml
               <style>{{KeynavCss.Value}}</style>
               <style>{{FindCss.Value}}</style>
               <style>{{OutlineCss.Value}}</style>
+              <style>{{GateCss.Value}}</style>
             </head>
             <body>
               <main role="main">
@@ -68,10 +82,12 @@ public static class PreviewHtml
               <script>{{PrismJs.Value}}</script>
               <script>window.__spectacleAnnotations__ = {{payloadJson}};</script>
               <script>window.__spectacleOutline__ = {{outlineJson}};</script>
+              <script>window.__spectacleGate__ = {{gateJson}};</script>
               <script>{{AnnotationsJs.Value}}</script>
               <script>{{KeynavJs.Value}}</script>
               <script>{{FindJs.Value}}</script>
               <script>{{OutlineJs.Value}}</script>
+              <script>{{GateJs.Value}}</script>
             </body>
             </html>
             """;
@@ -90,6 +106,56 @@ public static class PreviewHtml
         // Same `</` -> `<\/` guard as the annotations payload: a heading whose text
         // contains `</script>` would otherwise terminate this inline <script> early.
         return JsonSerializer.Serialize(entries, PayloadOpts).Replace("</", "<\\/");
+    }
+
+    /// <summary>
+    /// Serializes the gate verdict for <c>preview-gate.js</c>, or the JSON literal <c>null</c> when
+    /// no gate was computed — the script renders nothing at all in that case, so an exported HTML
+    /// file carries no badge.
+    /// </summary>
+    private static string BuildGatePayload(GateVerdict? verdict)
+    {
+        if (verdict is null) return "null";
+
+        var payload = new
+        {
+            status = verdict.Status,
+            passed = verdict.Passed,
+            failOn = verdict.FailOn.ToString().ToLowerInvariant(),
+            counts = new
+            {
+                blocking = verdict.BlockingCount,
+                error = verdict.ErrorCount,
+                warning = verdict.WarningCount,
+                info = verdict.InfoCount,
+                suppressed = verdict.SuppressedCount,
+            },
+            coverage = new
+            {
+                checksDisabled = verdict.SkippedChecks,
+                suppressed = verdict.SuppressedCount,
+            },
+            // A list of pairs rather than an object: front-matter keys come from the document, so
+            // preserving source order matters and a duplicate key must not silently vanish.
+            metadata = verdict.Metadata.Select(m => new { key = m.Key, value = m.Value }),
+            findings = verdict.Findings.Select(f => new
+            {
+                severity = f.SeverityName,
+                rule = f.RuleId,
+                check = f.CheckId,
+                line = f.Line,
+                message = f.Message,
+                remedy = f.Remedy,
+            }),
+        };
+
+        // A finding's message and a front-matter value both carry the document's own text into this
+        // inline <script>, where a closing tag would end the script early and the rest would be
+        // parsed as markup. Two things prevent it: PayloadOpts keeps the default JavaScript
+        // encoder, which escapes every `<` to a \u003C sequence outright, and the `</` -> `<\/` rewrite below
+        // covers the same ground for any value the encoder passes through. JSON decodes both back
+        // to the original string, so the JS side reads exactly what the document said.
+        return JsonSerializer.Serialize(payload, PayloadOpts).Replace("</", "<\\/");
     }
 
     private static string BuildPayload(MatchResult? matchResult)

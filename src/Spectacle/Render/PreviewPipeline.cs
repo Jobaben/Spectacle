@@ -24,6 +24,7 @@ public sealed class PreviewPipeline : IDisposable
     private AnnotationFile _file;
     private RenderResult? _lastRender;
     private MatchResult? _lastMatch;
+    private GateVerdict? _lastVerdict;
     private long _renderVersion; // guarded by _sync; identifies the newest render
 
     public event EventHandler? Rendered;
@@ -207,15 +208,29 @@ public sealed class PreviewPipeline : IDisposable
     // Computes the render under _sync; publishing happens outside the lock.
     private (string Html, long Version) RenderLocked()
     {
-        _lastRender = _renderer.Render(_document.Text);
+        var text = _document.Text;
+        _lastRender = _renderer.Render(text);
         _lastMatch = AnnotationMatcher.Match(_lastRender.Blocks, _file.Comments);
+        // Graded on every render, so editing the document — or an agent rewriting it under the
+        // watcher — moves the badge live. This is the same verdict `--gate` exits on.
+        _lastVerdict = LiveGate.Evaluate(text, _document.BaseDirectory, _store.SourceName);
         var html = PreviewHtml.Build(
             _lastRender.Html,
             $"https://{Web.WebViewHost.VirtualHost}/",
             _theme,
             _lastMatch,
-            _lastRender.Outline);
+            _lastRender.Outline,
+            _lastVerdict);
         return (html, ++_renderVersion);
+    }
+
+    /// <summary>
+    /// The most recent gate verdict, or <c>null</c> before the first render — for a host that wants
+    /// to surface the document's status outside the preview (a title bar, a status line).
+    /// </summary>
+    public GateVerdict? SnapshotVerdict()
+    {
+        lock (_sync) { return _lastVerdict; }
     }
 
     // Push and Rendered run with NO lock held: the file watcher raises Changed

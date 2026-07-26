@@ -72,4 +72,17 @@ public static class BatchReview
             .Select(s => new BatchReviewEntry(
                 s.Path, ReviewReport.Compute(s.Content, s.TargetExists, s.RequiredSections, s.Checks)))
             .ToList());
+
+    /// <summary>
+    /// As above, but each spec also carries its own required front-matter template, so a folder
+    /// review holds every document to the metadata contract of its enclosing project.
+    /// </summary>
+    public static BatchReviewResult Compute(
+        IEnumerable<(string Path, string Content, Func<string, bool> TargetExists, IReadOnlyList<string> RequiredSections, ReviewChecks Checks, IReadOnlyList<string> RequiredFrontMatter)> specs) =>
+        new(specs
+            .Select(s => new BatchReviewEntry(
+                s.Path,
+                ReviewReport.Compute(
+                    s.Content, s.TargetExists, s.RequiredSections, s.Checks, s.RequiredFrontMatter)))
+            .ToList());
 }
