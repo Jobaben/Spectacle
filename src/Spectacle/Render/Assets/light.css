@@ -10,5 +10,12 @@
   --focus: #0550ae;
   --rule: #d0d7de;
   --code-bg: #f6f8fa;
+  /* Gate severities. Same job as dark.css's, re-picked for a light page: the dark theme's hues
+     land near 2.5:1 on white, so a finding's label would be unreadable if they were inherited.
+     Chosen for >=4.5:1 on --bg and kept apart by hue as well as by the row's own text label. */
+  --gate-pass: #1a7f37;
+  --gate-error: #cf222e;
+  --gate-warning: #9a6700;
+  --gate-info: #0550ae;
 }
 html, body { background: var(--bg); color: var(--fg); }

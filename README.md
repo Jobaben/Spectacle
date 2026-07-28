@@ -466,9 +466,13 @@ licence alongside it.)
 read the stylesheet; it is handed the theme's colours as configuration instead. Diagrams are
 therefore held to the same contrast the prose is — label text at AAA on its node, borders and edges
 at the 3:1 floor WCAG sets for meaningful graphics — and the same test that checks the body palette
-checks the diagram one. High contrast is monochrome, as everywhere else in Spectacle: identity is
-carried by each series' outline and its label rather than by a fill, because a grey ramp is not a
-categorical palette and a black one drew a pie chart that was not there at all.
+checks the diagram one. There is a palette per theme, so `Ctrl+T` and `--export-html --light` redraw
+a diagram on the light page rather than dropping a dark canvas into it; the light categorical fills
+are the dark ends of the same eight hues, in the same order, because on a near-white canvas a fill
+has to be dark to clear 3:1 (which flips the label ink from black to white). High contrast is
+monochrome, as everywhere else in Spectacle: identity is carried by each series' outline and its
+label rather than by a fill, because a grey ramp is not a categorical palette and a black one drew a
+pie chart that was not there at all.
 
 **A diagram that fails takes only itself down.** Diagrams are rendered one at a time, each in its
 own error boundary, because the documents Spectacle reads are frequently ones a model wrote. A
@@ -752,6 +756,11 @@ The verdict shown is not the reader's approximation of the gate — it is the sa
 `GateVerdict`, with the same project config and the same grades, so a green badge and a green
 pipeline are the same statement. Where coverage was reduced, the panel says so instead of letting
 the badge imply a full pass.
+
+The overlay draws from the theme's own custom properties, and each theme names its four severity
+hues rather than inheriting them: the dark palette's severities sit near 2.5:1 on a light page, so
+`light.css` picks its own set at AA against the page, and high contrast drops the hues entirely and
+lets each row's `error` / `warning` / `info` label carry the distinction.
 
 ### Verifying it
 

@@ -92,6 +92,49 @@ public sealed record MermaidPalette(
         SeriesStroke: "#252526");
 
     /// <summary>
+    /// Light diagram palette, drawn from <c>light.css</c> the same way <see cref="Dark"/> is drawn
+    /// from <c>dark.css</c>: the code-block panel (<c>--code-bg</c>) is the canvas, the body
+    /// foreground is label text, and the muted grey draws edges. Node fills step *up* off the panel
+    /// to white — the light-mode mirror of the dark palette's step — so a node reads as raised, and
+    /// the border is the light theme's link blue, which clears 3:1 on both the panel and the fill.
+    /// Without this a light document drew its diagrams in the dark palette: dark grey boxes and
+    /// #d4d4d4 edge labels on a near-white panel.
+    /// </summary>
+    public static readonly MermaidPalette Light = new(
+        Background: "#f6f8fa",
+        NodeFill: "#ffffff",
+        NodeText: "#1f2328",
+        NodeBorder: "#0969da",
+        Line: "#656d76",
+        Text: "#1f2328",
+        ClusterFill: "#eaeef2",
+        ClusterBorder: "#656d76",
+        NoteFill: "#eaeef2",
+        NoteText: "#1f2328",
+        // The same eight hues in the same documented order as the dark palette, at their light-
+        // surface steps. On a near-white canvas a categorical fill has to be dark to clear 3:1, and
+        // dark enough again to hold white ink — so these are the saturated dark ends of each hue
+        // rather than the mid-tones the dark palette can afford.
+        Series: new[]
+        {
+            "#0550ae", // blue
+            "#8a4300", // orange
+            "#0d6a63", // aqua
+            "#6d4c00", // yellow
+            "#9c1c6b", // magenta
+            "#1a6b2f", // green
+            "#5a32ad", // violet
+            "#a4131f", // red
+        },
+        SeriesOverflow: "#57606a",
+        // Ink on a series fill. The fills are dark by necessity here, so the choice inverts: white
+        // holds 6.4:1 at worst over these eight where black manages 2.5:1.
+        SeriesInk: "#ffffff",
+        // The panel colour, so adjacent fills are separated by the surface showing through rather
+        // than by a drawn border — the same treatment as the dark palette.
+        SeriesStroke: "#f6f8fa");
+
+    /// <summary>
     /// High-contrast diagram palette: pure black and white only, matching <c>hc.css</c>. Every
     /// distinction a colour would carry is carried by shape and by the diagram's own labels
     /// instead, which is the same trade the gate overlay makes at 21:1.
@@ -122,8 +165,12 @@ public sealed record MermaidPalette(
         SeriesStroke: "#ffffff");
 
     /// <summary>The palette for a preview theme.</summary>
-    public static MermaidPalette For(PreviewTheme theme) =>
-        theme == PreviewTheme.HighContrast ? HighContrast : Dark;
+    public static MermaidPalette For(PreviewTheme theme) => theme switch
+    {
+        PreviewTheme.HighContrast => HighContrast,
+        PreviewTheme.Light => Light,
+        _ => Dark,
+    };
 }
 
 /// <summary>
@@ -183,7 +230,10 @@ public static class MermaidAssets
             ["startOnLoad"] = false,
             ["securityLevel"] = "strict",
             ["theme"] = "base",
-            ["darkMode"] = true,
+            // Only the light theme turns this off: it steers the colours mermaid derives for
+            // anything the palette below does not name outright, and on a near-white canvas the
+            // dark-mode derivations come out too pale to see.
+            ["darkMode"] = theme != PreviewTheme.Light,
             // Stable ids across renders: the preview re-renders the whole document on every
             // keystroke of an agent rewriting the file, and ids that churn defeat both diffing and
             // the browser test.
@@ -196,7 +246,7 @@ public static class MermaidAssets
             ["gantt"] = new Dictionary<string, object> { ["useMaxWidth"] = true },
             ["themeVariables"] = new Dictionary<string, object>
             {
-                ["darkMode"] = theme != PreviewTheme.HighContrast,
+                ["darkMode"] = theme == PreviewTheme.Dark,
                 ["background"] = p.Background,
                 ["fontFamily"] = FontStack,
                 ["fontSize"] = "16px",

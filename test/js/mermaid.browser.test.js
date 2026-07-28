@@ -64,18 +64,36 @@ function figure(i, diagram) {
     `data-mermaid="pending">\n<pre class="mermaid-source"><code>${escaped}</code></pre>\n</figure>`;
 }
 
-// Mirrors the flags in MermaidAssets.ConfigJson that change behaviour rather than colour. The palette
-// itself is asserted in the C# tests; what matters here is that diagrams are rendered by the script
-// (startOnLoad off), from untrusted text (strict), with stable ids.
-const CONFIG = {
-  startOnLoad: false,
-  securityLevel: 'strict',
-  theme: 'base',
-  darkMode: true,
-  deterministicIds: true,
-  flowchart: { useMaxWidth: true },
-  themeVariables: { background: '#252526', primaryColor: '#2d2d30', primaryTextColor: '#d4d4d4' },
+// Mirrors the flags in MermaidAssets.ConfigJson that change behaviour rather than colour, plus the
+// handful of palette values per theme that steer what mermaid *derives* — enough that a theme whose
+// palette is wrong draws something visibly wrong here. The ratios themselves are asserted in the C#
+// tests; what matters here is that diagrams are rendered by the script (startOnLoad off), from
+// untrusted text (strict), with stable ids, in every theme the reader offers.
+const THEME_CSS = { hc: 'hc.css', light: 'light.css', dark: 'dark.css' };
+
+const PALETTES = {
+  dark: { darkMode: true, background: '#252526', primaryColor: '#2d2d30', primaryTextColor: '#d4d4d4' },
+  light: { darkMode: false, background: '#f6f8fa', primaryColor: '#ffffff', primaryTextColor: '#1f2328' },
+  hc: { darkMode: true, background: '#000000', primaryColor: '#000000', primaryTextColor: '#ffffff' },
 };
+
+function config(theme) {
+  const p = PALETTES[theme];
+  return {
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: 'base',
+    darkMode: p.darkMode,
+    deterministicIds: true,
+    flowchart: { useMaxWidth: true },
+    themeVariables: {
+      darkMode: theme === 'dark',
+      background: p.background,
+      primaryColor: p.primaryColor,
+      primaryTextColor: p.primaryTextColor,
+    },
+  };
+}
 
 function buildHtml(theme) {
   const body = ALL.map((d, i) => figure(i, d)).join('\n');
@@ -83,7 +101,7 @@ function buildHtml(theme) {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <style>${asset(theme === 'hc' ? 'hc.css' : 'dark.css')}</style>
+  <style>${asset(THEME_CSS[theme])}</style>
   <style>${asset('preview.css')}</style>
   <style>${asset('prism.css')}</style>
   <style>${asset('mermaid.css')}</style>
@@ -92,7 +110,7 @@ function buildHtml(theme) {
   <main role="main">
 ${body}
   </main>
-  <script>window.__spectacleMermaid__ = ${JSON.stringify(CONFIG)};</script>
+  <script>window.__spectacleMermaid__ = ${JSON.stringify(config(theme))};</script>
   <script>${asset('mermaid.min.js')}</script>
   <script>${asset('preview-mermaid.js')}</script>
 </body>
@@ -116,7 +134,7 @@ const settled = () =>
     args: ['--no-sandbox'],
   });
 
-  for (const theme of ['dark', 'hc']) {
+  for (const theme of ['dark', 'light', 'hc']) {
     const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
     const errors = [];
     const offsite = [];

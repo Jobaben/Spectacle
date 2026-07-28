@@ -226,12 +226,28 @@ public class MermaidRenderingTests
     public void Each_theme_hands_mermaid_its_own_palette()
     {
         var dark = Config(PreviewTheme.Dark).GetProperty("themeVariables");
+        var light = Config(PreviewTheme.Light).GetProperty("themeVariables");
         var hc = Config(PreviewTheme.HighContrast).GetProperty("themeVariables");
 
         dark.GetProperty("background").GetString().Should().Be(MermaidPalette.Dark.Background);
+        light.GetProperty("background").GetString().Should().Be(MermaidPalette.Light.Background);
         hc.GetProperty("background").GetString().Should().Be(MermaidPalette.HighContrast.Background);
         dark.GetProperty("primaryTextColor").GetString().Should().Be(MermaidPalette.Dark.NodeText);
+        light.GetProperty("primaryTextColor").GetString().Should().Be(MermaidPalette.Light.NodeText);
         hc.GetProperty("primaryTextColor").GetString().Should().Be("#ffffff");
+    }
+
+    [Fact]
+    public void Only_the_light_theme_turns_dark_mode_off()
+    {
+        // darkMode steers what mermaid derives for anything the palette does not name outright. On a
+        // near-white canvas the dark-mode derivations come out too pale to see.
+        Config(PreviewTheme.Dark).GetProperty("darkMode").GetBoolean().Should().BeTrue();
+        Config(PreviewTheme.HighContrast).GetProperty("darkMode").GetBoolean().Should().BeTrue();
+        Config(PreviewTheme.Light).GetProperty("darkMode").GetBoolean().Should().BeFalse();
+
+        Config(PreviewTheme.Light).GetProperty("themeVariables")
+            .GetProperty("darkMode").GetBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -297,6 +313,18 @@ public class MermaidRenderingTests
     public void The_palette_follows_the_theme()
     {
         MermaidPalette.For(PreviewTheme.Dark).Should().BeSameAs(MermaidPalette.Dark);
+        MermaidPalette.For(PreviewTheme.Light).Should().BeSameAs(MermaidPalette.Light);
         MermaidPalette.For(PreviewTheme.HighContrast).Should().BeSameAs(MermaidPalette.HighContrast);
+    }
+
+    [Fact]
+    public void A_light_export_carries_the_light_diagram_palette()
+    {
+        // The end-to-end version of the same thing: --export-html --light on a document with a
+        // diagram must not ship the dark canvas colour to a light page.
+        var html = HtmlExporter.FromMarkdown(Diagram, PreviewTheme.Light, "Doc");
+
+        html.Should().Contain($"\"background\":\"{MermaidPalette.Light.Background}\"");
+        html.Should().NotContain($"\"background\":\"{MermaidPalette.Dark.Background}\"");
     }
 }
