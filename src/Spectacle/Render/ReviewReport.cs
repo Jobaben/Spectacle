@@ -34,7 +34,8 @@ public sealed record ReviewReport(
     IReadOnlyList<UndefinedReference>? LinkRefs = null,
     IReadOnlyList<UndefinedFootnote>? Footnotes = null,
     IReadOnlyList<FrontMatterFinding>? FrontMatterFindings = null,
-    IReadOnlyList<AiArtifact>? AiArtifacts = null)
+    IReadOnlyList<AiArtifact>? AiArtifacts = null,
+    IReadOnlyList<MermaidIssue>? Mermaid = null)
 {
     /// <summary>Checks turned off for this verdict (project gate / <c>--only</c> / <c>--skip</c>),
     /// in canonical order, so the report can say a check was *off* rather than silently passing.</summary>
@@ -73,6 +74,9 @@ public sealed record ReviewReport(
     /// <summary>Residue of generation: unfilled template tokens, chat framing, truncation markers, placeholder targets.</summary>
     public IReadOnlyList<AiArtifact> AiArtifactIssues => AiArtifacts ?? Array.Empty<AiArtifact>();
 
+    /// <summary>Mermaid diagrams that cannot be drawn, or that reach a screen reader undescribed.</summary>
+    public IReadOnlyList<MermaidIssue> MermaidIssues => Mermaid ?? Array.Empty<MermaidIssue>();
+
     /// <summary>
     /// Count of advisory findings — hedging prose and untagged code fences. Surfaced in the
     /// verdict so the one command an agent runs sees this guidance too, but deliberately
@@ -88,7 +92,7 @@ public sealed record ReviewReport(
         + Duplication.Count + AltText.Count + LinkTextIssues.Count + EmphasisHeadings.Count
         + Sections.Count + TocIssues.Count + NumberingIssues.Count + BareUrlIssues.Count
         + HeadingNumberingIssues.Count + LinkRefIssues.Count + FootnoteIssues.Count
-        + FrontMatterIssues.Count + AiArtifactIssues.Count;
+        + FrontMatterIssues.Count + AiArtifactIssues.Count + MermaidIssues.Count;
 
     /// <summary>
     /// Review without a filesystem context: path existence is not checked (relative
@@ -203,6 +207,8 @@ public sealed record ReviewReport(
                 f => f.Line),
             // A document written by hand carries none of this residue, so this is silent on one.
             AiArtifacts: Run("ai-artifacts", () => AiArtifactChecker.Check(body), a => a.Line),
+            // A document with no ```mermaid fence is unaffected.
+            Mermaid: Run("mermaid", () => MermaidChecker.Check(body), m => m.Line),
             // Advisories are guidance, not gating defects, so they are computed unconditionally —
             // independent of the gate selection (their ids never appear in --only/--skip) and never
             // counted in IssueCount. The fence advisory is the no-language rule the gate's fence

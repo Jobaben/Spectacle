@@ -115,6 +115,10 @@ public static class ReviewReportExporter
         foreach (var a in r.AiArtifactIssues)
             sb.Append("    line ").Append(a.Line).Append("  [").Append(a.Rule).Append("] ").AppendLine(a.Message);
 
+        sb.Append("  mermaid (").Append(r.MermaidIssues.Count).AppendLine("):");
+        foreach (var m in r.MermaidIssues)
+            sb.Append("    line ").Append(m.Line).Append("  [").Append(m.Rule).Append("] ").AppendLine(m.Message);
+
         // Advisories are guidance, not gate failures: shown after the issues, never in the count.
         sb.Append("  advisories (").Append(r.AdvisoryCount).AppendLine(") — not gating:");
         foreach (var f in r.FenceAdvisories)
@@ -153,6 +157,7 @@ public static class ReviewReportExporter
             footnotes = r.FootnoteIssues,
             frontMatter = r.FrontMatterIssues,
             aiArtifacts = r.AiArtifactIssues,
+            mermaid = r.MermaidIssues,
             // Advisories are reported but excluded from issueCount — guidance, not gate failures.
             advisoryCount = r.AdvisoryCount,
             advisories = new { prose = r.ProseAdvisories, fences = r.FenceAdvisories },
@@ -219,6 +224,7 @@ public static class ReviewReportExporter
         Section(sb, prefix, "footnotes", r.FootnoteIssues, fn => $"`[^{fn.Label}]` — no matching definition", fn => fn.Line);
         Section(sb, prefix, "front-matter", r.FrontMatterIssues, fm => $"`{fm.Rule}` {fm.Message}", fm => fm.Line);
         Section(sb, prefix, "ai-artifacts", r.AiArtifactIssues, a => $"`{a.Rule}` {a.Message}", a => a.Line);
+        Section(sb, prefix, "mermaid", r.MermaidIssues, m => $"`{m.Rule}` {m.Message}", m => m.Line);
     }
 
     /// <summary>

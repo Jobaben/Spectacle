@@ -59,6 +59,7 @@ public static class Program
           Spectacle.exe <file> --check-footnotes [--json] Report footnote references with no matching definition and exit (non-zero if any)
           Spectacle.exe <file> --check-front-matter ["a,b"] [--config=<cfg>] [--json] Report a missing/unclosed/incomplete YAML metadata header (keys from the list or .spectacle.json) and exit (non-zero if any)
           Spectacle.exe <file> --check-ai-artifacts [--json] Report generation residue — unfilled template tokens, chat framing, truncation markers, placeholder link targets — and exit (non-zero if any)
+          Spectacle.exe <file> --check-mermaid [--json] Report Mermaid diagrams that cannot be drawn (empty, unknown type) or carry no description, and exit (non-zero if any)
           Spectacle.exe <file> --review [--json|--sarif|--md|--github|--junit] [--only=a,b|--skip=a,b] Run all checks and exit (non-zero if any issues)
           Spectacle.exe <dir> --review [--json|--sarif|--md|--github|--junit] Review every .md/.markdown spec under a folder and exit
           Spectacle.exe <file> --review --baseline <old> [--json] Show what a revision fixed/introduced vs an older version and exit
@@ -107,6 +108,7 @@ public static class Program
             CliCommand.CheckFootnotes footnotes => DoCheckFootnotes(footnotes.Path, footnotes.Json),
             CliCommand.CheckFrontMatter fm => DoCheckFrontMatter(fm.Path, fm.Required, fm.Json, fm.ConfigPath),
             CliCommand.CheckAiArtifacts ai => DoCheckAiArtifacts(ai.Path, ai.Json),
+            CliCommand.CheckMermaid mermaid => DoCheckMermaid(mermaid.Path, mermaid.Json),
             CliCommand.Gate gate => DoGate(gate),
             CliCommand.FixBrief brief => DoFixBrief(brief),
             CliCommand.Review review => DoReview(
@@ -450,6 +452,16 @@ public static class Program
         Console.WriteLine(AiArtifactCheckExporter.Build(artifacts, DisplayPath(path), json));
         // Non-zero when generation residue is found so this can gate a pipeline.
         return artifacts.Count == 0 ? 0 : 1;
+    }
+
+    private static int DoCheckMermaid(string path, bool json)
+    {
+        if (!ValidateSource(path)) return 2;
+
+        var issues = MermaidChecker.Check(ReadBody(path));
+        Console.WriteLine(MermaidCheckExporter.Build(issues, DisplayPath(path), json));
+        // Non-zero when a diagram cannot be drawn or carries no description, so this gates a pipeline.
+        return issues.Count == 0 ? 0 : 1;
     }
 
     /// <summary>

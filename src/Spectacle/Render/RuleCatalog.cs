@@ -130,6 +130,17 @@ public static class RuleCatalog
             "A link or image points at a stand-in target (path/to/file, your-org/your-repo, #).",
             "Point it at the real destination, or remove the link and keep the text."),
 
+        // Diagrams. Spectacle draws them, so one that cannot be drawn is missing content.
+        new("mermaid/empty-diagram", "mermaid", GateSeverity.Error,
+            "A ```mermaid fence with no diagram in it, which renders as blank space.",
+            "Write the diagram, or delete the empty fence."),
+        new("mermaid/unknown-diagram-type", "mermaid", GateSeverity.Error,
+            "A diagram opening with a keyword Mermaid does not recognize, so it cannot be drawn.",
+            "Open the diagram with a supported type (flowchart, sequenceDiagram, classDiagram, …); check the spelling of the first word."),
+        new("mermaid/missing-description", "mermaid", GateSeverity.Error,
+            "A diagram with no accTitle or accDescr, so a screen reader announces an unnamed graphic.",
+            "Add an accDescr line describing what the diagram shows (and an accTitle to name it), the way alt text describes an image."),
+
         // Advisory rules — surfaced everywhere, gating nowhere by default.
         new("prose/hedge", "prose", GateSeverity.Info,
             "Hedging language that signals an undecided spec ('should probably', 'may need to').",

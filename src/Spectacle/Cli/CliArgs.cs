@@ -37,6 +37,7 @@ public abstract record CliCommand
     public sealed record CheckFootnotes(string Path, bool Json) : CliCommand;
     public sealed record CheckFrontMatter(string Path, string? Required, bool Json, string? ConfigPath = null) : CliCommand;
     public sealed record CheckAiArtifacts(string Path, bool Json) : CliCommand;
+    public sealed record CheckMermaid(string Path, bool Json) : CliCommand;
     public sealed record Review(
         string Path,
         bool Json,
@@ -210,6 +211,9 @@ public static class CliArgs
 
         if (flags.Contains("--check-ai-artifacts") || flags.Contains("--check-ai"))
             return path is null ? new CliCommand.Help() : new CliCommand.CheckAiArtifacts(path, flags.Contains("--json"));
+
+        if (flags.Contains("--check-mermaid") || flags.Contains("--check-diagrams"))
+            return path is null ? new CliCommand.Help() : new CliCommand.CheckMermaid(path, flags.Contains("--json"));
 
         // --gate is the graded verdict: the same checks as --review, but each finding reported at
         // its configured severity and only findings at or above the threshold failing the run. It
