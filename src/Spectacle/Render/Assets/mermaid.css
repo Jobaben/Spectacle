@@ -1,0 +1,101 @@
+/* Diagram containers. Emitted by MermaidCodeBlockRenderer as
+     <figure class="md-block" data-mermaid="pending"><pre class="mermaid-source"><code>…</code></pre></figure>
+   and rewritten in place by preview-mermaid.js, which moves data-mermaid to "done" or "error".
+
+   The pending state is styled to look exactly like the code block the fence used to render as, so a
+   document with the script stripped, or a diagram mermaid refuses, still reads as source rather
+   than as a broken element. */
+
+figure.md-block[data-mermaid] {
+  margin: 0 0 1em;
+}
+
+figure.md-block[data-mermaid] > .mermaid-source {
+  margin: 0;
+}
+
+/* Drawn diagram. The panel matches a code block's, so a diagram sits in the document's visual
+   rhythm rather than floating on the page background. */
+.mermaid-diagram {
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Focus is on the figure (BlockTagger gives every block tabindex="0"), so the ring has to be drawn
+   there rather than on the svg. */
+figure.md-block[data-mermaid]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The source, kept for every drawn diagram as its text alternative: a screen reader user, or anyone
+   who needs the literal definition, can open it without leaving the reader. Collapsed by default so
+   a drawn diagram is not shown twice. */
+.mermaid-source-toggle {
+  margin-top: 8px;
+}
+
+.mermaid-source-toggle > summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85em;
+  padding: 2px 0;
+}
+
+.mermaid-source-toggle > summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.mermaid-source-toggle[open] > summary {
+  margin-bottom: 6px;
+}
+
+/* A diagram mermaid could not draw. The source stays visible — the point of the message is to say
+   why the drawing is missing, not to replace the content with an apology. */
+figure.md-block[data-mermaid="error"] > .mermaid-error {
+  background: var(--code-bg);
+  border-left: 4px solid var(--gate-error);
+  border-radius: 4px;
+  color: var(--fg);
+  font-size: 0.9em;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+}
+
+figure.md-block[data-mermaid="error"] .mermaid-error-detail {
+  color: var(--muted);
+  display: block;
+  font-family: Consolas, "Cascadia Code", "Fira Code", monospace;
+  font-size: 0.9em;
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+
+/* Forced colours: the drawn SVG carries mermaid's inline fills, which the platform will not
+   override. Everything Spectacle itself draws around the diagram defers to the system palette, and
+   the panel loses its fill so the diagram's own colours stay legible against it. */
+@media (forced-colors: active) {
+  .mermaid-diagram {
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
+  .mermaid-source-toggle > summary {
+    color: LinkText;
+  }
+  figure.md-block[data-mermaid="error"] > .mermaid-error {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+}

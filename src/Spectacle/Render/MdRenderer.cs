@@ -16,6 +16,8 @@ public sealed class MdRenderer
         .UseEmojiAndSmiley()
         .UseAutoIdentifiers()
         .UseGenericAttributes()
+        // Last, so it replaces whatever code-block renderer the extensions above installed.
+        .UseMermaid()
         .Build();
 
     public RenderResult Render(string markdown)

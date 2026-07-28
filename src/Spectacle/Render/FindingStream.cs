@@ -82,6 +82,8 @@ public static class FindingStream
             yield return Make("front-matter", $"front-matter/{fm.Rule}", fm.Line, fm.Message);
         foreach (var a in r.AiArtifactIssues)
             yield return Make("ai-artifacts", $"ai-artifacts/{a.Rule}", a.Line, a.Message);
+        foreach (var m in r.MermaidIssues)
+            yield return Make("mermaid", $"mermaid/{m.Rule}", m.Line, m.Message);
     }
 
     private static IEnumerable<GateFinding> AdvisoryFindings(ReviewReport r)

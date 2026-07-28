@@ -74,6 +74,7 @@ public static class PreviewHtml
               <style>{{FindCss.Value}}</style>
               <style>{{OutlineCss.Value}}</style>
               <style>{{GateCss.Value}}</style>
+              {{MermaidAssets.HeadFor(bodyHtml)}}
             </head>
             <body>
               <main role="main">
@@ -88,6 +89,7 @@ public static class PreviewHtml
               <script>{{FindJs.Value}}</script>
               <script>{{OutlineJs.Value}}</script>
               <script>{{GateJs.Value}}</script>
+              {{MermaidAssets.BodyFor(bodyHtml, theme)}}
             </body>
             </html>
             """;

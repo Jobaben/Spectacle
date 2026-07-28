@@ -5,3 +5,8 @@ obj/
 .vs/
 publish/
 TestResults/
+
+# Browser-test harness. CI installs it with `npm install` from the pinned
+# devDependency, so neither the tree nor a lockfile belongs in the repo.
+test/js/node_modules/
+test/js/package-lock.json

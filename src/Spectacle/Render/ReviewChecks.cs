@@ -22,7 +22,7 @@ public sealed class ReviewChecks
         "lint", "structure", "links", "tables", "fences", "paths",
         "duplication", "alt-text", "link-text", "emphasis-heading", "sections", "toc",
         "numbering", "bare-urls", "heading-numbering", "link-refs", "footnotes",
-        "front-matter", "ai-artifacts",
+        "front-matter", "ai-artifacts", "mermaid",
     };
 
     /// <summary>Every check enabled — the default verdict, unchanged from before this feature.</summary>

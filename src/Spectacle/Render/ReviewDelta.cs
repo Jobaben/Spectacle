@@ -115,6 +115,7 @@ public sealed record ReviewDelta(
         // Identity excludes line, so a generation artifact keys on the matched text — a fix is
         // that exact residue gone, wherever the surrounding prose ended up.
         all.AddRange(r.AiArtifactIssues.Select(a => new DeltaFinding("ai-artifacts", a.Rule, a.Line, $"'{a.Excerpt}'")));
+        all.AddRange(r.MermaidIssues.Select(m => new DeltaFinding("mermaid", m.Rule, m.Line, m.Message)));
         return all;
     }
 }

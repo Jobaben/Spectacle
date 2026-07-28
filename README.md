@@ -1,8 +1,9 @@
 # Spectacle
 
-A Windows-only Markdown viewer. Renders `.md` / `.markdown` files with VS Code-preview fidelity.
-Dark theme. WCAG-accessible. No editing. Export any document to a self-contained HTML file,
-and see live word count / reading time in the status bar.
+A Windows-only Markdown viewer. Renders `.md` / `.markdown` files with VS Code-preview fidelity,
+Mermaid diagrams included. Dark theme. WCAG-accessible. No editing. Export any document to a
+self-contained HTML file — diagrams and all, drawn offline — and see live word count / reading
+time in the status bar.
 
 It is also a **quality gate for Markdown an AI workflow wrote**. Open a generated document and a
 badge in the corner tells you whether it passes, with every finding and its fix one keypress away
@@ -14,7 +15,7 @@ Spectacle.exe design.md --fix-brief brief.md   # the revision list, addressed to
 my-agent write | Spectacle.exe - --gate --json # gate a document that was never written to disk
 ```
 
-The gate is one command over ~30 rules, graded by severity, configured once per project, and
+The gate is one command over ~40 rules, graded by severity, configured once per project, and
 emitted in whatever your pipeline reads — its own JSON, SARIF, GitHub Actions annotations, JUnit
 XML, or Markdown for a pull request. Four things make it a *workflow* gate rather than a linter:
 
@@ -76,6 +77,7 @@ Spectacle.exe <file> --check-link-refs [--json]  Report reference-style links wh
 Spectacle.exe <file> --check-footnotes [--json]  Report footnote references with no matching definition, then exit (non-zero if any)
 Spectacle.exe <file> --check-front-matter ["a,b"] [--config=<cfg>] [--json]  Report a missing/unclosed/incomplete YAML metadata header, then exit (non-zero if any)
 Spectacle.exe <file> --check-ai-artifacts [--json]  Report generation residue (unfilled tokens, chat framing, truncation markers, placeholder targets), then exit (non-zero if any)
+Spectacle.exe <file> --check-mermaid [--json]  Report Mermaid diagrams that cannot be drawn (empty, unknown type) or carry no description, then exit (non-zero if any)
 Spectacle.exe <file> --review [--json|--sarif|--md|--github|--junit] [--only=a,b|--skip=a,b]  Run all checks at once, then exit (non-zero if any issues)
 Spectacle.exe <dir> --review [--json|--sarif|--md|--github|--junit]  Review every spec under a folder at once, then exit (non-zero if any issues)
 Spectacle.exe <file> --review --baseline <old> [--json]  Show what a revision fixed/introduced vs an older version, then exit
@@ -87,8 +89,9 @@ Spectacle.exe --version                        Show version
 ```
 
 `--export-html` writes a portable, single-file HTML document (theme and syntax-highlight
-styling inlined, no external assets) next to the source — defaulting to `<file>.html` — or
-to the optional output path. `--stats` and `--export-html` run headless and never open a window.
+styling inlined, no external assets; the Mermaid renderer too when the document has a diagram) next
+to the source — defaulting to `<file>.html` — or to the optional output path. `--stats` and
+`--export-html` run headless and never open a window.
 
 `--revision-plan` writes the review's revision plan — the same actionable plan you build
 interactively with comments and copy/export via `Ctrl+Shift+C` / `Ctrl+Shift+E` — headlessly,
@@ -361,7 +364,8 @@ the advisory missing-tag rule is surfaced separately, see below), `--check-paths
 `--check-sections`, `--check-toc` (a no-op unless the spec has a TOC), `--check-numbering`,
 `--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`, `--check-footnotes`,
 `--check-front-matter` (a no-op unless the project declares a metadata template or the header is
-malformed), and `--check-ai-artifacts` —
+malformed), `--check-ai-artifacts`, and `--check-mermaid` (a no-op unless the document has a
+diagram) —
 groups the findings by category with a combined issue count, and includes the checklist
 completion tally. It exits non-zero if any check found an issue — so an agent or CI step can call a
 single command to decide whether a spec is ready. Add `--json` for a structured report with one
@@ -426,6 +430,76 @@ finding that merely moved counts as persisting, not as one fixed plus one new. I
 while the revision still carries any issue (new or persisting), matching plain `--review`'s
 "spec must be clean" gate; add `--json` for structured `fixed` / `new` / `persisting` arrays an
 agent can act on.
+
+## Diagrams
+
+A ` ```mermaid ` fence is **drawn**, not printed. Every diagram type the bundled Mermaid 11
+registers works — flowchart, sequence, class, state, ER, gantt, pie, journey, mindmap, timeline,
+gitGraph, xychart, quadrant, requirement, C4, sankey, block, packet, kanban, treemap, radar,
+architecture:
+
+````markdown
+```mermaid
+flowchart TD
+  accTitle: Login flow
+  accDescr: A client posts credentials; the auth service issues a token or rejects with 401.
+  A[Client] -->|POST /login| B{Credentials valid?}
+  B -->|yes| C[Issue token]
+  B -->|no| D[401]
+```
+````
+
+Four things follow from Spectacle's own constraints rather than from Mermaid's defaults.
+
+**Offline, in the reader and in the export.** The Mermaid bundle is embedded in the executable, the
+same way Prism is — no CDN, no network, nothing to fetch. `Export to HTML` inlines it too, so an
+exported document draws its diagrams on a machine that has never heard of Mermaid. The bundle is
+3.4 MB, so it is inlined **only when the document actually contains a diagram**: a document with
+none carries neither the bundle nor its stylesheet, and its export stays the size it always was.
+(Mermaid is vendored verbatim at `src/Spectacle/Render/Assets/mermaid.min.js`, MIT-licensed, with its
+licence alongside it.)
+
+**Drawn in the document's own palette.** Mermaid paints with inline SVG attributes and so cannot
+read the stylesheet; it is handed the theme's colours as configuration instead. Diagrams are
+therefore held to the same contrast the prose is — label text at AAA on its node, borders and edges
+at the 3:1 floor WCAG sets for meaningful graphics — and the same test that checks the body palette
+checks the diagram one. High contrast is monochrome, as everywhere else in Spectacle: identity is
+carried by each series' outline and its label rather than by a fill, because a grey ramp is not a
+categorical palette and a black one drew a pie chart that was not there at all.
+
+**A diagram that fails takes only itself down.** Diagrams are rendered one at a time, each in its
+own error boundary, because the documents Spectacle reads are frequently ones a model wrote. A
+diagram Mermaid rejects shows Mermaid's own parse error with its source underneath; every other
+diagram on the page still draws. With no scripting at all, a diagram renders as exactly what it
+used to be — a readable code block.
+
+**The source stays reachable.** Every drawn diagram keeps its definition in a collapsed *Diagram
+source* disclosure beneath it. It is the diagram's text alternative, and it is what a reader copies
+to edit it elsewhere.
+
+Diagrams are ordinary blocks: focusable by keyboard, commentable, and counted in the document
+statistics like any other fence.
+
+### What the gate checks
+
+`--check-mermaid` (the `mermaid` gate check) reports the three ways a generated diagram fails
+without needing to draw it:
+
+| Rule | What it catches |
+|---|---|
+| `empty-diagram` | A ` ```mermaid ` fence with nothing in it — the fence around a diagram a workflow meant to fill in and never did. It renders as blank space |
+| `unknown-diagram-type` | A diagram opening with a keyword Mermaid does not register: an invented type, one that ships as a separate plugin (`zenuml`), a spelling only the docs use (`radar` for `radar-beta`), or a real type miscapitalized (`classdiagram` — Mermaid's grammar is case-sensitive and draws nothing) |
+| `missing-description` | No `accTitle` or `accDescr`, so the diagram reaches a screen reader as an unnamed graphic. This is the `alt-text` defect in the other notation: a picture carrying meaning that only sighted readers receive |
+
+Mermaid's front matter and `%%{init}%%` directives are skipped before the type is read, so a diagram
+that opens with either is not mistaken for one that opens with nothing.
+
+What the gate deliberately does **not** do is validate diagram syntax. Mermaid's grammars are the
+only authority on that, and reimplementing even one of them would trade real findings for false
+ones — so a diagram that opens correctly and then fails to parse is caught where the authority
+lives, in the reader, which shows Mermaid's own error in place of the drawing. The list of
+recognized diagram keywords is checked against the vendored bundle's own detector in CI, so a
+version bump cannot silently start passing diagrams that no longer draw, or failing ones that do.
 
 ## The workflow gate
 
@@ -711,7 +785,7 @@ project by listing it in `.spectacle.json`'s `disabledChecks`, or for a single r
 then `disabledChecks` and `--skip` are both subtracted from it. The valid check ids are `lint`,
 `structure`, `links`, `tables`, `fences`, `paths`, `duplication`, `alt-text`, `link-text`,
 `emphasis-heading`, `sections`, `toc`, `numbering`, `bare-urls`, `heading-numbering`, `link-refs`,
-`footnotes`, `front-matter`, and `ai-artifacts`; an unrecognized id is ignored with a warning. A disabled check is never silently
+`footnotes`, `front-matter`, `ai-artifacts`, and `mermaid`; an unrecognized id is ignored with a warning. A disabled check is never silently
 treated as passing — the verdict lists it under `skipped` (text) / `skippedChecks` (JSON) so a
 clean result can't be confused with one that simply ran fewer checks. The selection applies
 uniformly to a single file, a folder batch (each spec honours its own nearest config), and a
@@ -740,8 +814,8 @@ keeping a clean result honest.
 `--check-fences`, `--check-paths`, `--check-sections`, `--check-duplication`, `--check-alt-text`,
 `--check-link-text`, `--check-emphasis-heading`, `--check-prose`, `--check-toc`,
 `--check-numbering`, `--check-bare-urls`, `--check-heading-numbering`, `--check-link-refs`,
-`--check-footnotes`, `--check-front-matter`, `--check-ai-artifacts`, `--review`, `--gate`, and
-`--fix-brief` all run headless and write to stdout.
+`--check-footnotes`, `--check-front-matter`, `--check-ai-artifacts`, `--check-mermaid`,
+`--review`, `--gate`, and `--fix-brief` all run headless and write to stdout.
 
 ## Keyboard
 
@@ -804,5 +878,5 @@ Spectacle can be operated entirely without a mouse. Press `?` inside the preview
 
 - Read-only. No editing.
 - Markdown only. Will refuse other extensions with exit code 2.
-- No math, no Mermaid diagrams.
+- No math (KaTeX). Mermaid diagrams are drawn — see [Diagrams](#diagrams).
 - Windows 11 only. Requires the WebView2 Evergreen Runtime (preinstalled on Win11).
