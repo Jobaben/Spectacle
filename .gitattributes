@@ -5,3 +5,6 @@ test/Spectacle.Tests/Fixtures/*.html text eol=lf
 
 # Vendored Prism is minified — leave bytes alone.
 src/Spectacle/Render/Assets/prism.min.js -text
+
+# Vendored Mermaid is minified — leave bytes alone.
+src/Spectacle/Render/Assets/mermaid.min.js -text
