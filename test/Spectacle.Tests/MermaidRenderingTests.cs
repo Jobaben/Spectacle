@@ -74,6 +74,43 @@ public class MermaidRenderingTests
         Body("```\nplain\n```\n").Should().NotContain(MermaidDiagram.Marker);
     }
 
+    [Fact]
+    public void An_indented_code_block_still_renders_as_a_code_block()
+    {
+        // Not every CodeBlock is a FencedCodeBlock, and the diagram renderer takes over the whole
+        // code-block slot.
+        var html = Body("text\n\n    indented code\n");
+
+        html.Should().Contain("<pre><code");
+        html.Should().Contain("indented code");
+        html.Should().NotContain(MermaidDiagram.Marker);
+    }
+
+    [Fact]
+    public void The_metadata_header_is_still_not_rendered()
+    {
+        // Markdig models a YAML front-matter header as a CodeBlock, and UseYamlFrontMatter suppresses
+        // it with a renderer of its own. Installing the diagram renderer ahead of that one claims the
+        // header first and prints the document's metadata as a visible code block — which is what
+        // happened, and is why the renderer is installed at the replaced renderer's own index.
+        // FrontMatterRenderingTests owns this behaviour; it is asserted here as well because this
+        // renderer is what can break it.
+        var html = Body("---\ntitle: Auth design\nstatus: draft\n---\n\n# Auth\n\nText.\n");
+
+        html.Should().NotContain("title: Auth design");
+        html.Should().NotContain("<pre>");
+        html.Should().Contain("<h1");
+    }
+
+    [Fact]
+    public void A_metadata_header_and_a_diagram_coexist()
+    {
+        var html = Body("---\ntitle: Auth design\n---\n\n# Auth\n\n" + Diagram);
+
+        html.Should().NotContain("title: Auth design");
+        MermaidDiagram.IsRenderedIn(html).Should().BeTrue();
+    }
+
     // ---------- which fences count ----------
 
     [Theory]

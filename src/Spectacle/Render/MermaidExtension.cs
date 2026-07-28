@@ -32,12 +32,24 @@ public sealed class MermaidExtension : IMarkdownExtension
         if (renderer is not HtmlRenderer html) return;
 
         // Take the pipeline's own code-block renderer out and put the mermaid-aware subclass in
-        // its place. Replacing by instance rather than by FindExact<T> keeps this idempotent: a
-        // second Setup finds the subclass, whose base type is still CodeBlockRenderer, and swaps
-        // in one more that behaves identically.
+        // its place — at the same index, which is load-bearing. Markdig models a YAML front-matter
+        // header as a CodeBlock, and UseYamlFrontMatter suppresses it with a renderer of its own;
+        // a code-block renderer placed ahead of that one claims the header first and renders the
+        // document's metadata as a visible code block.
+        //
+        // Replacing by instance rather than by FindExact<T> keeps this idempotent: a second Setup
+        // finds the subclass, whose base type is still CodeBlockRenderer, and swaps in one more
+        // that behaves identically.
         var existing = html.ObjectRenderers.Find<CodeBlockRenderer>();
-        if (existing is not null) html.ObjectRenderers.Remove(existing);
-        html.ObjectRenderers.Insert(0, new MermaidCodeBlockRenderer());
+        if (existing is null)
+        {
+            html.ObjectRenderers.Add(new MermaidCodeBlockRenderer());
+            return;
+        }
+
+        var at = html.ObjectRenderers.IndexOf(existing);
+        html.ObjectRenderers.RemoveAt(at);
+        html.ObjectRenderers.Insert(at, new MermaidCodeBlockRenderer());
     }
 }
 
