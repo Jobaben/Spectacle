@@ -36,5 +36,10 @@
     <EmbeddedResource Include="Render\Assets\preview-find.js" />
     <EmbeddedResource Include="Render\Assets\preview-outline.css" />
     <EmbeddedResource Include="Render\Assets\preview-outline.js" />
+    <EmbeddedResource Include="Render\Assets\preview-gate.css" />
+    <EmbeddedResource Include="Render\Assets\preview-gate.js" />
+    <EmbeddedResource Include="Render\Assets\mermaid.min.js" />
+    <EmbeddedResource Include="Render\Assets\mermaid.css" />
+    <EmbeddedResource Include="Render\Assets\preview-mermaid.js" />
   </ItemGroup>
 </Project>

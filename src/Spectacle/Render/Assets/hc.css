@@ -6,6 +6,13 @@
   --focus: #ffff00;
   --rule: #ffffff;
   --code-bg: #000000;
+  /* High contrast deliberately drops the severity hues: at 21:1 the distinction is carried by
+     each row's "error"/"warning"/"info" label, which a colour-blind or forced-colours user reads
+     either way. */
+  --gate-pass: #ffffff;
+  --gate-error: #ffffff;
+  --gate-warning: #ffffff;
+  --gate-info: #ffffff;
 }
 html, body { background: var(--bg); color: var(--fg); }
 pre, code { border: 1px solid var(--fg); }

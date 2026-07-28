@@ -31,6 +31,32 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--unregister" }).Should().BeOfType<CliCommand.Unregister>();
 
     [Fact]
+    public void Init_config_without_path_has_null_path_and_no_force()
+    {
+        var c = CliArgs.Parse(new[] { "--init-config" })
+            .Should().BeOfType<CliCommand.InitConfig>().Subject;
+        c.Path.Should().BeNull();
+        c.Force.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Init_config_takes_an_optional_target_path()
+    {
+        var c = CliArgs.Parse(new[] { "--init-config", "specs" })
+            .Should().BeOfType<CliCommand.InitConfig>().Subject;
+        c.Path.Should().Be("specs");
+    }
+
+    [Fact]
+    public void Init_config_force_flag_sets_Force() =>
+        CliArgs.Parse(new[] { "--init-config", "--force" })
+            .Should().BeOfType<CliCommand.InitConfig>().Which.Force.Should().BeTrue();
+
+    [Fact]
+    public void Init_config_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "--init" }).Should().BeOfType<CliCommand.InitConfig>();
+
+    [Fact]
     public void File_path_is_Open()
     {
         var result = CliArgs.Parse(new[] { @"C:\docs\readme.md" });
@@ -115,4 +141,662 @@ public class CliArgsTests
         export.OutputPath.Should().Be("out.html");
         export.Light.Should().BeTrue();
     }
+
+    [Fact]
+    public void Revision_plan_after_path_is_RevisionPlan()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.Path.Should().Be("doc.md");
+        plan.OutputPath.Should().BeNull();
+        plan.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Revision_plan_before_path_is_RevisionPlan()
+    {
+        CliArgs.Parse(new[] { "--revision-plan", "doc.md" })
+            .Should().BeOfType<CliCommand.RevisionPlan>().Which.Path.Should().Be("doc.md");
+    }
+
+    [Fact]
+    public void Revisions_alias_is_RevisionPlan() =>
+        CliArgs.Parse(new[] { "doc.md", "--revisions" }).Should().BeOfType<CliCommand.RevisionPlan>();
+
+    [Fact]
+    public void Revision_plan_captures_output_path()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan", "out.md" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.Path.Should().Be("doc.md");
+        plan.OutputPath.Should().Be("out.md");
+    }
+
+    [Fact]
+    public void Revision_plan_json_flag_sets_Json()
+    {
+        var result = CliArgs.Parse(new[] { "--revision-plan", "--json", "doc.md" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.Path.Should().Be("doc.md");
+        plan.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Revision_plan_json_with_output_path()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan", "--json", "out.json" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.OutputPath.Should().Be("out.json");
+        plan.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Revision_plan_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--revision-plan" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Json_without_revision_plan_opens_file() =>
+        CliArgs.Parse(new[] { "doc.md", "--json" }).Should().BeOfType<CliCommand.Open>();
+
+    [Fact]
+    public void Revision_plan_unresolved_flag_sets_UnresolvedOnly()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan", "--unresolved" });
+        var plan = result.Should().BeOfType<CliCommand.RevisionPlan>().Subject;
+        plan.UnresolvedOnly.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Revision_plan_defaults_UnresolvedOnly_false()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan" });
+        result.Should().BeOfType<CliCommand.RevisionPlan>().Which.UnresolvedOnly.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Review_summary_after_path_is_ReviewSummary()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--review-summary" });
+        var s = result.Should().BeOfType<CliCommand.ReviewSummary>().Subject;
+        s.Path.Should().Be("doc.md");
+        s.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Review_summary_before_path_is_ReviewSummary() =>
+        CliArgs.Parse(new[] { "--review-summary", "doc.md" })
+            .Should().BeOfType<CliCommand.ReviewSummary>().Which.Path.Should().Be("doc.md");
+
+    [Fact]
+    public void Review_summary_json_flag_sets_Json()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--review-summary", "--json" });
+        result.Should().BeOfType<CliCommand.ReviewSummary>().Which.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_summary_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--review-summary" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Lint_after_path_is_Lint()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--lint" });
+        var lint = result.Should().BeOfType<CliCommand.Lint>().Subject;
+        lint.Path.Should().Be("doc.md");
+        lint.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Lint_before_path_is_Lint() =>
+        CliArgs.Parse(new[] { "--lint", "doc.md" })
+            .Should().BeOfType<CliCommand.Lint>().Which.Path.Should().Be("doc.md");
+
+    [Fact]
+    public void Lint_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "doc.md", "--lint", "--json" })
+            .Should().BeOfType<CliCommand.Lint>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Lint_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--lint" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Outline_after_path_is_Outline()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--outline" });
+        var outline = result.Should().BeOfType<CliCommand.Outline>().Subject;
+        outline.Path.Should().Be("doc.md");
+        outline.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Outline_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--outline", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.Outline>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Outline_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--outline" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Checklist_after_path_is_Checklist()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--checklist" });
+        var c = result.Should().BeOfType<CliCommand.Checklist>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Checklist_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "doc.md", "--checklist", "--json" })
+            .Should().BeOfType<CliCommand.Checklist>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Checklist_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--checklist" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_links_after_path_is_CheckLinks()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-links" });
+        var c = result.Should().BeOfType<CliCommand.CheckLinks>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_links_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-links", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckLinks>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_links_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-links" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Diff_captures_source_and_other_path()
+    {
+        var result = CliArgs.Parse(new[] { "new.md", "--diff", "old.md" });
+        var d = result.Should().BeOfType<CliCommand.Diff>().Subject;
+        d.Path.Should().Be("new.md");
+        d.OtherPath.Should().Be("old.md");
+        d.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Diff_json_flag_sets_Json()
+    {
+        var result = CliArgs.Parse(new[] { "new.md", "--diff", "old.md", "--json" });
+        var d = result.Should().BeOfType<CliCommand.Diff>().Subject;
+        d.OtherPath.Should().Be("old.md");
+        d.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Diff_without_other_path_is_Help() =>
+        CliArgs.Parse(new[] { "new.md", "--diff" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Diff_without_any_path_is_Help() =>
+        CliArgs.Parse(new[] { "--diff" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_structure_after_path_is_CheckStructure()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-structure" });
+        var c = result.Should().BeOfType<CliCommand.CheckStructure>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_structure_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-structure", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckStructure>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_structure_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-structure" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_tables_after_path_is_CheckTables()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-tables" });
+        var c = result.Should().BeOfType<CliCommand.CheckTables>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_tables_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-tables", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckTables>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_tables_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-tables" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_fences_after_path_is_CheckFences()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-fences" });
+        var c = result.Should().BeOfType<CliCommand.CheckFences>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_fences_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-fences", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckFences>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_fences_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-fences" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_paths_after_path_is_CheckPaths()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-paths" });
+        var c = result.Should().BeOfType<CliCommand.CheckPaths>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_paths_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-paths", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckPaths>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_paths_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-paths" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_sections_captures_source_and_required_list()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-sections", "Overview,Non-Goals" });
+        var c = result.Should().BeOfType<CliCommand.CheckSections>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Required.Should().Be("Overview,Non-Goals");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_sections_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-sections", "Overview", "--json" })
+            .Should().BeOfType<CliCommand.CheckSections>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_sections_without_required_list_defers_to_config()
+    {
+        // The list is now optional — when omitted, sections come from .spectacle.json,
+        // resolved by Program. Parsing yields a CheckSections with a null Required.
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-sections" })
+            .Should().BeOfType<CliCommand.CheckSections>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Required.Should().BeNull();
+        c.ConfigPath.Should().BeNull();
+    }
+
+    [Fact]
+    public void Check_sections_captures_explicit_config_path()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-sections", "--config=team.json" })
+            .Should().BeOfType<CliCommand.CheckSections>().Subject;
+        c.Required.Should().BeNull();
+        c.ConfigPath.Should().Be("team.json");
+    }
+
+    [Fact]
+    public void Check_sections_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-sections" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_emphasis_heading_after_path_is_CheckEmphasisHeading()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-emphasis-heading" })
+            .Should().BeOfType<CliCommand.CheckEmphasisHeading>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_emphasis_heading_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-emphasis-heading", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckEmphasisHeading>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_emphasis_heading_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-emphasis-heading" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_prose_after_path_is_CheckProse()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-prose" })
+            .Should().BeOfType<CliCommand.CheckProse>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_prose_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-prose", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckProse>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_prose_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--prose" }).Should().BeOfType<CliCommand.CheckProse>();
+
+    [Fact]
+    public void Check_prose_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-prose" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_toc_after_path_is_CheckToc()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-toc" })
+            .Should().BeOfType<CliCommand.CheckToc>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_toc_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-toc", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckToc>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_toc_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--toc" }).Should().BeOfType<CliCommand.CheckToc>();
+
+    [Fact]
+    public void Check_toc_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-toc" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_numbering_after_path_is_CheckNumbering()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-numbering" })
+            .Should().BeOfType<CliCommand.CheckNumbering>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_numbering_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-numbering", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckNumbering>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_numbering_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-numbers" }).Should().BeOfType<CliCommand.CheckNumbering>();
+
+    [Fact]
+    public void Check_numbering_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-numbering" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_md_flag_sets_Md()
+    {
+        CliArgs.Parse(new[] { "doc.md", "--review", "--md" })
+            .Should().BeOfType<CliCommand.Review>().Which.Md.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_markdown_alias_sets_Md() =>
+        CliArgs.Parse(new[] { "doc.md", "--review", "--markdown" })
+            .Should().BeOfType<CliCommand.Review>().Which.Md.Should().BeTrue();
+
+    [Fact]
+    public void Review_defaults_Md_false() =>
+        CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Which.Md.Should().BeFalse();
+
+    [Fact]
+    public void Check_duplication_after_path_is_CheckDuplication()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-duplication" });
+        var c = result.Should().BeOfType<CliCommand.CheckDuplication>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_duplication_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-duplication", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckDuplication>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_duplicates_alias_is_CheckDuplication() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-duplicates" })
+            .Should().BeOfType<CliCommand.CheckDuplication>();
+
+    [Fact]
+    public void Check_duplication_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-duplication" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_alt_text_after_path_is_CheckAltText()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--check-alt-text" });
+        var c = result.Should().BeOfType<CliCommand.CheckAltText>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_alt_text_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-alt-text", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckAltText>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_alt_alias_is_CheckAltText() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-alt" })
+            .Should().BeOfType<CliCommand.CheckAltText>();
+
+    [Fact]
+    public void Check_alt_text_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-alt-text" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_link_text_after_path_is_CheckLinkText()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-link-text" })
+            .Should().BeOfType<CliCommand.CheckLinkText>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_link_text_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-link-text", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckLinkText>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_link_text_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-link-text" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_bare_urls_after_path_is_CheckBareUrls()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-bare-urls" })
+            .Should().BeOfType<CliCommand.CheckBareUrls>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_bare_urls_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-bare-urls", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckBareUrls>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_bare_urls_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-bare-links" }).Should().BeOfType<CliCommand.CheckBareUrls>();
+
+    [Fact]
+    public void Check_bare_urls_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-bare-urls" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_heading_numbering_after_path_is_CheckHeadingNumbering()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-heading-numbering" })
+            .Should().BeOfType<CliCommand.CheckHeadingNumbering>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_heading_numbering_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-heading-numbering", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckHeadingNumbering>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_heading_numbering_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-heading-numbers" })
+            .Should().BeOfType<CliCommand.CheckHeadingNumbering>();
+
+    [Fact]
+    public void Check_heading_numbering_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-heading-numbering" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_sarif_flag_sets_Sarif()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--sarif" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Path.Should().Be("doc.md");
+        r.Sarif.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_defaults_Sarif_false() =>
+        CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Which.Sarif.Should().BeFalse();
+
+    [Fact]
+    public void Review_after_path_is_Review()
+    {
+        var result = CliArgs.Parse(new[] { "doc.md", "--review" });
+        var r = result.Should().BeOfType<CliCommand.Review>().Subject;
+        r.Path.Should().Be("doc.md");
+        r.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Review_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--review", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.Review>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Review_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--review" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_without_baseline_has_null_Baseline() =>
+        CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Which.Baseline.Should().BeNull();
+
+    [Fact]
+    public void Review_with_baseline_captures_second_positional()
+    {
+        var r = CliArgs.Parse(new[] { "new.md", "--review", "--baseline", "old.md" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Path.Should().Be("new.md");
+        r.Baseline.Should().Be("old.md");
+    }
+
+    [Fact]
+    public void Review_baseline_honours_json_flag()
+    {
+        var r = CliArgs.Parse(new[] { "new.md", "old.md", "--review", "--baseline", "--json" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Baseline.Should().Be("old.md");
+        r.Json.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Review_baseline_without_second_file_is_Help() =>
+        CliArgs.Parse(new[] { "new.md", "--review", "--baseline" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Review_without_selection_has_empty_only_and_skip()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Only.Should().BeNullOrEmpty();
+        r.Skip.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
+    public void Review_skip_captures_comma_separated_ids()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--skip=duplication,alt-text" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Skip.Should().Equal("duplication", "alt-text");
+    }
+
+    [Fact]
+    public void Review_only_captures_comma_separated_ids()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--only=structure,links" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Only.Should().Equal("structure", "links");
+    }
+
+    [Fact]
+    public void Review_repeated_skip_flags_accumulate()
+    {
+        var r = CliArgs.Parse(new[] { "doc.md", "--review", "--skip=lint", "--skip=paths" })
+            .Should().BeOfType<CliCommand.Review>().Subject;
+        r.Skip.Should().Equal("lint", "paths");
+    }
+
+    [Fact]
+    public void Check_link_refs_after_path_is_CheckLinkRefs()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-link-refs" })
+            .Should().BeOfType<CliCommand.CheckLinkRefs>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_link_refs_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-link-refs", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckLinkRefs>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_link_refs_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-references" }).Should().BeOfType<CliCommand.CheckLinkRefs>();
+
+    [Fact]
+    public void Check_link_refs_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-link-refs" }).Should().BeOfType<CliCommand.Help>();
+
+    [Fact]
+    public void Check_footnotes_after_path_is_CheckFootnotes()
+    {
+        var c = CliArgs.Parse(new[] { "doc.md", "--check-footnotes" })
+            .Should().BeOfType<CliCommand.CheckFootnotes>().Subject;
+        c.Path.Should().Be("doc.md");
+        c.Json.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Check_footnotes_json_flag_sets_Json() =>
+        CliArgs.Parse(new[] { "--check-footnotes", "--json", "doc.md" })
+            .Should().BeOfType<CliCommand.CheckFootnotes>().Which.Json.Should().BeTrue();
+
+    [Fact]
+    public void Check_footnotes_alias_is_accepted() =>
+        CliArgs.Parse(new[] { "doc.md", "--check-notes" }).Should().BeOfType<CliCommand.CheckFootnotes>();
+
+    [Fact]
+    public void Check_footnotes_without_path_is_Help() =>
+        CliArgs.Parse(new[] { "--check-footnotes" }).Should().BeOfType<CliCommand.Help>();
 }

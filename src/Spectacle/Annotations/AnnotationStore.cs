@@ -28,6 +28,16 @@ public sealed class AnnotationStore
     public string SidecarDirectory { get; }
     public string SidecarPath { get; }
 
+    /// <summary>
+    /// The document's own path — the store already resolves it, so a caller that needs to name the
+    /// open document (a gate verdict's heading, a status line) does not have to thread it through
+    /// a second time.
+    /// </summary>
+    public string SourcePath => _sourcePath;
+
+    /// <summary>The document's file name, for a report or a label.</summary>
+    public string SourceName => Path.GetFileName(_sourcePath);
+
     public AnnotationFile Load()
     {
         if (!File.Exists(SidecarPath))

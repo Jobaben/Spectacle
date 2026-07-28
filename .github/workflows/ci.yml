@@ -1,0 +1,60 @@
+name: CI
+
+# Spectacle is a net10.0-windows WPF app — its test suite can only run on
+# Windows (the Windows Desktop runtime is Windows-only). This workflow is the
+# authoritative "all tests pass" gate: it runs the full xUnit suite on
+# windows-latest for every push to main and every pull request.
+#
+# Feature branches build here too. Because the suite cannot run anywhere but
+# Windows, a branch developed elsewhere has no way to know it even compiles until
+# CI says so — waiting for a pull request to find that out is a slow loop.
+on:
+  push:
+    branches: [ main, 'claude/**', 'feature/**' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore test/Spectacle.Tests/Spectacle.Tests.csproj
+
+      - name: Build (warnings are errors)
+        run: dotnet build test/Spectacle.Tests/Spectacle.Tests.csproj -c Release --no-restore
+
+      - name: Test
+        run: dotnet test test/Spectacle.Tests/Spectacle.Tests.csproj -c Release --no-build
+
+  # The preview's JavaScript is not reachable from the xUnit suite, and the gate badge and the
+  # diagram rendering are load-bearing rather than decoration. WebView2 is Chromium, so a Linux
+  # runner exercises the same engine the reader renders in — and does it faster than the Windows one.
+  # The diagram suite also checks the gate's list of Mermaid diagram keywords against the vendored
+  # bundle's own detector, which is the only place that drift can be caught.
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright and Chromium
+        working-directory: test/js
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Test the preview overlay and the diagram rendering
+        working-directory: test/js
+        run: npm test
