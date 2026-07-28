@@ -97,6 +97,19 @@ public class RuleCatalogTests
     }
 
     [Fact]
+    public void Catalogues_every_mermaid_rule_the_checker_can_emit()
+    {
+        foreach (var rule in new[]
+        {
+            MermaidChecker.EmptyRule, MermaidChecker.UnknownTypeRule,
+            MermaidChecker.MissingDescriptionRule,
+        })
+        {
+            RuleCatalog.Find($"mermaid/{rule}").Should().NotBeNull(rule);
+        }
+    }
+
+    [Fact]
     public void Finds_a_rule_case_insensitively()
     {
         RuleCatalog.Find("LINT/PLACEHOLDER").Should().NotBeNull();

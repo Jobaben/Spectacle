@@ -1,9 +1,11 @@
 {
   "name": "spectacle-preview-tests",
   "private": true,
-  "description": "Browser test for the reader's preview overlay. Chromium only — WebView2 is Chromium, so this is the same engine the reader renders in.",
+  "description": "Browser tests for the reader's preview: the gate overlay and the Mermaid diagram rendering. Chromium only — WebView2 is Chromium, so this is the same engine the reader renders in.",
   "scripts": {
-    "test": "node preview-gate.browser.test.js"
+    "test": "npm run test:gate && npm run test:mermaid",
+    "test:gate": "node preview-gate.browser.test.js",
+    "test:mermaid": "node mermaid.browser.test.js"
   },
   "devDependencies": {
     "playwright": "1.49.1"
