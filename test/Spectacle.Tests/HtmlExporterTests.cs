@@ -53,4 +53,14 @@ public class HtmlExporterTests
 
         dark.Should().NotBe(hc);
     }
+
+    [Fact]
+    public void Light_theme_embeds_the_light_stylesheet()
+    {
+        var light = HtmlExporter.FromMarkdown("# T", PreviewTheme.Light, "Doc");
+        var dark = HtmlExporter.FromMarkdown("# T", PreviewTheme.Dark, "Doc");
+
+        light.Should().Contain("--bg: #ffffff");
+        light.Should().NotBe(dark);
+    }
 }

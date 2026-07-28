@@ -77,6 +77,21 @@ public class BlockTaggerTests
     }
 
     [Fact]
+    public void A_tables_anchor_text_is_its_whole_source()
+    {
+        // Markdig 0.37 reported a table's span one character in from each end, so the text an
+        // annotation anchored to was " a | b |\n|---|---|\n| 1 | 2 " — missing the outer pipes.
+        // 1.2.0 reports the real span. This is asserted rather than left to the fixture's hash
+        // because that hash is otherwise an unexplained constant, and because the anchor text is
+        // what a comment survives a rewrite by.
+        var md = "| a | b |\n|---|---|\n| 1 | 2 |\n";
+        var table = Render(md).Blocks.Should().ContainSingle().Subject;
+
+        table.Kind.Should().Be("table");
+        table.OriginalText.Should().Be("| a | b |\n|---|---|\n| 1 | 2 |");
+    }
+
+    [Fact]
     public void Blockquote_is_tagged_once_inner_paragraphs_are_not()
     {
         var r = Render("> a quote\n");

@@ -1,9 +1,10 @@
 # Spectacle
 
 A Windows-only Markdown viewer. Renders `.md` / `.markdown` files with VS Code-preview fidelity,
-Mermaid diagrams included. Dark theme. WCAG-accessible. No editing. Export any document to a
-self-contained HTML file — diagrams and all, drawn offline — and see live word count / reading
-time in the status bar.
+Mermaid diagrams included. Dark and light themes (toggle with `Ctrl+T`). WCAG-accessible. No
+editing. Open files and jump back to recent ones without leaving the keyboard. Export any document
+to a self-contained HTML file — diagrams and all, drawn offline — and see live word count /
+reading time in the status bar.
 
 It is also a **quality gate for Markdown an AI workflow wrote**. Open a generated document and a
 badge in the corner tells you whether it passes, with every finding and its fix one keypress away
@@ -52,6 +53,7 @@ Spectacle.exe <file> --fix-brief [out] [--json]  Write the gate's findings as re
 Spectacle.exe <file.md|file.markdown>          Open and render
 Spectacle.exe <file> --stats                   Print word count, reading time and structure, then exit
 Spectacle.exe <file> --export-html [out.html]  Export a self-contained HTML file, then exit
+Spectacle.exe <file> --export-html --light     Export using the light theme (defaults to dark)
 Spectacle.exe <file> --revision-plan [out] [--json] [--unresolved]  Export the review's revision plan, then exit
 Spectacle.exe <file> --review-summary [--json]  Print review status (open/resolved/orphaned), then exit
 Spectacle.exe <file> --lint [--json]           Report spec readiness issues, then exit (non-zero if any)
@@ -90,8 +92,9 @@ Spectacle.exe --version                        Show version
 
 `--export-html` writes a portable, single-file HTML document (theme and syntax-highlight
 styling inlined, no external assets; the Mermaid renderer too when the document has a diagram) next
-to the source — defaulting to `<file>.html` — or to the optional output path. `--stats` and
-`--export-html` run headless and never open a window.
+to the source — defaulting to `<file>.html` — or to the optional output path. Add `--light` to
+export the light theme instead of the default dark one. `--stats` and `--export-html` run headless
+and never open a window.
 
 `--revision-plan` writes the review's revision plan — the same actionable plan you build
 interactively with comments and copy/export via `Ctrl+Shift+C` / `Ctrl+Shift+E` — headlessly,
@@ -463,9 +466,13 @@ licence alongside it.)
 read the stylesheet; it is handed the theme's colours as configuration instead. Diagrams are
 therefore held to the same contrast the prose is — label text at AAA on its node, borders and edges
 at the 3:1 floor WCAG sets for meaningful graphics — and the same test that checks the body palette
-checks the diagram one. High contrast is monochrome, as everywhere else in Spectacle: identity is
-carried by each series' outline and its label rather than by a fill, because a grey ramp is not a
-categorical palette and a black one drew a pie chart that was not there at all.
+checks the diagram one. There is a palette per theme, so `Ctrl+T` and `--export-html --light` redraw
+a diagram on the light page rather than dropping a dark canvas into it; the light categorical fills
+are the dark ends of the same eight hues, in the same order, because on a near-white canvas a fill
+has to be dark to clear 3:1 (which flips the label ink from black to white). High contrast is
+monochrome, as everywhere else in Spectacle: identity is carried by each series' outline and its
+label rather than by a fill, because a grey ramp is not a categorical palette and a black one drew a
+pie chart that was not there at all.
 
 **A diagram that fails takes only itself down.** Diagrams are rendered one at a time, each in its
 own error boundary, because the documents Spectacle reads are frequently ones a model wrote. A
@@ -750,6 +757,11 @@ The verdict shown is not the reader's approximation of the gate — it is the sa
 pipeline are the same statement. Where coverage was reduced, the panel says so instead of letting
 the badge imply a full pass.
 
+The overlay draws from the theme's own custom properties, and each theme names its four severity
+hues rather than inheriting them: the dark palette's severities sit near 2.5:1 on a light page, so
+`light.css` picks its own set at AA against the page, and high contrast drops the hues entirely and
+lets each row's `error` / `warning` / `info` label carry the distinction.
+
 ### Verifying it
 
 The xUnit suite covers the checks, the grading, the exporters, and the payload the preview injects
@@ -826,6 +838,9 @@ Spectacle can be operated entirely without a mouse. Press `?` inside the preview
 | Keys | Action |
 |---|---|
 | Ctrl+R / F5 | Reload from disk |
+| Ctrl+O | Open another Markdown file… (in a new window) |
+| Ctrl+Shift+O | Reopen the most recent file |
+| Ctrl+T | Toggle dark / light theme |
 | Ctrl+= / Ctrl+- / Ctrl+0 | Zoom in / out / reset |
 | F11 | Fullscreen |
 | Esc | Close window (when no overlay / composer / re-anchor active) |

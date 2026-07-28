@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using Spectacle.Annotations;
 using Spectacle.Documents;
+using Spectacle.Files;
 using Spectacle.Render;
 using Spectacle.Theme;
 
@@ -17,7 +18,9 @@ public partial class MainWindow : Window, IPreviewSink
     private readonly AnnotationStore _store;
     private readonly PreviewPipeline _pipeline;
     private readonly HighContrastWatcher _hcWatcher = new();
+    private readonly RecentFilesStore _recent = RecentFilesStore.Default();
     private readonly string _sourcePath;
+    private PreviewTheme _userTheme = PreviewTheme.Dark;
     private double _zoom = 1.0;
     private WindowState _preFullScreenState;
     private WindowStyle _preFullScreenStyle;
@@ -31,6 +34,9 @@ public partial class MainWindow : Window, IPreviewSink
     public ICommand CopyRevisionPlanCommand { get; }
     public ICommand ExportRevisionPlanCommand { get; }
     public ICommand ExportHtmlCommand { get; }
+    public ICommand ToggleThemeCommand { get; }
+    public ICommand OpenFileCommand { get; }
+    public ICommand OpenRecentCommand { get; }
 
     public MainWindow(string filePath)
     {
@@ -42,11 +48,10 @@ public partial class MainWindow : Window, IPreviewSink
         _store = new AnnotationStore(filePath);
         Title = $"{System.IO.Path.GetFileName(filePath)} — Spectacle";
         Web.SetVirtualFolder(_document.BaseDirectory);
+        _recent.Add(_sourcePath);
 
-        var theme = _hcWatcher.IsActive ? PreviewTheme.HighContrast : PreviewTheme.Dark;
-        _pipeline = new PreviewPipeline(_document, this, theme, _store);
-        _hcWatcher.Changed += (_, _) => Dispatcher.Invoke(() =>
-            _pipeline.SetTheme(_hcWatcher.IsActive ? PreviewTheme.HighContrast : PreviewTheme.Dark));
+        _pipeline = new PreviewPipeline(_document, this, EffectiveTheme(), _store);
+        _hcWatcher.Changed += (_, _) => Dispatcher.Invoke(() => _pipeline.SetTheme(EffectiveTheme()));
 
         ReloadCommand = new RelayCommand(_ => Web.Reload());
         ZoomInCommand = new RelayCommand(_ => SetZoom(_zoom + 0.1));
@@ -58,6 +63,9 @@ public partial class MainWindow : Window, IPreviewSink
         CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan(), HasComments);
         ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan(), HasComments);
         ExportHtmlCommand = new RelayCommand(_ => ExportHtml());
+        ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
+        OpenFileCommand = new RelayCommand(_ => OpenFile());
+        OpenRecentCommand = new RelayCommand(_ => OpenMostRecent());
 
         Web.HostMessageReceived += (_, json) => Dispatcher.Invoke(() =>
         {
@@ -180,9 +188,55 @@ public partial class MainWindow : Window, IPreviewSink
             File.WriteAllText(dlg.FileName, text);
     }
 
+    // The OS high-contrast setting always wins; otherwise the user's Ctrl+T choice applies.
+    private PreviewTheme EffectiveTheme() =>
+        _hcWatcher.IsActive ? PreviewTheme.HighContrast : _userTheme;
+
+    private void ToggleTheme()
+    {
+        // Ctrl+T flips the user preference between dark and light. While the OS forces
+        // high contrast the preview stays high-contrast, but the preference still
+        // toggles underneath so it takes effect the moment high contrast is turned off.
+        _userTheme = _userTheme == PreviewTheme.Dark ? PreviewTheme.Light : PreviewTheme.Dark;
+        _pipeline.SetTheme(EffectiveTheme());
+    }
+
+    private void OpenFile()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Filter = "Markdown (*.md;*.markdown)|*.md;*.markdown|All files (*.*)|*.*",
+            InitialDirectory = Path.GetDirectoryName(_sourcePath)
+        };
+        if (dlg.ShowDialog() == true)
+            OpenInNewWindow(dlg.FileName);
+    }
+
+    private void OpenMostRecent()
+    {
+        // Reopen the newest still-present document other than the one already on screen —
+        // a fast "back to my last file" without touching the mouse.
+        var previous = _recent.LoadExisting()
+            .FirstOrDefault(p => !string.Equals(p, _sourcePath, StringComparison.OrdinalIgnoreCase));
+        if (previous is not null)
+            OpenInNewWindow(previous);
+    }
+
+    private void OpenInNewWindow(string path)
+    {
+        if (!FileGuard.IsAllowed(path) || !File.Exists(path))
+            return;
+
+        // A fresh window mirrors how the OS launches Spectacle per file, keeping each
+        // document's annotations, zoom and theme state independent.
+        var window = new MainWindow(path);
+        window.Show();
+        window.Activate();
+    }
+
     private void ExportHtml()
     {
-        var theme = _hcWatcher.IsActive ? PreviewTheme.HighContrast : PreviewTheme.Dark;
+        var theme = EffectiveTheme();
         var title = Path.GetFileNameWithoutExtension(_sourcePath) ?? "document";
         var html = HtmlExporter.FromMarkdown(_document.Text, theme, title);
 

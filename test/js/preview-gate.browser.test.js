@@ -84,7 +84,7 @@ function buildHtml(theme, gate) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>${asset(theme === 'hc' ? 'hc.css' : 'dark.css')}</style>
+  <style>${asset(theme === 'hc' ? 'hc.css' : theme === 'light' ? 'light.css' : 'dark.css')}</style>
   <style>${asset('preview.css')}</style>
   <style>${asset('prism.css')}</style>
   <style>${asset('preview-annotations.css')}</style>
@@ -132,6 +132,7 @@ function check(name, ok, detail) {
   const cases = [
     ['dark', FAILING, 'dark / failing'],
     ['dark', PASSING, 'dark / passing'],
+    ['light', FAILING, 'light / failing'],
     ['hc', FAILING, 'high contrast / failing'],
   ];
 
@@ -183,8 +184,16 @@ function check(name, ok, detail) {
         return el ? getComputedStyle(el).color : null;
       }));
       check('every severity colour resolves', colours.every((c) => c && c !== 'rgba(0, 0, 0, 0)'), JSON.stringify(colours));
-      // High contrast drops the hues on purpose; dark keeps them distinct.
-      if (theme === 'dark') check('severity colours are distinct', new Set(colours).size === 3, JSON.stringify(colours));
+      // High contrast drops the hues on purpose; dark and light each keep them distinct.
+      if (theme !== 'hc') check('severity colours are distinct', new Set(colours).size === 3, JSON.stringify(colours));
+      // preview-gate.css falls back to the dark hues when a theme leaves --gate-* unset, and the
+      // fallback is silent — on a light page it would be a label at ~2.5:1. So the light run
+      // asserts the resolved colours are not the dark ones.
+      if (theme === 'light') {
+        const darkSeverities = ['rgb(244, 135, 113)', 'rgb(220, 220, 170)', 'rgb(156, 220, 254)'];
+        check('light theme names its own severity hues',
+          colours.every((c) => !darkSeverities.includes(c)), JSON.stringify(colours));
+      }
     } else {
       check('empty panel says so', (await panel.innerText()).includes('No findings'));
       check('empty panel offers no jump', !(await panel.innerText()).includes('Enter to jump'));

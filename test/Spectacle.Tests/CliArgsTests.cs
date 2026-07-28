@@ -120,6 +120,29 @@ public class CliArgsTests
         CliArgs.Parse(new[] { "--export-html" }).Should().BeOfType<CliCommand.Help>();
 
     [Fact]
+    public void Export_html_defaults_to_dark_theme()
+    {
+        CliArgs.Parse(new[] { "doc.md", "--export-html" })
+            .Should().BeOfType<CliCommand.ExportHtml>().Which.Light.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Export_html_with_light_flag_sets_light()
+    {
+        CliArgs.Parse(new[] { "doc.md", "--export-html", "--light" })
+            .Should().BeOfType<CliCommand.ExportHtml>().Which.Light.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Export_html_light_flag_does_not_consume_output_path()
+    {
+        var export = CliArgs.Parse(new[] { "doc.md", "out.html", "--export-html", "--light" })
+            .Should().BeOfType<CliCommand.ExportHtml>().Subject;
+        export.OutputPath.Should().Be("out.html");
+        export.Light.Should().BeTrue();
+    }
+
+    [Fact]
     public void Revision_plan_after_path_is_RevisionPlan()
     {
         var result = CliArgs.Parse(new[] { "doc.md", "--revision-plan" });

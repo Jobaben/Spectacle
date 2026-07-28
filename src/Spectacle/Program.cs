@@ -34,6 +34,7 @@ public static class Program
           Spectacle.exe <file.md|file.markdown>   Open and render a Markdown file
           Spectacle.exe <file> --stats            Print document statistics and exit
           Spectacle.exe <file> --export-html [out] Export rendered HTML and exit
+          Spectacle.exe <file> --export-html --light  Export using the light theme
           Spectacle.exe <file> --revision-plan [out] [--json] [--unresolved] Export the review's revision plan and exit
           Spectacle.exe <file> --review-summary [--json] Print review status (open/resolved/orphaned) and exit
           Spectacle.exe <file> --lint [--json]    Report spec readiness issues (placeholders, empty sections) and exit
@@ -82,7 +83,7 @@ public static class Program
             CliCommand.Unregister => DoUnregister(),
             CliCommand.InitConfig init => DoInitConfig(init.Path, init.Force),
             CliCommand.Stats stats => DoStats(stats.Path),
-            CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath),
+            CliCommand.ExportHtml export => DoExportHtml(export.Path, export.OutputPath, export.Light),
             CliCommand.RevisionPlan plan => DoRevisionPlan(plan.Path, plan.OutputPath, plan.Json, plan.UnresolvedOnly),
             CliCommand.ReviewSummary summary => DoReviewSummary(summary.Path, summary.Json),
             CliCommand.Lint lint => DoLint(lint.Path, lint.Json),
@@ -158,12 +159,13 @@ public static class Program
         return 0;
     }
 
-    private static int DoExportHtml(string path, string? outputPath)
+    private static int DoExportHtml(string path, string? outputPath, bool light)
     {
         if (!ValidateSource(path)) return 2;
 
+        var theme = light ? PreviewTheme.Light : PreviewTheme.Dark;
         var title = Path.GetFileNameWithoutExtension(path) ?? "document";
-        var html = HtmlExporter.FromMarkdown(ReadRaw(path), PreviewTheme.Dark, title);
+        var html = HtmlExporter.FromMarkdown(ReadRaw(path), theme, title);
         var target = outputPath ?? Path.ChangeExtension(path, ".html");
         File.WriteAllText(target, html);
         Console.WriteLine($"Exported {Path.GetFullPath(target)}");

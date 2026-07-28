@@ -16,6 +16,24 @@ public class PaletteContrastTests
     private const string DarkMuted = "#9da5b4";
     private const string DarkCodeBg = "#252526";
 
+    // Light palette from src/Spectacle/Render/Assets/light.css
+    private const string LightBg = "#ffffff";
+    private const string LightFg = "#1f2328";
+    private const string LightLink = "#0969da";
+    private const string LightFocus = "#0550ae";
+    private const string LightMuted = "#656d76";
+    private const string LightCodeBg = "#f6f8fa";
+    private const string LightGatePass = "#1a7f37";
+    private const string LightGateError = "#cf222e";
+    private const string LightGateWarning = "#9a6700";
+    private const string LightGateInfo = "#0550ae";
+
+    // Gate severities from src/Spectacle/Render/Assets/dark.css
+    private const string DarkGatePass = "#89d185";
+    private const string DarkGateError = "#f48771";
+    private const string DarkGateWarning = "#dcdcaa";
+    private const string DarkGateInfo = "#9cdcfe";
+
     // High-contrast palette from src/Spectacle/Render/Assets/hc.css
     private const string HcBg = "#000000";
     private const string HcFg = "#ffffff";
@@ -40,6 +58,54 @@ public class PaletteContrastTests
     [Fact]
     public void Dark_body_on_code_bg_meets_AAA() =>
         WcagContrast.Ratio(DarkFg, DarkCodeBg).Should().BeGreaterThanOrEqualTo(7.0);
+
+    [Fact]
+    public void Light_body_meets_AAA() =>
+        WcagContrast.Ratio(LightFg, LightBg).Should().BeGreaterThanOrEqualTo(7.0);
+
+    [Fact]
+    public void Light_link_meets_AA() =>
+        WcagContrast.Ratio(LightLink, LightBg).Should().BeGreaterThanOrEqualTo(4.5);
+
+    [Fact]
+    public void Light_focus_outline_meets_AA() =>
+        WcagContrast.Ratio(LightFocus, LightBg).Should().BeGreaterThanOrEqualTo(3.0);
+
+    [Fact]
+    public void Light_muted_meets_AA() =>
+        WcagContrast.Ratio(LightMuted, LightBg).Should().BeGreaterThanOrEqualTo(4.5);
+
+    [Fact]
+    public void Light_body_on_code_bg_meets_AAA() =>
+        WcagContrast.Ratio(LightFg, LightCodeBg).Should().BeGreaterThanOrEqualTo(7.0);
+
+    [Fact]
+    public void Dark_gate_severities_meet_AA()
+    {
+        foreach (var sev in new[] { DarkGatePass, DarkGateError, DarkGateWarning, DarkGateInfo })
+            WcagContrast.Ratio(sev, DarkBg).Should().BeGreaterThanOrEqualTo(4.5, sev);
+    }
+
+    [Fact]
+    public void Light_gate_severities_meet_AA()
+    {
+        // A severity label is text on the page colour (the findings panel sits on --code-bg, which
+        // is darker still, so --bg is the worst case). The dark theme's hues are the reason this is
+        // asserted per theme rather than once: #f48771 and the rest land near 2.5:1 on white.
+        foreach (var sev in new[] { LightGatePass, LightGateError, LightGateWarning, LightGateInfo })
+            WcagContrast.Ratio(sev, LightBg).Should().BeGreaterThanOrEqualTo(4.5, sev);
+    }
+
+    [Fact]
+    public void The_light_theme_does_not_inherit_the_dark_severity_hues()
+    {
+        // preview-gate.css falls back to the dark values when a theme leaves --gate-* unset, and the
+        // fallback is silent — so the guard is that light.css names its own.
+        var light = PreviewHtml.ThemeCss(PreviewTheme.Light);
+
+        foreach (var name in new[] { "--gate-pass", "--gate-error", "--gate-warning", "--gate-info" })
+            light.Should().Contain(name);
+    }
 
     [Fact]
     public void Hc_body_meets_AAA() =>
@@ -131,6 +197,73 @@ public class PaletteContrastTests
     {
         WcagContrast.Ratio(Diagram.SeriesOverflow, Diagram.Background).Should().BeGreaterThanOrEqualTo(3.0);
         WcagContrast.Ratio(Diagram.SeriesInk, Diagram.SeriesOverflow).Should().BeGreaterThanOrEqualTo(4.5);
+    }
+
+    private static readonly MermaidPalette LightDiagram = MermaidPalette.Light;
+
+    [Fact]
+    public void Light_diagram_text_meets_AAA_everywhere_it_is_drawn()
+    {
+        WcagContrast.Ratio(LightDiagram.NodeText, LightDiagram.NodeFill).Should().BeGreaterThanOrEqualTo(7.0);
+        WcagContrast.Ratio(LightDiagram.Text, LightDiagram.Background).Should().BeGreaterThanOrEqualTo(7.0);
+        WcagContrast.Ratio(LightDiagram.Text, LightDiagram.ClusterFill).Should().BeGreaterThanOrEqualTo(7.0);
+        WcagContrast.Ratio(LightDiagram.NoteText, LightDiagram.NoteFill).Should().BeGreaterThanOrEqualTo(7.0);
+    }
+
+    [Fact]
+    public void Light_diagram_borders_and_edges_are_visible_graphics()
+    {
+        WcagContrast.Ratio(LightDiagram.NodeBorder, LightDiagram.Background).Should().BeGreaterThanOrEqualTo(3.0);
+        WcagContrast.Ratio(LightDiagram.NodeBorder, LightDiagram.NodeFill).Should().BeGreaterThanOrEqualTo(3.0);
+        WcagContrast.Ratio(LightDiagram.Line, LightDiagram.Background).Should().BeGreaterThanOrEqualTo(3.0);
+        WcagContrast.Ratio(LightDiagram.ClusterBorder, LightDiagram.Background).Should().BeGreaterThanOrEqualTo(3.0);
+    }
+
+    [Fact]
+    public void Light_diagram_series_fills_are_visible_and_labelled()
+    {
+        foreach (var fill in LightDiagram.Series)
+        {
+            WcagContrast.Ratio(fill, LightDiagram.Background).Should().BeGreaterThanOrEqualTo(3.0, fill);
+            WcagContrast.Ratio(LightDiagram.SeriesInk, fill).Should().BeGreaterThanOrEqualTo(4.0, fill);
+        }
+    }
+
+    [Fact]
+    public void Light_diagram_series_ink_is_the_better_of_black_and_white()
+    {
+        // The mirror of the dark palette's choice, and it inverts: a fill dark enough to clear 3:1 on
+        // a near-white canvas is also dark enough that black ink on it is unreadable.
+        var black = LightDiagram.Series.Min(f => WcagContrast.Ratio("#000000", f));
+        var white = LightDiagram.Series.Min(f => WcagContrast.Ratio("#ffffff", f));
+
+        white.Should().BeGreaterThan(black);
+        LightDiagram.SeriesInk.Should().Be("#ffffff");
+    }
+
+    [Fact]
+    public void Light_diagram_series_hues_are_distinct_and_never_cycled()
+    {
+        LightDiagram.Series.Should().OnlyHaveUniqueItems();
+        LightDiagram.Series.Should().HaveCount(8);
+    }
+
+    [Fact]
+    public void Light_diagram_overflow_neutral_is_visible_and_labelled()
+    {
+        WcagContrast.Ratio(LightDiagram.SeriesOverflow, LightDiagram.Background)
+            .Should().BeGreaterThanOrEqualTo(3.0);
+        WcagContrast.Ratio(LightDiagram.SeriesInk, LightDiagram.SeriesOverflow)
+            .Should().BeGreaterThanOrEqualTo(4.5);
+    }
+
+    [Fact]
+    public void Light_diagram_canvas_is_the_light_code_panel()
+    {
+        // The bug this pins: with no light palette, MermaidPalette.For fell through to Dark and drew
+        // a #252526 canvas with #d4d4d4 labels inside a #f6f8fa code panel.
+        LightDiagram.Background.Should().Be(LightCodeBg);
+        LightDiagram.Text.Should().Be(LightFg);
     }
 
     [Fact]

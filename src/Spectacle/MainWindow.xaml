@@ -17,6 +17,9 @@
         <KeyBinding Key="D0" Modifiers="Control" Command="{Binding ZoomResetCommand}" />
         <KeyBinding Key="NumPad0" Modifiers="Control" Command="{Binding ZoomResetCommand}" />
         <KeyBinding Key="F11" Command="{Binding FullscreenCommand}" />
+        <KeyBinding Key="T" Modifiers="Control" Command="{Binding ToggleThemeCommand}" />
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenFileCommand}" />
+        <KeyBinding Key="O" Modifiers="Control+Shift" Command="{Binding OpenRecentCommand}" />
         <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
         <KeyBinding Key="C" Modifiers="Control+Shift" Command="{Binding CopyRevisionPlanCommand}" />
         <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExportRevisionPlanCommand}" />

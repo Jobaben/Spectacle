@@ -11,7 +11,7 @@ public abstract record CliCommand
     public sealed record Version : CliCommand;
     public sealed record InitConfig(string? Path, bool Force) : CliCommand;
     public sealed record Stats(string Path) : CliCommand;
-    public sealed record ExportHtml(string Path, string? OutputPath) : CliCommand;
+    public sealed record ExportHtml(string Path, string? OutputPath, bool Light = false) : CliCommand;
     public sealed record RevisionPlan(string Path, string? OutputPath, bool Json, bool UnresolvedOnly) : CliCommand;
     public sealed record ReviewSummary(string Path, bool Json) : CliCommand;
     public sealed record Lint(string Path, bool Json) : CliCommand;
@@ -113,7 +113,9 @@ public static class CliArgs
             return path is null ? new CliCommand.Help() : new CliCommand.Stats(path);
 
         if (flags.Contains("--export-html") || flags.Contains("--export"))
-            return path is null ? new CliCommand.Help() : new CliCommand.ExportHtml(path, secondPositional);
+            return path is null
+                ? new CliCommand.Help()
+                : new CliCommand.ExportHtml(path, secondPositional, flags.Contains("--light"));
 
         if (flags.Contains("--revision-plan") || flags.Contains("--revisions"))
             return path is null
