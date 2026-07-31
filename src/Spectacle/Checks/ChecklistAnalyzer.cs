@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One GFM task-list item, with its 1-based source line.</summary>
 public sealed record ChecklistItem(bool Checked, string Text, int Line);

@@ -1,5 +1,6 @@
 using Markdig;
 using Markdig.Syntax;
+using Spectacle.Checks;
 
 namespace Spectacle.Render;
 

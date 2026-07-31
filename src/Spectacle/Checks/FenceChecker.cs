@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One fenced-code-block integrity issue, with its 1-based line.</summary>
 public sealed record FenceIssue(int Line, string Rule, string Message);

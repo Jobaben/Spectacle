@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using Spectacle.Checks;
 
 namespace Spectacle.Render;
 

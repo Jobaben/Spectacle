@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Syntax;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One manually-numbered-heading sequence defect, with its 1-based line.</summary>
 public sealed record HeadingNumberingIssue(string Rule, int Line, string Message);

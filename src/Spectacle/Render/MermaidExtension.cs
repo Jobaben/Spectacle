@@ -3,6 +3,7 @@ using Markdig;
 using Markdig.Renderers;
 using Markdig.Renderers.Html;
 using Markdig.Syntax;
+using Spectacle.Checks;
 
 namespace Spectacle.Render;
 

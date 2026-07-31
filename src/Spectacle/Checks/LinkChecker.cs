@@ -5,7 +5,7 @@ using Markdig.Renderers.Html;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One link in the document that does not resolve, with its 1-based line.</summary>
 public sealed record BrokenLink(string Target, int Line, string Reason);

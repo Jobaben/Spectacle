@@ -1,6 +1,6 @@
 using System.Linq;
 using FluentAssertions;
-using Spectacle.Render;
+using Spectacle.Checks;
 using Xunit;
 
 namespace Spectacle.Tests;

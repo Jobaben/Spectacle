@@ -6,7 +6,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>A generation artifact left in the document, with its rule, 1-based line and the matched text.</summary>
 public sealed record AiArtifact(string Rule, int Line, string Excerpt, string Message);

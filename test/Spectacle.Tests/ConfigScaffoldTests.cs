@@ -1,8 +1,8 @@
 using System.IO;
 using System.Text.Json;
 using FluentAssertions;
+using Spectacle.Checks;
 using Spectacle.Cli;
-using Spectacle.Render;
 using Xunit;
 
 namespace Spectacle.Tests;

@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Markdig;
 using Markdig.Syntax;
+using Spectacle.Render;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>A defect in a Mermaid diagram, with its rule id and 1-based line.</summary>
 public sealed record MermaidIssue(int Line, string Rule, string Message);

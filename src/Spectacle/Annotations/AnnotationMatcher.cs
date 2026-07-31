@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Spectacle.Render;
+using Spectacle.Checks;
 
 namespace Spectacle.Annotations;
 

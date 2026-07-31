@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One malformed GFM table row, with its 1-based line.</summary>
 public sealed record TableIssue(int Line, string Message);

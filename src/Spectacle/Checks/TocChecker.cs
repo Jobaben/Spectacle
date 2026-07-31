@@ -7,7 +7,7 @@ using Markdig.Renderers.Html;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One table-of-contents inconsistency, with its 1-based line.</summary>
 public sealed record TocIssue(string Rule, int Line, string Message, string Anchor);

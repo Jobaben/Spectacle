@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>
 /// The set of gating checks <c>--review</c> should run for a spec. The aggregate verdict is

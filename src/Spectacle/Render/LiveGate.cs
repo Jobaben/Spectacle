@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Spectacle.Checks;
 using Spectacle.Cli;
 
 namespace Spectacle.Render;

@@ -5,7 +5,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One relative link or image whose target does not resolve, with its 1-based line.</summary>
 public sealed record BrokenPath(string Target, int Line, string Reason);

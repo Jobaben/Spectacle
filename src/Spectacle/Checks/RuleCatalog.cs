@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Spectacle.Render;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One rule: its stable id, the check that owns it, how much it matters, and how to fix it.</summary>
 public sealed record RuleInfo(

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Spectacle.Checks;
 
 namespace Spectacle.Render;
 

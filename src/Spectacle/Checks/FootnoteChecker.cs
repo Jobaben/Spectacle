@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Syntax;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>A footnote reference (<c>[^id]</c>) with no matching definition, with its 1-based line.</summary>
 public sealed record UndefinedFootnote(string Label, int Line);

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>
 /// Enumerates a Markdown document's prose lines for text-level checks: lines inside fenced

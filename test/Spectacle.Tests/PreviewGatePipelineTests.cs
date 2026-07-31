@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using FluentAssertions;
 using Spectacle.Annotations;
+using Spectacle.Checks;
 using Spectacle.Cli;
 using Spectacle.Documents;
 using Spectacle.Render;
