@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Spectacle.Checks;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// A single review finding flattened across every check category, so findings from

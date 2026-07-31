@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Spectacle.Checks;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// A single consolidated review of a spec: every automated check run at once.

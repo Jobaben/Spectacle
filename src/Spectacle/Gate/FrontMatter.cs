@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Spectacle.Checks;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// One front-matter key with its resolved value and 1-based source line. A key holds either a

@@ -5,7 +5,7 @@ using System.Linq;
 using Spectacle.Checks;
 using Spectacle.Files;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>One spec in a batch review: its path and the verdict <see cref="ReviewReport"/> for it.</summary>
 public sealed record BatchReviewEntry(string Path, ReviewReport Report);

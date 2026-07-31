@@ -10,6 +10,7 @@ using Spectacle.Checks;
 using Spectacle.Cli;
 using Spectacle.Documents;
 using Spectacle.Export;
+using Spectacle.Gate;
 using Spectacle.Render;
 using Xunit;
 

@@ -2,6 +2,7 @@ using System.Linq;
 using System.Text.Json;
 using FluentAssertions;
 using Spectacle.Checks;
+using Spectacle.Gate;
 using Spectacle.Render;
 using Xunit;
 

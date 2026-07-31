@@ -3,7 +3,7 @@ using System.IO;
 using Spectacle.Checks;
 using Spectacle.Cli;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// Computes the gate verdict for the document currently open in the reader, using exactly the same

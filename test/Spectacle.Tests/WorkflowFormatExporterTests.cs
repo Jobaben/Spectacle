@@ -3,7 +3,7 @@ using System.Linq;
 using System.Xml.Linq;
 using FluentAssertions;
 using Spectacle.Export;
-using Spectacle.Render;
+using Spectacle.Gate;
 using Xunit;
 
 namespace Spectacle.Tests;

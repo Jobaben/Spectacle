@@ -74,7 +74,7 @@ public class PreviewHtmlTests
         var anchor = new Spectacle.Annotations.BlockAnchor("paragraph", 1, "h", 0, "lead");
         var c = new Spectacle.Annotations.Comment("c1", anchor, "orig", "rev",
             new System.DateTime(2026, 5, 15, 0, 0, 0, System.DateTimeKind.Utc), null);
-        var b = new Spectacle.Checks.TaggedBlock("b0", "paragraph", 1, "h", 0, "orig");
+        var b = new Spectacle.Render.TaggedBlock("b0", "paragraph", 1, "h", 0, "orig");
         var match = new Spectacle.Annotations.MatchedComment(c, b);
         var matched = new Spectacle.Annotations.MatchResult(
             new[] { match },
@@ -94,7 +94,7 @@ public class PreviewHtmlTests
         var c = new Spectacle.Annotations.Comment("c1", anchor, "orig",
             "</script><script>alert('xss')</script>",
             new System.DateTime(2026, 5, 15, 0, 0, 0, System.DateTimeKind.Utc), null);
-        var b = new Spectacle.Checks.TaggedBlock("b0", "paragraph", 1, "h", 0, "orig");
+        var b = new Spectacle.Render.TaggedBlock("b0", "paragraph", 1, "h", 0, "orig");
         var match = new Spectacle.Annotations.MatchedComment(c, b);
         var matched = new Spectacle.Annotations.MatchResult(
             new[] { match },

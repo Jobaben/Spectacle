@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// The graded verdict for one document: every finding at its policy severity, the tallies, whether

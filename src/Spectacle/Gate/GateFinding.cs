@@ -1,7 +1,7 @@
 using System;
 using Spectacle.Checks;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// How much a finding matters. The ordering is deliberate — <c>Info &lt; Warning &lt; Error</c> —
