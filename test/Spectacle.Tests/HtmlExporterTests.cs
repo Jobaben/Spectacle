@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Spectacle.Export;
 using Spectacle.Render;
 using Xunit;
 

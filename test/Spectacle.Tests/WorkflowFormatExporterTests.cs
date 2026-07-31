@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using FluentAssertions;
+using Spectacle.Export;
 using Spectacle.Render;
 using Xunit;
 

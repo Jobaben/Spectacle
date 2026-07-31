@@ -9,6 +9,7 @@ using Spectacle.Annotations;
 using Spectacle.Checks;
 using Spectacle.Cli;
 using Spectacle.Documents;
+using Spectacle.Export;
 using Spectacle.Render;
 using Xunit;
 
