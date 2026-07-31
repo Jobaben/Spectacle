@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using Spectacle.Annotations;
 using Spectacle.Documents;
+using Spectacle.Export;
 using Spectacle.Files;
 using Spectacle.Render;
 using Spectacle.Theme;

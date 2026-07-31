@@ -3,6 +3,7 @@ using System.Windows;
 using Spectacle.Annotations;
 using Spectacle.Checks;
 using Spectacle.Cli;
+using Spectacle.Export;
 using Spectacle.Files;
 using Spectacle.Install;
 using Spectacle.Render;
