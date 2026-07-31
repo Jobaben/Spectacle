@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Spectacle.Annotations;
-using Spectacle.Checks;
 using Spectacle.Documents;
+using Spectacle.Gate;
 
 namespace Spectacle.Render;
 

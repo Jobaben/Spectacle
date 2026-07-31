@@ -5,6 +5,7 @@ using Spectacle.Checks;
 using Spectacle.Cli;
 using Spectacle.Export;
 using Spectacle.Files;
+using Spectacle.Gate;
 using Spectacle.Install;
 using Spectacle.Render;
 

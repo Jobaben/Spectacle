@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Spectacle.Checks;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// How a project grades findings: the severity it assigns each rule, and the severity at which the

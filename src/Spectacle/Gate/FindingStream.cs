@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Spectacle.Checks;
 
-namespace Spectacle.Render;
+namespace Spectacle.Gate;
 
 /// <summary>
 /// Flattens a <see cref="ReviewReport"/>'s typed, per-check collections into one ordered stream of

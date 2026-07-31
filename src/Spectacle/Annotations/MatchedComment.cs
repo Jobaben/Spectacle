@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Spectacle.Checks;
+using Spectacle.Render;
 
 namespace Spectacle.Annotations;
 

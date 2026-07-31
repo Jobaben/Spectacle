@@ -1,6 +1,7 @@
 using System.Linq;
 using FluentAssertions;
 using Spectacle.Checks;
+using Spectacle.Gate;
 using Spectacle.Render;
 using Xunit;
 

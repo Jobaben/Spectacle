@@ -5,7 +5,7 @@ using System.Text;
 using Markdig.Renderers.Html;
 using Markdig.Syntax;
 
-namespace Spectacle.Checks;
+namespace Spectacle.Render;
 
 internal static class BlockTagger
 {

@@ -1,4 +1,4 @@
-namespace Spectacle.Checks;
+namespace Spectacle.Render;
 
 public sealed record TaggedBlock(
     string BlockId,

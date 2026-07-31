@@ -1,6 +1,6 @@
 using System;
 using FluentAssertions;
-using Spectacle.Render;
+using Spectacle.Gate;
 using Xunit;
 
 namespace Spectacle.Tests;

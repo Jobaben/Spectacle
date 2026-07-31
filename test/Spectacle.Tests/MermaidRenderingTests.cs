@@ -1,6 +1,5 @@
 using System.Text.Json;
 using FluentAssertions;
-using Spectacle.Checks;
 using Spectacle.Export;
 using Spectacle.Render;
 using Xunit;
