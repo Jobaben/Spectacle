@@ -4,8 +4,9 @@ using System.Text;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
+using Spectacle.Render;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>A paragraph used as a fake heading — its emphasized text and 1-based line.</summary>
 public sealed record EmphasisHeading(string Text, int Line);

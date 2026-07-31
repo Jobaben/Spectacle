@@ -4,7 +4,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>A bare (auto-linked) URL in prose that should be a descriptive link, with its 1-based line.</summary>
 public sealed record BareUrl(string Url, int Line);

@@ -5,7 +5,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>A link whose visible text says nothing about its destination, with its 1-based line.</summary>
 public sealed record UninformativeLink(string Text, int Line, string Reason);

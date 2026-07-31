@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using Spectacle.Annotations;
+using Spectacle.Checks;
 using Spectacle.Cli;
 using Spectacle.Files;
 using Spectacle.Install;

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using FluentAssertions;
 using Spectacle.Annotations;
-using Spectacle.Render;
+using Spectacle.Checks;
 using Xunit;
 
 namespace Spectacle.Tests;

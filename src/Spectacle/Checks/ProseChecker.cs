@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One vague or hedging phrase found in a spec, with its 1-based line.</summary>
 public sealed record ProseFinding(string Rule, int Line, string Phrase, string Message);

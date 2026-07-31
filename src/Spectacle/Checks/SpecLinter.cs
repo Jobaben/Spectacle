@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Syntax;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One readiness issue found in a spec, with a 1-based line number.</summary>
 public sealed record SpecLintFinding(string Rule, int Line, string Message);

@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Syntax;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>
 /// A reference-style link (or image) whose label resolves to no definition, carrying the

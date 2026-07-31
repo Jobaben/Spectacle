@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using Spectacle.Render;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>
 /// One block that repeats content already present earlier in the spec, carrying the

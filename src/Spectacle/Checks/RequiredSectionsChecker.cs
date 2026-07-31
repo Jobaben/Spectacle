@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using Spectacle.Render;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One required section the spec is missing, carrying the title as it was requested.</summary>
 public sealed record MissingSection(string Required);

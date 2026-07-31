@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>
 /// Per-line review suppressions an author embeds in the spec itself, so a deliberate finding

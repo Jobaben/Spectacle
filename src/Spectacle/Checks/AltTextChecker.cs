@@ -5,7 +5,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>An image whose alt text is empty or whitespace, with its 1-based line.</summary>
 public sealed record ImageWithoutAlt(string Target, int Line);

@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using Spectacle.Render;
 
-namespace Spectacle.Render;
+namespace Spectacle.Checks;
 
 /// <summary>One heading-hierarchy issue, with its 1-based line.</summary>
 public sealed record StructureFinding(string Rule, int Line, string Message);
