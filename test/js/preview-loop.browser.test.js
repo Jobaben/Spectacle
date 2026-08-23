@@ -124,7 +124,7 @@ function check(name, ok, detail) {
     args: ['--no-sandbox'],
   });
 
-  // ---- the HUD only appears once the loop has looped ----
+  // ---- the ambient HUD only appears once the loop has looped, but "l" always answers ----
   {
     console.log('\n[first render]');
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
@@ -134,6 +134,16 @@ function check(name, ok, detail) {
     check('no pill on iteration 1', (await page.locator('#sp-loop-pill').count()) === 0);
     check('no toast on iteration 1', (await page.locator('#sp-loop-toast').count()) === 0);
     check('no changed-block markers on iteration 1', (await page.locator('.sp-loop-changed').count()) === 0);
+
+    // The timeline itself exists from the first render — it just isn't advertised yet.
+    await page.keyboard.press('l');
+    const panel = page.locator('#sp-loop-panel');
+    check('"l" opens the timeline on iteration 1', await panel.isVisible());
+    check('the opening iteration is the only row', (await page.locator('.sp-loop-row').count()) === 1);
+    check('panel counts one iteration', (await panel.innerText()).includes('1 iteration(s)'));
+    await page.keyboard.press('Escape');
+    check('Escape closes the iteration-1 timeline', !(await panel.isVisible()));
+
     check('no runtime errors', errors.length === 0, errors.join(' | '));
     await page.close();
   }
@@ -257,6 +267,7 @@ function check(name, ok, detail) {
     await page.keyboard.press('?');
     const help = await page.locator('#sp-help').innerText();
     check('help documents the loop shortcut', help.includes('revision-loop'));
+    check('help documents the loop panel keys', help.includes('Close loop timeline'));
     check('help documents waiving', help.includes('Waive'));
     await page.close();
   }

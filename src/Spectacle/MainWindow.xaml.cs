@@ -1,6 +1,7 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
@@ -31,7 +32,6 @@ public partial class MainWindow : Window, IPreviewSink
     public ICommand ZoomOutCommand { get; }
     public ICommand ZoomResetCommand { get; }
     public ICommand FullscreenCommand { get; }
-    public ICommand CloseCommand { get; }
     public ICommand CopyRevisionPlanCommand { get; }
     public ICommand ExportRevisionPlanCommand { get; }
     public ICommand ExportHtmlCommand { get; }
@@ -59,7 +59,6 @@ public partial class MainWindow : Window, IPreviewSink
         ZoomOutCommand = new RelayCommand(_ => SetZoom(_zoom - 0.1));
         ZoomResetCommand = new RelayCommand(_ => SetZoom(1.0));
         FullscreenCommand = new RelayCommand(_ => ToggleFullscreen());
-        CloseCommand = new RelayCommand(_ => Close());
 
         CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan(), HasComments);
         ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan(), HasComments);
@@ -70,6 +69,9 @@ public partial class MainWindow : Window, IPreviewSink
 
         Web.HostMessageReceived += (_, json) => Dispatcher.Invoke(() =>
         {
+            // Esc is hierarchical: each open preview layer closes itself in the page, and only
+            // an idle preview escalates to closing the window — by asking the host.
+            if (IsCloseWindowMessage(json)) { Close(); return; }
             _pipeline.HandleHostMessage(json);
             UpdateTopBar();
         });
@@ -96,6 +98,41 @@ public partial class MainWindow : Window, IPreviewSink
     }
 
     public void Push(string html) => Dispatcher.Invoke(() => Web.SetHtml(html));
+
+    /// <summary>
+    /// True for the preview's <c>closeWindow</c> message — the page's idle-Esc escalation. Any
+    /// other payload (or non-JSON) belongs to the pipeline.
+    /// </summary>
+    private static bool IsCloseWindowMessage(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("type", out var type)
+                && type.GetString() == "closeWindow";
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        // Esc closes the window only when the preview is idle, and while keyboard focus is in
+        // the preview the page is the one that knows: an open layer (find, outline, gate, loop,
+        // help, composer) takes the Esc itself, and an idle page posts closeWindow back to the
+        // host. WebView2 re-raises Esc into WPF routing even when the browser has focus, so the
+        // focus check is what keeps this handler from closing the window over an open panel.
+        if (e.Key == Key.Escape && !Web.IsKeyboardFocusWithin)
+        {
+            e.Handled = true;
+            Close();
+            return;
+        }
+        base.OnPreviewKeyDown(e);
+    }
 
     private void ApplyStartupGeometry(object? sender, EventArgs e)
     {

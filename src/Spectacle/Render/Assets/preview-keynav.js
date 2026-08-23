@@ -144,6 +144,15 @@
     return el;
   }
 
+  // -------- Host messaging --------
+
+  // The WPF host owns the window; the page asks rather than assuming a host exists — the same
+  // document runs in exported HTML and in the browser test harness, where there is none.
+  function post(type) {
+    if (!window.chrome || !window.chrome.webview) return;
+    window.chrome.webview.postMessage(JSON.stringify({ type: type }));
+  }
+
   var hintTimer = null;
   function flashHint(message) {
     var el = ensureHint();
@@ -297,6 +306,18 @@
 
     // ---- Normal mode ----
 
+    // Idle Esc. Every layer that owns Esc has already taken it by this point: find, outline,
+    // gate and loop stop propagation from their capture handlers while open, the composer's
+    // textarea is caught by the TEXTAREA guard above, and the help overlay and re-anchor mode
+    // return earlier in this dispatcher. An Esc that reaches here means nothing preview-side
+    // is open — and idle Esc means "close the window", which only the host can do.
+    if (e.key === "Escape") {
+      e.preventDefault();
+      disarmG();
+      post("closeWindow");
+      return;
+    }
+
     if (e.key === "ArrowDown") { e.preventDefault(); disarmG(); move(+1); return; }
     if (e.key === "ArrowUp")   { e.preventDefault(); disarmG(); move(-1); return; }
     if (e.key === "Home")      { e.preventDefault(); disarmG(); jumpFirst(); return; }
@@ -368,8 +389,8 @@
 
     // KEYMAP sections in spec order; "in-help" is omitted intentionally.
     var sectionOrder = [
-      "global", "preview-wide", "in-find", "in-outline", "in-gate", "on-block", "on-card",
-      "on-orphan", "in-composer", "in-reanchor"
+      "global", "preview-wide", "in-find", "in-outline", "in-gate", "in-loop", "on-block",
+      "on-card", "on-orphan", "in-composer", "in-reanchor"
     ];
     sectionOrder.forEach(function (key) {
       var section = KEYMAP[key];

@@ -20,7 +20,6 @@
         <KeyBinding Key="T" Modifiers="Control" Command="{Binding ToggleThemeCommand}" />
         <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenFileCommand}" />
         <KeyBinding Key="O" Modifiers="Control+Shift" Command="{Binding OpenRecentCommand}" />
-        <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
         <KeyBinding Key="C" Modifiers="Control+Shift" Command="{Binding CopyRevisionPlanCommand}" />
         <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExportRevisionPlanCommand}" />
         <KeyBinding Key="H" Modifiers="Control+Shift" Command="{Binding ExportHtmlCommand}" />
