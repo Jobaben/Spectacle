@@ -24,8 +24,10 @@ waives what you disagree with and `c` copies a fix brief covering the rest — t
 the authoring agent, assembled without leaving the reader. And when the
 [Claude Code CLI](https://claude.com/claude-code) is installed on the machine, even the copying is
 unnecessary: `a` hands that brief to `claude -p` in a background process that revises the open
-document **in place**, so the saves land right back in the loop you are watching. See
-[The revision loop](#the-revision-loop-in-the-reader) and
+document **in place**, so the saves land right back in the loop you are watching. The same two
+keys serve *your* review too: with the panel closed, `c` and `a` carry the unresolved comments
+you left on blocks instead of the gate's findings — the panel is the modifier deciding what gets
+revised. See [The revision loop](#the-revision-loop-in-the-reader) and
 [Hands-free revision](#hands-free-claude-revises-the-document-in-place).
 
 ![The reader mid-loop: an agent's save just landed — the toast reports 2 findings fixed and the
@@ -118,9 +120,9 @@ to the source — defaulting to `<file>.html` — or to the optional output path
 export the light theme instead of the default dark one. `--stats` and `--export-html` run headless
 and never open a window.
 
-`--revision-plan` writes the review's revision plan — the same actionable plan you build
-interactively with comments and copy/export via `Ctrl+Shift+C` / `Ctrl+Shift+E` — headlessly,
-so you can pipe a review back to the AI agent that authored the spec. It re-anchors your saved
+`--revision-plan` writes the review's revision plan — the review you build interactively with
+comments (which the reader itself turns into a revision brief: press `c` with the findings panel
+closed) — headlessly, so you can pipe a review back to the AI agent that authored the spec. It re-anchors your saved
 comments against the current source (dropping orphans whose blocks no longer exist) and defaults
 to `<file>.revisions.md`, or the optional output path. Add `--json` for a structured
 `<file>.revisions.json` an agent can apply programmatically. Add `--unresolved` to emit only
@@ -835,6 +837,23 @@ while an agent rewrites the document underneath is not five panel re-openings.
 ![The triage bench: a waived bare-URL finding struck through and tagged, the header scoring the
 brief's coverage, and the just-copied confirmation](docs/screenshots/03-triage-bench.png)
 
+The same two keys work with the panel **closed**, where they cover the *reviewer's* half of the
+loop — the comments you leave on blocks (`Enter` on a focused block):
+
+- **`c` copies a revision brief built from every unresolved comment**, in the same bottom-up,
+  agent-addressed format as the fix brief, each instruction paired with its block quoted verbatim
+  so the agent edits the right text rather than a paraphrase of it. Resolved comments stay out —
+  that work is done — and so do orphans, which no longer point at any block.
+- **`a` hands that brief to the Claude CLI**, exactly like the panel's `a` hands over the
+  findings: the same runner, the same in-place contract, the same run chip and one-run-at-a-time
+  rule. See [Hands-free revision](#hands-free-claude-revises-the-document-in-place).
+
+Opening the panel is therefore a modifier on *what gets revised*: collapsed, your comments; open,
+the triaged findings. Both keys explain themselves in the corner hint — what was copied, what was
+handed over, or why nothing was ("No unresolved comments", "Claude is already revising"). This
+replaces the old `Ctrl+Shift+C` / `Ctrl+Shift+E` revision-plan chords; `--revision-plan` remains
+the headless route.
+
 ### Hands-free: Claude revises the document in place
 
 The copy-paste hand-off assumes the authoring agent lives somewhere else. When the
@@ -886,6 +905,9 @@ The mechanics, for the skeptical:
   prompt delivered on stdin.
 - **One run at a time.** A second `a` mid-run is refused with an explanation, not queued — the
   brief it would carry was computed against a document the current run is still rewriting.
+- **Your comments ride the same rail.** With the panel closed, `a` hands over the brief built
+  from your unresolved review comments instead of the findings — same contract, same runner, same
+  chip. See [Triage](#triage-from-findings-to-the-next-prompt).
 - **Spectacle still never edits your document.** The reader stays read-only; the revision is
   Claude's, made through its own tools, observed by the same watcher that observes every other
   writer.
@@ -952,7 +974,11 @@ and check the panel, its selection, and the waive all come back. The revision-lo
 timeline, the same containment contract, and that an already-announced iteration never toasts
 twice. The hands-free suite (`preview-claude.browser.test.js`) covers the `a` hand-off: offered
 only when the host found a CLI, exactly one message per keypress, the mid-run and fully-waived
-refusals, and the run chip for the running and failed states.
+refusals, and the run chip for the running and failed states. The collapsed-panel suite
+(`preview-commentbrief.browser.test.js`) covers the comment-side keys: `c`/`a` routing in both
+panel states, the hint announcements and refusals, and that the narrower gestures keep their keys
+(Enter still composes on a block, `a` on an orphan row still re-anchors, the composer swallows
+everything).
 
 This started out as a test against a hand-rolled DOM stub. The stub passed every assertion while
 three real defects were live — the overlay ignored the containment contract the other overlays
@@ -1023,8 +1049,6 @@ shortcuts](docs/screenshots/05-keyboard-help.png)
 | Ctrl+= / Ctrl+- / Ctrl+0 | Zoom in / out / reset |
 | F11 | Fullscreen |
 | Esc | Close window (when no overlay / composer / re-anchor active) |
-| Ctrl+Shift+C | Copy revision plan |
-| Ctrl+Shift+E | Export revision plan… |
 | Ctrl+Shift+H | Export rendered document to a standalone HTML file… |
 
 ### Navigation (inside the preview)
@@ -1039,13 +1063,15 @@ shortcuts](docs/screenshots/05-keyboard-help.png)
 | t | Toggle the document outline (↑ / ↓ to move, Enter to jump, Esc to close) |
 | v | Toggle the quality gate verdict (↑ / ↓ to move, Enter to jump to the line, Space to waive / restore, c to copy the fix brief for everything unwaived, a to have Claude revise the document in place — offered when the Claude CLI is installed, Esc to close) |
 | l | Toggle the revision-loop timeline (↑ / ↓ to scroll, click a new finding to jump to it, Esc to close) |
+| c | Copy the revision brief built from your unresolved comments (with the gate panel closed) |
+| a | Hand that comment brief to Claude to apply in place (with the gate panel closed; needs the Claude CLI) |
 | ? | Show keyboard help overlay |
 
 ### On a focused block
 
 | Keys | Action |
 |---|---|
-| Enter or c | Add a new comment on this block |
+| Enter | Add a new comment on this block |
 
 ### On a focused comment
 

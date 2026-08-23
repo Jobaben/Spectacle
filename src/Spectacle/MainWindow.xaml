@@ -20,8 +20,6 @@
         <KeyBinding Key="T" Modifiers="Control" Command="{Binding ToggleThemeCommand}" />
         <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenFileCommand}" />
         <KeyBinding Key="O" Modifiers="Control+Shift" Command="{Binding OpenRecentCommand}" />
-        <KeyBinding Key="C" Modifiers="Control+Shift" Command="{Binding CopyRevisionPlanCommand}" />
-        <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExportRevisionPlanCommand}" />
         <KeyBinding Key="H" Modifiers="Control+Shift" Command="{Binding ExportHtmlCommand}" />
     </Window.InputBindings>
     <Grid>
@@ -34,12 +32,6 @@
                 Background="#252526" BorderBrush="#3c3c3c" BorderThickness="0,0,0,1"
                 Padding="10,6" Visibility="Collapsed">
             <StackPanel Orientation="Horizontal">
-                <Button Content="Copy revision plan" Command="{Binding CopyRevisionPlanCommand}"
-                        Padding="10,4" Margin="0,0,8,0" Background="#4ea1ff" Foreground="#0a0a0a"
-                        BorderThickness="0" />
-                <Button Content="Export revision plan…" Command="{Binding ExportRevisionPlanCommand}"
-                        Padding="10,4" Margin="0,0,16,0" Background="#1c1c1c" Foreground="#d4d4d4"
-                        BorderBrush="#3c3c3c" BorderThickness="1" />
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="#9aa0a6" Text="" />
             </StackPanel>
         </Border>

@@ -1,6 +1,4 @@
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
@@ -33,8 +31,6 @@ public partial class MainWindow : Window, IPreviewSink
     public ICommand ZoomOutCommand { get; }
     public ICommand ZoomResetCommand { get; }
     public ICommand FullscreenCommand { get; }
-    public ICommand CopyRevisionPlanCommand { get; }
-    public ICommand ExportRevisionPlanCommand { get; }
     public ICommand ExportHtmlCommand { get; }
     public ICommand ToggleThemeCommand { get; }
     public ICommand OpenFileCommand { get; }
@@ -61,8 +57,6 @@ public partial class MainWindow : Window, IPreviewSink
         ZoomResetCommand = new RelayCommand(_ => SetZoom(1.0));
         FullscreenCommand = new RelayCommand(_ => ToggleFullscreen());
 
-        CopyRevisionPlanCommand = new RelayCommand(_ => CopyRevisionPlan(), HasComments);
-        ExportRevisionPlanCommand = new RelayCommand(_ => ExportRevisionPlan(), HasComments);
         ExportHtmlCommand = new RelayCommand(_ => ExportHtml());
         ToggleThemeCommand = new RelayCommand(_ => ToggleTheme());
         OpenFileCommand = new RelayCommand(_ => OpenFile());
@@ -77,8 +71,8 @@ public partial class MainWindow : Window, IPreviewSink
             UpdateTopBar();
         });
 
-        // The preview's triage panel builds the fix brief; placing it on the clipboard is the
-        // host's job, exactly like Ctrl+Shift+C for the revision plan.
+        // The preview assembles every revision brief — the triaged fix brief and the
+        // unresolved-comment brief alike; placing the text on the clipboard is the host's job.
         _pipeline.CopyTextRequested += (_, text) => Dispatcher.Invoke(() =>
             System.Windows.Clipboard.SetText(text));
 
@@ -207,9 +201,6 @@ public partial class MainWindow : Window, IPreviewSink
                 ? $"{matchedCount} comment(s) • {orphanCount} orphaned"
                 : $"{matchedCount} comment(s)";
         }
-
-        ((RelayCommand)CopyRevisionPlanCommand).RaiseCanExecuteChanged();
-        ((RelayCommand)ExportRevisionPlanCommand).RaiseCanExecuteChanged();
     }
 
     private void UpdateStatsBar()
@@ -231,36 +222,6 @@ public partial class MainWindow : Window, IPreviewSink
         return v.Passed
             ? " · gate PASS"
             : $" · gate FAIL ({v.BlockingCount} blocking)";
-    }
-
-    private bool HasComments()
-        => _pipeline.SnapshotMatched().Count + _pipeline.SnapshotOrphans().Count > 0;
-
-    private string BuildRevisionPlan()
-    {
-        var matched = _pipeline.SnapshotMatched();
-        var content = File.ReadAllText(_sourcePath);
-        var sha = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
-        return RevisionPlanExporter.Build(_sourcePath, sha, DateTime.UtcNow, matched);
-    }
-
-    private void CopyRevisionPlan()
-    {
-        var text = BuildRevisionPlan();
-        System.Windows.Clipboard.SetText(text);
-    }
-
-    private void ExportRevisionPlan()
-    {
-        var text = BuildRevisionPlan();
-        var dlg = new SaveFileDialog
-        {
-            FileName = Path.GetFileNameWithoutExtension(_sourcePath) + ".revisions.md",
-            Filter = "Markdown (*.md)|*.md|All files (*.*)|*.*",
-            InitialDirectory = Path.GetDirectoryName(_sourcePath)
-        };
-        if (dlg.ShowDialog() == true)
-            File.WriteAllText(dlg.FileName, text);
     }
 
     // The OS high-contrast setting always wins; otherwise the user's Ctrl+T choice applies.
