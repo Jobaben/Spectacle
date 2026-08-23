@@ -22,12 +22,16 @@ public class PreviewHtmlLoopTests
         return findings.Length == 0 ? computed : computed with { Findings = findings };
     }
 
-    private static LoopIteration Iteration(int n, ReviewDelta? delta = null) => new(
+    private static LoopIteration Iteration(
+        int n, ReviewDelta? delta = null,
+        IReadOnlyList<AddressedComment>? addressed = null, int commentsOpen = 0) => new(
         Number: n,
         At: new DateTime(2026, 8, 23, 12, 0, n, DateTimeKind.Utc),
         Blocking: 2, Errors: 2, Warnings: 1, Advisories: 0,
         Delta: delta,
-        ChangedBlockIds: new[] { "b3", "b7" });
+        ChangedBlockIds: new[] { "b3", "b7" },
+        CommentsAddressed: addressed ?? Array.Empty<AddressedComment>(),
+        CommentsOpen: commentsOpen);
 
     [Fact]
     public void Without_a_session_the_loop_payload_is_the_null_literal()
@@ -59,6 +63,43 @@ public class PreviewHtmlLoopTests
         html.Should().Contain("\"persisting\":0");
         // History rows carry counts, including the per-iteration delta tallies.
         html.Should().Contain("\"fixed\":1").And.Contain("\"introduced\":1");
+    }
+
+    [Fact]
+    public void The_latest_iterations_addressed_comments_travel_in_full_and_history_carries_counts()
+    {
+        var addressed = new[]
+        {
+            new AddressedComment("c-1", "Tighten this paragraph.", "The token lifetime is 30", 12),
+        };
+        var history = new[]
+        {
+            Iteration(1, commentsOpen: 2),
+            Iteration(2, addressed: addressed, commentsOpen: 1),
+        };
+
+        var html = PreviewHtml.Build(
+            "<h1>x</h1>", "https://x/", PreviewTheme.Dark, null, null, VerdictWith(),
+            history, waivedKeys: null);
+
+        html.Should().Contain("\"commentsAddressed\":1").And.Contain("\"commentsOpen\":1");
+        html.Should().Contain("\"commentsOpen\":2", "each history row carries its own open count");
+        html.Should().Contain("\"body\":\"Tighten this paragraph.\"");
+        html.Should().Contain("\"context\":\"The token lifetime is 30\"");
+        html.Should().Contain("\"line\":12");
+    }
+
+    [Fact]
+    public void A_comment_body_cannot_close_the_inline_script_tag()
+    {
+        var addressed = new[] { new AddressedComment("c-1", "sneaky </script> ask", "ctx", 4) };
+
+        var html = PreviewHtml.Build(
+            "<h1>x</h1>", "https://x/", PreviewTheme.Dark, null, null, VerdictWith(),
+            new[] { Iteration(1), Iteration(2, addressed: addressed) }, waivedKeys: null);
+
+        html.Should().NotContain("sneaky </script>",
+            "a reviewer's comment body is document-adjacent text and gets the same `</` guard");
     }
 
     [Fact]

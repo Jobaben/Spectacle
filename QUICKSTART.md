@@ -28,7 +28,9 @@ vocabulary — everything else lives in the [README](README.md).
 8. **Your own comments work the same way.** `Enter` on a block adds a comment. With the
    findings panel *closed*, `c` copies a revision brief built from your unresolved comments
    and `a` hands it to Claude — the panel open/closed decides whether the keys carry the
-   gate's findings or your review.
+   gate's findings or your review. And the loop tracks them like findings: a save that
+   rewrites a commented block shows `💬 1 comment addressed` in the toast, and the timeline
+   lists the addressed asks so you can jump to the revised block and check the answer.
 
 To try this without an agent, [`docs/example/spec/`](docs/example/spec/) ships three saved
 iterations of one document — copy v1 over a working file, open it, then copy v2 and v3 over

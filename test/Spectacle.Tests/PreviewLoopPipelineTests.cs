@@ -97,6 +97,70 @@ public class PreviewLoopPipelineTests : IDisposable
     }
 
     [Fact]
+    public void A_save_that_changes_a_commented_block_reports_the_comment_addressed()
+    {
+        var doc = new StubDocument();
+        doc.Update("# Title\n\nFirst paragraph.\n\nSecond paragraph.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+
+        // The reviewer comments on the first paragraph (block b1: b0 is the heading). A comment
+        // save re-renders the same text, so the iteration must not move.
+        p.HandleHostMessage(
+            """{"type":"commentSave","commentId":"c-1","blockId":"b1","body":"Tighten this paragraph."}""");
+        sink.Pushed.Last().Should().Contain("\"iteration\":1");
+        sink.Pushed.Last().Should().Contain("\"commentsAddressed\":0");
+
+        // The agent's save rewrites the commented block: iteration 2 credits it with the comment.
+        doc.Update("# Title\n\nFirst paragraph, tightened.\n\nSecond paragraph.\n");
+
+        var html = sink.Pushed.Last();
+        html.Should().Contain("\"iteration\":2");
+        html.Should().Contain("\"commentsAddressed\":1");
+        html.Should().Contain("\"body\":\"Tighten this paragraph.\"");
+        html.Should().Contain("\"commentsOpen\":0",
+            "the addressed comment lost its anchor, so nothing unresolved stays matched");
+    }
+
+    [Fact]
+    public void A_save_that_leaves_the_commented_block_alone_keeps_the_comment_open()
+    {
+        var doc = new StubDocument();
+        doc.Update("# Title\n\nFirst paragraph.\n\nSecond paragraph.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+
+        p.HandleHostMessage(
+            """{"type":"commentSave","commentId":"c-1","blockId":"b2","body":"Name the failure modes."}""");
+        doc.Update("# Title\n\nFirst paragraph, edited.\n\nSecond paragraph.\n");
+
+        var html = sink.Pushed.Last();
+        html.Should().Contain("\"commentsAddressed\":0",
+            "the save never touched the commented block");
+        html.Should().Contain("\"commentsOpen\":1");
+    }
+
+    [Fact]
+    public void A_comment_resolved_between_saves_is_not_credited_to_the_next_save()
+    {
+        var doc = new StubDocument();
+        doc.Update("# Title\n\nFirst paragraph.\n\nSecond paragraph.\n");
+        var sink = new StubSink();
+        using var p = NewPipeline(doc, sink);
+        p.Start();
+
+        p.HandleHostMessage(
+            """{"type":"commentSave","commentId":"c-1","blockId":"b1","body":"Tighten this paragraph."}""");
+        p.HandleHostMessage("""{"type":"commentResolve","commentId":"c-1","resolved":true}""");
+        doc.Update("# Title\n\nFirst paragraph, rewritten anyway.\n\nSecond paragraph.\n");
+
+        sink.Pushed.Last().Should().Contain("\"commentsAddressed\":0",
+            "a comment the reviewer resolved is work already signed off");
+    }
+
+    [Fact]
     public void A_waive_round_trips_into_the_next_render()
     {
         var doc = new StubDocument();

@@ -315,8 +315,10 @@ public sealed class PreviewPipeline : IDisposable
         var graded = LiveGate.Grade(text, _document.BaseDirectory, _store.SourceName);
         _lastVerdict = graded.Verdict;
         // The session timeline. Advance is a no-op for a re-render of unchanged text (a theme
-        // flip, a comment save), so only real revisions become iterations.
-        _loop.Advance(text, graded.Report, graded.Verdict, _lastRender.Blocks, DateTime.UtcNow);
+        // flip, a comment save), so only real revisions become iterations. It also gets the
+        // matched comments — the same set the cards and the comment brief build from — so each
+        // iteration can say which of the reviewer's comment blocks the save acted on.
+        _loop.Advance(text, graded.Report, graded.Verdict, _lastRender.Blocks, _lastMatch.Matched, DateTime.UtcNow);
         // Waives whose finding no longer exists fall away with it, so a finding the agent fixed
         // does not come back pre-waived if a later revision reintroduces it.
         _waived = GateTriage.Prune(_lastVerdict, _waived).ToHashSet(StringComparer.Ordinal);

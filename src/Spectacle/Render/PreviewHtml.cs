@@ -198,7 +198,8 @@ public static class PreviewHtml
     /// Serializes the revision-loop timeline for <c>preview-loop.js</c>, or the JSON literal
     /// <c>null</c> when no session is being tracked (the export path) — the script renders nothing
     /// at all in that case. History rows carry counts only; the latest iteration additionally
-    /// carries its full delta and the changed block ids, which is everything the HUD shows.
+    /// carries its full delta, the changed block ids, and the reviewer comments the save
+    /// addressed, which is everything the HUD shows.
     /// </summary>
     private static string BuildLoopPayload(IReadOnlyList<LoopIteration>? loopHistory)
     {
@@ -218,12 +219,26 @@ public static class PreviewHtml
                 advisories = i.Advisories,
                 @fixed = i.Delta?.Fixed.Count ?? 0,
                 introduced = i.Delta?.New.Count ?? 0,
+                commentsAddressed = i.CommentsAddressed.Count,
+                commentsOpen = i.CommentsOpen,
             }),
             delta = latest.Delta is null ? null : new
             {
                 @fixed = latest.Delta.Fixed.Select(DeltaRow),
                 introduced = latest.Delta.New.Select(DeltaRow),
                 persisting = latest.Delta.Persisting.Count,
+            },
+            // The reviewer's side of the loop: which comment blocks the latest save acted on, in
+            // full like the delta. What is *still* open travels per-row in the history (and live
+            // in the annotations payload), so it is not repeated here.
+            comments = new
+            {
+                addressed = latest.CommentsAddressed.Select(c => new
+                {
+                    body = c.Body,
+                    context = c.Context,
+                    line = c.Line,
+                }),
             },
             changedBlockIds = latest.ChangedBlockIds,
         };

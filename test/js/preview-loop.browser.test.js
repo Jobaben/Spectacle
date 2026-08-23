@@ -35,13 +35,13 @@ const BODY = [
 ].join('\n');
 
 // A session in its third iteration: converging (5 -> 3 -> 1 blocking), with the latest save
-// fixing two findings and introducing one.
+// fixing two findings, introducing one, and addressing one of the reviewer's two comments.
 const SESSION = {
   iteration: 3,
   history: [
-    { n: 1, at: '2026-08-23T09:41:12Z', blocking: 5, errors: 5, warnings: 2, advisories: 1, fixed: 0, introduced: 0 },
-    { n: 2, at: '2026-08-23T09:43:40Z', blocking: 3, errors: 3, warnings: 1, advisories: 1, fixed: 3, introduced: 1 },
-    { n: 3, at: '2026-08-23T09:45:05Z', blocking: 1, errors: 1, warnings: 1, advisories: 0, fixed: 2, introduced: 1 },
+    { n: 1, at: '2026-08-23T09:41:12Z', blocking: 5, errors: 5, warnings: 2, advisories: 1, fixed: 0, introduced: 0, commentsAddressed: 0, commentsOpen: 2 },
+    { n: 2, at: '2026-08-23T09:43:40Z', blocking: 3, errors: 3, warnings: 1, advisories: 1, fixed: 3, introduced: 1, commentsAddressed: 0, commentsOpen: 2 },
+    { n: 3, at: '2026-08-23T09:45:05Z', blocking: 1, errors: 1, warnings: 1, advisories: 0, fixed: 2, introduced: 1, commentsAddressed: 1, commentsOpen: 1 },
   ],
   delta: {
     fixed: [
@@ -53,14 +53,37 @@ const SESSION = {
     ],
     persisting: 1,
   },
+  comments: {
+    addressed: [
+      { body: 'Spell out how the refresh window is enforced.', context: 'The token lifetime is 30 minutes', line: 12 },
+    ],
+  },
   changedBlockIds: ['b3', 'b5'],
 };
 
 const FIRST_RENDER = {
   iteration: 1,
-  history: [{ n: 1, at: '2026-08-23T09:41:12Z', blocking: 5, errors: 5, warnings: 2, advisories: 1, fixed: 0, introduced: 0 }],
+  history: [{ n: 1, at: '2026-08-23T09:41:12Z', blocking: 5, errors: 5, warnings: 2, advisories: 1, fixed: 0, introduced: 0, commentsAddressed: 0, commentsOpen: 0 }],
   delta: null,
+  comments: { addressed: [] },
   changedBlockIds: [],
+};
+
+// The reviewer's one still-open comment, exactly as PreviewHtml's annotations payload carries it —
+// the loop headline counts what is open live from this payload, not from the loop history.
+const ANNOTATIONS = {
+  comments: [
+    {
+      id: 'c-2', body: 'Say which tenant goes first.',
+      originalText: 'Rollout is keyed by tenant, largest first.',
+      createdAt: '2026-08-23T09:40:00Z', resolvedAt: null,
+      blockAnchor: {
+        kind: 'paragraph', line: 16, textHash: 'h5', occurrenceIndex: 0,
+        leadingText: 'Rollout is keyed by tenant, largest first.', blockIdAtRender: 'b5',
+      },
+    },
+  ],
+  orphaned: [],
 };
 
 const GATE = {
@@ -74,7 +97,7 @@ const GATE = {
   ],
 };
 
-function buildHtml(theme, loop) {
+function buildHtml(theme, loop, annotations) {
   const json = (v) => JSON.stringify(v).replace(/<\//g, '<\\/');
   return `<!DOCTYPE html>
 <html lang="en">
@@ -96,7 +119,7 @@ function buildHtml(theme, loop) {
 ${BODY}
   </main>
   <script>${asset('prism.min.js')}</script>
-  <script>window.__spectacleAnnotations__ = ${json({ comments: [], orphaned: [] })};</script>
+  <script>window.__spectacleAnnotations__ = ${json(annotations || { comments: [], orphaned: [] })};</script>
   <script>window.__spectacleOutline__ = ${json([{ level: 1, text: 'Authentication design', id: 'authentication-design', line: 6 }])};</script>
   <script>window.__spectacleGate__ = ${json(GATE)};</script>
   <script>window.__spectacleLoop__ = ${loop ? json(loop) : 'null'};</script>
@@ -162,7 +185,7 @@ function check(name, ok, detail) {
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));
-    let served = buildHtml(theme, SESSION);
+    let served = buildHtml(theme, SESSION, ANNOTATIONS);
     await page.route('http://spectacle.test/**', (route) =>
       route.fulfill({ contentType: 'text/html', body: served }));
     await page.goto('http://spectacle.test/doc.html', { waitUntil: 'load' });
@@ -174,6 +197,7 @@ function check(name, ok, detail) {
     const toastText = await toast.innerText();
     check('toast names the iteration', toastText.includes('Iteration 3'));
     check('toast counts the fixes', toastText.includes('2 fixed'));
+    check('toast counts the addressed comments', toastText.includes('1 comment addressed'));
     check('toast counts the regressions', toastText.includes('1 new'));
     check('toast counts what remains', toastText.includes('1 blocking remain'));
 
@@ -211,6 +235,11 @@ function check(name, ok, detail) {
     check('rows are newest first', (await page.locator('.sp-loop-row').first().innerText()).includes('#3'));
     check('the latest row details the fixes', panelText.includes('{{token_ttl}}'));
     check('the latest row details the regression', panelText.includes('internal.example/keys'));
+    check('the latest row details the addressed comment, in the reviewer\'s words',
+      panelText.includes('Spell out how the refresh window is enforced.'));
+    check('the latest row tallies the addressed comments', panelText.includes('💬 1 addressed'));
+    check('history rows carry the open-comment count', panelText.includes('💬1'));
+    check('headline counts the still-open comments', panelText.includes('1 comment still open.'));
 
     if (theme !== 'hc') {
       const colours = await page.evaluate(() => ['.sp-loop-fixed', '.sp-loop-new'].map((s) => {
@@ -230,6 +259,14 @@ function check(name, ok, detail) {
     check('the destination block is focused',
       (await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-line'))) === '16',
       String(before));
+
+    // Clicking an addressed comment jumps to where its block sat, to verify the ask was answered.
+    await page.keyboard.press('l');
+    await page.locator('.sp-loop-detail-comment').first().click();
+    check('clicking an addressed comment closes the panel', !(await panel.isVisible()));
+    await page.waitForTimeout(150);
+    check('the revised block behind the comment is focused',
+      (await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-line'))) === '12');
 
     // Containment in both directions.
     await page.keyboard.press('l');
