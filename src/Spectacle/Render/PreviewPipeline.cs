@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using Spectacle.Ai;
 using Spectacle.Annotations;
 using Spectacle.Documents;
 using Spectacle.Export;
@@ -29,6 +30,7 @@ public sealed class PreviewPipeline : IDisposable
     private GateVerdict? _lastVerdict;
     private readonly LoopSession _loop = new();
     private HashSet<string> _waived = new(StringComparer.Ordinal);
+    private ClaudeRevisionStatus _claude = ClaudeRevisionStatus.Unavailable;
     private long _renderVersion; // guarded by _sync; identifies the newest render
 
     public event EventHandler? Rendered;
@@ -39,6 +41,14 @@ public sealed class PreviewPipeline : IDisposable
     /// touching System.Windows itself.
     /// </summary>
     public event EventHandler<string>? CopyTextRequested;
+
+    /// <summary>
+    /// Raised with the triaged fix brief when the preview asked for a hands-free revision — the
+    /// same text <see cref="CopyTextRequested"/> carries, but addressed to the host's Claude CLI
+    /// runner instead of the clipboard. Launching a process is a host concern, exactly like the
+    /// clipboard: the pipeline hands the brief out and stays out of System.Diagnostics.
+    /// </summary>
+    public event EventHandler<string>? ClaudeReviseRequested;
 
     public PreviewPipeline(Document document, IPreviewSink sink, PreviewTheme theme, AnnotationStore store)
     {
@@ -89,10 +99,26 @@ public sealed class PreviewPipeline : IDisposable
         }
     }
 
+    /// <summary>
+    /// Updates what the preview is told about the Claude CLI and its background run, re-rendering
+    /// so the overlay reflects it. Safe from any thread — the runner completes on a worker thread.
+    /// </summary>
+    public void SetClaudeStatus(ClaudeRevisionStatus status)
+    {
+        (string Html, long Version)? render = null;
+        lock (_sync)
+        {
+            _claude = status;
+            if (_started) render = RenderLocked();
+        }
+        Publish(render);
+    }
+
     public void HandleHostMessage(string json)
     {
         (string Html, long Version)? render = null;
         string? copyText = null;
+        string? reviseBrief = null;
         lock (_sync)
         {
             try
@@ -102,21 +128,29 @@ public sealed class PreviewPipeline : IDisposable
                 if (!root.TryGetProperty("type", out var typeEl)) return;
                 var type = typeEl.GetString();
 
+                // Only messages that change annotation state persist and re-render; the triage
+                // and Claude messages either need neither (a waive is optimistic in the page, a
+                // run's status updates arrive through SetClaudeStatus) or dispatch after the lock.
+                var persistAndRender = false;
                 switch (type)
                 {
-                    case "commentSave":    OnCommentSave(root); break;
-                    case "commentDelete":  OnCommentDelete(root); break;
-                    case "commentResolve": OnCommentResolve(root); break;
-                    case "orphanReanchor": OnOrphanReanchor(root); break;
-                    // Triage messages carry no annotation state: nothing to persist, and a waive
-                    // does not need a re-render either — the page updated itself optimistically
-                    // and the next render picks the set up from the payload.
+                    case "commentSave":    OnCommentSave(root); persistAndRender = true; break;
+                    case "commentDelete":  OnCommentDelete(root); persistAndRender = true; break;
+                    case "commentResolve": OnCommentResolve(root); persistAndRender = true; break;
+                    case "orphanReanchor": OnOrphanReanchor(root); persistAndRender = true; break;
                     case "gateWaive":      OnGateWaive(root); return;
                     case "copyFixBrief":   copyText = BuildTriagedFixBrief(); break;
+                    // The hands-free variant of copyFixBrief: same brief, handed to the host's
+                    // Claude runner instead of the clipboard — but only when a CLI exists and no
+                    // run is in flight, whatever the page believed when it sent this.
+                    case "claudeRevise":
+                        if (_claude.Available && _claude.State != "running")
+                            reviseBrief = BuildTriagedFixBrief();
+                        break;
                     default: return;
                 }
 
-                if (copyText is null)
+                if (persistAndRender)
                 {
                     Persist();
                     render = RenderLocked();
@@ -128,6 +162,7 @@ public sealed class PreviewPipeline : IDisposable
             }
         }
         if (copyText is not null) CopyTextRequested?.Invoke(this, copyText);
+        if (reviseBrief is not null) ClaudeReviseRequested?.Invoke(this, reviseBrief);
         Publish(render);
     }
 
@@ -268,7 +303,10 @@ public sealed class PreviewPipeline : IDisposable
             _lastRender.Outline,
             _lastVerdict,
             _loop.History,
-            _waived);
+            _waived,
+            // No CLI on this machine is payload `null`, the same shape the export path and older
+            // payloads have — the overlay renders nothing new at all.
+            _claude.Available ? _claude : null);
         return (html, ++_renderVersion);
     }
 

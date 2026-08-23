@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
+using Spectacle.Ai;
 using Spectacle.Annotations;
 using Spectacle.Documents;
 using Spectacle.Export;
@@ -80,6 +81,25 @@ public partial class MainWindow : Window, IPreviewSink
         // host's job, exactly like Ctrl+Shift+C for the revision plan.
         _pipeline.CopyTextRequested += (_, text) => Dispatcher.Invoke(() =>
             System.Windows.Clipboard.SetText(text));
+
+        // Hands-free revision. With a Claude CLI installed on this machine the copy → paste → wait
+        // round-trip is unnecessary: the triage panel's "a" hands the same brief to `claude -p` in
+        // a background process, addressed at this exact file so the saves land in the open
+        // document — where the watcher already turns each one into a loop iteration. No CLI, no
+        // wiring: the panel then offers only the clipboard path.
+        var claudeCli = ClaudeCliLocator.Detect();
+        if (claudeCli is not null)
+        {
+            var runner = new ClaudeRevisionRunner(claudeCli);
+            runner.Started += (_, _) => _pipeline.SetClaudeStatus(ClaudeRevisionStatus.Running);
+            runner.Completed += (_, r) => _pipeline.SetClaudeStatus(r.Succeeded
+                ? ClaudeRevisionStatus.Done
+                : ClaudeRevisionStatus.Failed(
+                    r.Detail.Length != 0 ? r.Detail : $"claude exited with code {r.ExitCode}"));
+            _pipeline.ClaudeReviseRequested += (_, brief) =>
+                runner.TryStart(_document.BaseDirectory, ClaudeRevisionPrompt.Build(_sourcePath, brief));
+            _pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
+        }
 
         _pipeline.Rendered += (_, _) => Dispatcher.Invoke(() =>
         {

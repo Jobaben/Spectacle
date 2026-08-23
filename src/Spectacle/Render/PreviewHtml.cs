@@ -61,16 +61,19 @@ public static class PreviewHtml
     /// takes that path). <paramref name="loopHistory"/> is the revision-session timeline and
     /// <paramref name="waivedKeys"/> the findings the reader has waived this session; both are
     /// live-reader state, so the export path passes <c>null</c> for them too.
+    /// <paramref name="claude"/> is the host's Claude CLI state — availability and the current
+    /// background run — and is likewise live-reader state the export path leaves <c>null</c>.
     /// </summary>
     public static string Build(
         string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
         IReadOnlyList<OutlineEntry>? outline, GateVerdict? verdict,
-        IReadOnlyList<LoopIteration>? loopHistory, IReadOnlyCollection<string>? waivedKeys)
+        IReadOnlyList<LoopIteration>? loopHistory, IReadOnlyCollection<string>? waivedKeys,
+        Spectacle.Ai.ClaudeRevisionStatus? claude = null)
     {
         var themeCss = ThemeCss(theme);
         var payloadJson = BuildPayload(matchResult);
         var outlineJson = BuildOutlinePayload(outline);
-        var gateJson = BuildGatePayload(verdict, waivedKeys);
+        var gateJson = BuildGatePayload(verdict, waivedKeys, claude);
         var loopJson = BuildLoopPayload(loopHistory);
 
         return $$"""
@@ -132,7 +135,9 @@ public static class PreviewHtml
     /// no gate was computed — the script renders nothing at all in that case, so an exported HTML
     /// file carries no badge.
     /// </summary>
-    private static string BuildGatePayload(GateVerdict? verdict, IReadOnlyCollection<string>? waivedKeys)
+    private static string BuildGatePayload(
+        GateVerdict? verdict, IReadOnlyCollection<string>? waivedKeys,
+        Spectacle.Ai.ClaudeRevisionStatus? claude)
     {
         if (verdict is null) return "null";
 
@@ -156,6 +161,14 @@ public static class PreviewHtml
             },
             // The session's waived finding keys, echoed back so triage state survives a re-render.
             triage = new { waived = waivedKeys ?? Array.Empty<string>() },
+            // The host's Claude CLI state. `null` (or absent, for older payload consumers) means
+            // no CLI: the overlay offers the clipboard hand-off only.
+            claude = claude is null ? null : (object)new
+            {
+                available = claude.Available,
+                state = claude.State,
+                detail = claude.Detail,
+            },
             // A list of pairs rather than an object: front-matter keys come from the document, so
             // preserving source order matters and a duplicate key must not silently vanish.
             metadata = verdict.Metadata.Select(m => new { key = m.Key, value = m.Value }),

@@ -21,6 +21,10 @@ vocabulary — everything else lives in the [README](README.md).
 6. **Close the loop.** In the findings panel: `Space` waives anything you disagree with,
    `c` copies a fix brief of the rest. Paste that brief as the agent's next prompt. Repeat
    until the badge is green.
+7. **Or skip the copying.** If the [Claude Code CLI](https://claude.com/claude-code) is
+   installed, the panel also offers `a`: Spectacle hands the brief to `claude -p` in the
+   background, Claude revises the open document in place, and steps 4–5 happen by themselves.
+   A corner chip shows the run (and the reason, if it fails).
 
 To try this without an agent, [`docs/example/spec/`](docs/example/spec/) ships three saved
 iterations of one document — copy v1 over a working file, open it, then copy v2 and v3 over
@@ -42,6 +46,7 @@ it and watch steps 4–6 happen.
 | **Waive** | A session-only "leave this out of the brief" mark (`Space` in the panel). The badge and the pipeline still count the finding — only the copied brief shrinks. Gone when the finding is fixed or the window closes. |
 | **Suppression** | The permanent version: an HTML comment in the document itself, `<!-- spectacle-disable-next-line bare-urls -->`. Changes the verdict for everyone and is visible in the file. |
 | **Fix brief** | The findings rewritten as instructions addressed to the tool that wrote the document, ordered bottom-up so line numbers stay valid while it edits. `c` in the panel, `--fix-brief` in the CLI. |
+| **Hand-off (`a`)** | The fix brief given straight to the Claude Code CLI instead of the clipboard, with an in-place contract: revise this exact file, create no new one. Offered only when a `claude` install is detected (pin one with `SPECTACLE_CLAUDE_CLI`). |
 | **Coverage** | The honesty note on a verdict: which checks were disabled and how many findings were suppressed, so a clean pass can't hide a narrowed gate. |
 | **Comments / revision plan** | Your own margin notes (`Enter` on a block), separate from the gate. They export as a revision plan (`Ctrl+Shift+C`) — the human-authored counterpart to the fix brief. |
 

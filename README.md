@@ -21,8 +21,12 @@ your agent revises it: every save re-renders, re-grades, and lands as an iterati
 memory — a toast says what the save fixed and what it broke, edge markers show exactly which
 blocks changed, and `l` opens the session's convergence timeline. In the findings panel, `Space`
 waives what you disagree with and `c` copies a fix brief covering the rest — the next prompt for
-the authoring agent, assembled without leaving the reader. See
-[The revision loop](#the-revision-loop-in-the-reader).
+the authoring agent, assembled without leaving the reader. And when the
+[Claude Code CLI](https://claude.com/claude-code) is installed on the machine, even the copying is
+unnecessary: `a` hands that brief to `claude -p` in a background process that revises the open
+document **in place**, so the saves land right back in the loop you are watching. See
+[The revision loop](#the-revision-loop-in-the-reader) and
+[Hands-free revision](#hands-free-claude-revises-the-document-in-place).
 
 ![The reader mid-loop: an agent's save just landed — the toast reports 2 findings fixed and the
 gate passing, the pill tracks iteration 3, and the badge is green](docs/screenshots/01-revision-loop.png)
@@ -831,6 +835,61 @@ while an agent rewrites the document underneath is not five panel re-openings.
 ![The triage bench: a waived bare-URL finding struck through and tagged, the header scoring the
 brief's coverage, and the just-copied confirmation](docs/screenshots/03-triage-bench.png)
 
+### Hands-free: Claude revises the document in place
+
+The copy-paste hand-off assumes the authoring agent lives somewhere else. When the
+[Claude Code CLI](https://claude.com/claude-code) is installed on the same machine, Spectacle
+detects it at startup and offers to close the loop itself — no copying, no window switching, and
+no risk of the one failure the manual route was observed to produce: an agent that writes the
+revised text to a *new* file beside the original, where the watcher never sees it and the loop
+never advances.
+
+Step by step:
+
+**1. Triage as usual.** Open the findings panel with `v`, waive what you disagree with. With a
+Claude CLI on the machine the footer offers one more key: `a`.
+
+![Step 1 — the findings panel over a failing draft, its footer offering "a Claude revises in
+place" beside the copy path](docs/screenshots/06-claude-triage-handoff.png)
+
+**2. Press `a`.** Spectacle assembles the same triaged brief `c` would copy, wraps it in a prompt
+whose first rule is the in-place contract — *edit exactly this file, at exactly this path, create
+nothing else* — and hands it to `claude -p` in a background process. The panel confirms what was
+sent.
+
+![Step 2 — the hand-off confirmed: "Handed to Claude — 4 findings. Saves land here
+live."](docs/screenshots/07-claude-handed.png)
+
+**3. Watch the loop run itself.** A chip in the corner shows the run. Claude edits the open
+document, and every save lands through the same watcher as any other revision: a toast with the
+delta, markers on the changed blocks, a new iteration on the timeline, the badge re-graded live.
+
+![Step 3 — mid-run: the "Claude is revising this document" chip, an Iteration 2 toast reporting 2
+fixed, changed-block markers, and the badge down to 2 errors](docs/screenshots/08-claude-revising.png)
+
+**4. Converge.** The run ends, the chip goes away, and the document on screen — the same file, at
+the same path — passes its gate. If the run fails instead, the chip stays with the one-line
+reason, and `a` is ready to try again.
+
+![Step 4 — converged: GATE PASS, the iteration pill at 3 with a check mark, and the final save's
+toast reporting the gate passes](docs/screenshots/09-claude-converged.png)
+
+The mechanics, for the skeptical:
+
+- **Detection** is a PATH scan for `claude.exe` / `claude.cmd` / `claude`, once per window. Set
+  `SPECTACLE_CLAUDE_CLI` to pin a specific binary; a pin that does not exist means "not
+  installed", never "fall back to PATH". Without a CLI, nothing anywhere changes — `c` still
+  copies, and `a` is not offered.
+- **The sandbox** is `--permission-mode acceptEdits` in print mode: Claude's file edits are
+  auto-approved, and anything that would need an interactive permission prompt is refused, because
+  nobody is there to answer one. The process runs headless in the document's directory, with the
+  prompt delivered on stdin.
+- **One run at a time.** A second `a` mid-run is refused with an explanation, not queued — the
+  brief it would carry was computed against a document the current run is still rewriting.
+- **Spectacle still never edits your document.** The reader stays read-only; the revision is
+  Claude's, made through its own tools, observed by the same watcher that observes every other
+  writer.
+
 ### Replay it yourself
 
 [`docs/example/`](docs/example/) holds a `.spectacle.json` and three saved iterations of an
@@ -891,7 +950,9 @@ assert the exact messages the host receives, then re-serve the page the way a sa
 and check the panel, its selection, and the waive all come back. The revision-loop suite
 (`preview-loop.browser.test.js`) covers the toast, the changed-block markers, the pill, the
 timeline, the same containment contract, and that an already-announced iteration never toasts
-twice.
+twice. The hands-free suite (`preview-claude.browser.test.js`) covers the `a` hand-off: offered
+only when the host found a CLI, exactly one message per keypress, the mid-run and fully-waived
+refusals, and the run chip for the running and failed states.
 
 This started out as a test against a hand-rolled DOM stub. The stub passed every assertion while
 three real defects were live — the overlay ignored the containment contract the other overlays
@@ -976,7 +1037,7 @@ shortcuts](docs/screenshots/05-keyboard-help.png)
 | G | Jump to last |
 | Ctrl+F | Find in document (Enter / Shift+Enter or F3 / Shift+F3 to cycle matches, Esc to close) |
 | t | Toggle the document outline (↑ / ↓ to move, Enter to jump, Esc to close) |
-| v | Toggle the quality gate verdict (↑ / ↓ to move, Enter to jump to the line, Space to waive / restore, c to copy the fix brief for everything unwaived, Esc to close) |
+| v | Toggle the quality gate verdict (↑ / ↓ to move, Enter to jump to the line, Space to waive / restore, c to copy the fix brief for everything unwaived, a to have Claude revise the document in place — offered when the Claude CLI is installed, Esc to close) |
 | l | Toggle the revision-loop timeline (↑ / ↓ to scroll, click a new finding to jump to it, Esc to close) |
 | ? | Show keyboard help overlay |
 
