@@ -24,7 +24,9 @@ public sealed record AddressedComment(string Id, string Body, string Context, in
 /// is <c>null</c> for the first iteration — there is nothing to compare the opening render
 /// against. <see cref="CommentsOpen"/> counts the unresolved, still-anchored comments after this
 /// pass — the same set the comment brief is built from, so the HUD and the brief can never
-/// disagree about what is still being asked.
+/// disagree about what is still being asked. It is a live tally on the latest iteration: comments
+/// the reviewer adds or resolves between saves land on that iteration rather than waiting for the
+/// next one.
 /// </summary>
 public sealed record LoopIteration(
     int Number,
@@ -92,6 +94,15 @@ public sealed class LoopSession
         // reviewer's work, and a comment added between saves is the next save's to address —
         // neither may be credited to (or hidden from) the iteration the next save records.
         _lastUnresolved = unresolvedNow;
+        // The open-comment count is a live tally, not a delta: the latest iteration is the state
+        // the reader is looking at, so a comment added or resolved between saves belongs on that
+        // iteration's bar immediately. Without this the timeline would start flat at zero and
+        // rise on the first save after a comment — the reviewer's asks would look like work the
+        // saves created instead of work waiting to be answered, and no amount of answering them
+        // could draw the descending step the gate tallies draw. It stays a re-render: no new
+        // iteration, no delta, no toast.
+        if (_history.Count > 0)
+            _history[^1] = _history[^1] with { CommentsOpen = unresolvedNow.Count };
         return null;
     }
 

@@ -201,6 +201,61 @@ public class LoopSessionTests
     }
 
     [Fact]
+    public void A_comment_added_between_saves_lands_on_the_latest_iteration()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        Advance(session, v1, T0);
+        session.History[^1].CommentsOpen.Should().Be(0);
+
+        var a = CommentOn(v1, "First", "c-1", "Tighten this paragraph.");
+        var b = CommentOn(v1, "Second", "c-2", "Name the failure modes.");
+        Advance(session, v1, T0.AddMinutes(1), new[] { a, b }).Should().BeNull(
+            "a comment save is not a revision");
+
+        session.History[^1].CommentsOpen.Should().Be(2,
+            "the reviewer's open asks are the state the reader is looking at, so the timeline " +
+            "peaks where the comments were written rather than rising on the next save");
+    }
+
+    [Fact]
+    public void Open_comments_step_down_as_the_saves_answer_them()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        Advance(session, v1, T0);
+
+        var a = CommentOn(v1, "First", "c-1", "Tighten this paragraph.");
+        var b = CommentOn(v1, "Second", "c-2", "Name the failure modes.");
+        Advance(session, v1, T0.AddMinutes(1), new[] { a, b });
+
+        var v2 = "# Title\n\nFirst paragraph, tightened.\n\nSecond paragraph.\n";
+        Advance(session, v2, T0.AddMinutes(2), new[] { a, b });
+
+        var v3 = "# Title\n\nFirst paragraph, tightened.\n\nSecond paragraph, with failure modes.\n";
+        Advance(session, v3, T0.AddMinutes(3), new[] { a, b });
+
+        session.History.Select(i => i.CommentsOpen).Should().Equal(new[] { 2, 1, 0 },
+            "each save that answers an ask drops the bar, the way the gate tallies do");
+    }
+
+    [Fact]
+    public void A_comment_resolved_between_saves_drops_off_the_latest_iteration()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        var comment = CommentOn(v1, "First", "c-1", "Tighten this paragraph.");
+        Advance(session, v1, T0, new[] { comment });
+        session.History[^1].CommentsOpen.Should().Be(1);
+
+        var resolved = comment with { ResolvedAt = T0.AddMinutes(1) };
+        Advance(session, v1, T0.AddMinutes(1), new[] { resolved }).Should().BeNull();
+
+        session.History[^1].CommentsOpen.Should().Be(0,
+            "the reviewer signing an ask off is the ask closing, not the next save's work");
+    }
+
+    [Fact]
     public void History_is_capped_but_numbering_is_preserved()
     {
         var session = new LoopSession();
