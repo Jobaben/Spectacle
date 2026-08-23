@@ -74,6 +74,11 @@ public partial class MainWindow : Window, IPreviewSink
             UpdateTopBar();
         });
 
+        // The preview's triage panel builds the fix brief; placing it on the clipboard is the
+        // host's job, exactly like Ctrl+Shift+C for the revision plan.
+        _pipeline.CopyTextRequested += (_, text) => Dispatcher.Invoke(() =>
+            System.Windows.Clipboard.SetText(text));
+
         _pipeline.Rendered += (_, _) => Dispatcher.Invoke(() =>
         {
             UpdateTopBar();
@@ -156,7 +161,19 @@ public partial class MainWindow : Window, IPreviewSink
         StatsText.Text = stats.Words == 0
             ? "Empty document"
             : $"{stats.Words:N0} words · ~{stats.ReadingTimeMinutes} min read · "
-              + $"{stats.Headings:N0} headings · {stats.CodeBlocks:N0} code blocks";
+              + $"{stats.Headings:N0} headings · {stats.CodeBlocks:N0} code blocks"
+              + GateStatus();
+    }
+
+    // The same verdict the badge shows, condensed for the status bar — so the gate state is
+    // readable even with the preview scrolled somewhere the badge is not.
+    private string GateStatus()
+    {
+        var v = _pipeline.SnapshotVerdict();
+        if (v is null) return "";
+        return v.Passed
+            ? " · gate PASS"
+            : $" · gate FAIL ({v.BlockingCount} blocking)";
     }
 
     private bool HasComments()

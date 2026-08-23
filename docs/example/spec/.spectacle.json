@@ -1,0 +1,6 @@
+{
+  "requiredSections": ["Overview", "Acceptance criteria", "Rollout"],
+  "requiredFrontMatter": ["workflow", "run", "stage", "reviewer"],
+  "severity": { "bare-urls": "warning", "prose": "info" },
+  "failOn": "error"
+}

@@ -21,6 +21,7 @@
         { key: "Ctrl+F",             label: "Find in document",           action: "find.open" /* preview-find.js */ },
         { key: "t",                   label: "Toggle document outline",    action: "outline.toggle" /* preview-outline.js */ },
         { key: "v",                   label: "Toggle quality gate verdict", action: "gate.toggle" /* preview-gate.js */ },
+        { key: "l",                   label: "Toggle revision-loop timeline", action: "loop.toggle" /* preview-loop.js */ },
         { key: "gg",                  label: "Jump to first",              action: "nav.first" },
         { key: "G",                   label: "Jump to last",               action: "nav.last" }
       ]
@@ -39,7 +40,16 @@
         { key: "↑ / ↓",               label: "Move selection",             action: null /* preview-gate.js */ },
         { key: "Home / End",          label: "First / last finding",       action: null /* preview-gate.js */ },
         { key: "Enter",               label: "Jump to the finding's line", action: null /* preview-gate.js */ },
+        { key: "Space",               label: "Waive / restore finding (drops it from the brief)", action: null /* preview-gate.js */ },
+        { key: "c",                   label: "Copy fix brief for unwaived findings", action: null /* preview-gate.js */ },
         { key: "Esc",                 label: "Close gate panel",           action: null /* preview-gate.js */ }
+      ]
+    },
+    "in-loop": {
+      title: "Revision loop",
+      rows: [
+        { key: "↑ / ↓",               label: "Scroll the timeline",        action: null /* preview-loop.js */ },
+        { key: "Esc",                 label: "Close loop timeline",        action: null /* preview-loop.js */ }
       ]
     },
     "in-outline": {

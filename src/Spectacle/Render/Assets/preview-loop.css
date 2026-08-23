@@ -1,0 +1,227 @@
+/* preview-loop.css — the revision-loop HUD: the delta toast, the changed-block markers, the
+   iteration pill, and the timeline panel. Colours track the same theme tokens as the gate overlay
+   (--gate-pass for fixed, --gate-error for introduced), so "fixed" reads as the same green the
+   badge turns when the loop converges. */
+
+/* -------- Changed-block markers -------- */
+
+/* The blocks the latest revision touched. A resting tint would compete with the text forever, so
+   the marker is an edge bar that announces itself once and then settles to a faint remainder the
+   eye can still use to retrace the edit. */
+.sp-loop-changed {
+  position: relative;
+}
+.sp-loop-changed::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--link, #4ea1ff);
+  opacity: 0.45;
+  animation: sp-loop-mark 2.4s ease-out 1;
+}
+@keyframes sp-loop-mark {
+  0% { opacity: 1; box-shadow: 0 0 10px var(--link, #4ea1ff); }
+  100% { opacity: 0.45; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-loop-changed::before { animation: none; }
+}
+
+/* -------- Delta toast -------- */
+
+#sp-loop-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 1003;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 16px;
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 999px;
+  background: var(--code-bg, #252526);
+  color: var(--fg, #d4d4d4);
+  font-size: 0.85em;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  animation: sp-loop-toast-in 0.25s ease-out 1;
+}
+#sp-loop-toast[hidden] { display: none; }
+#sp-loop-toast.sp-loop-leaving { opacity: 0; transition: opacity 0.6s ease-out; }
+#sp-loop-toast .sp-loop-iter { font-weight: 600; letter-spacing: 0.04em; }
+#sp-loop-toast .sp-loop-fixed { color: var(--gate-pass, #89d185); font-weight: 600; }
+#sp-loop-toast .sp-loop-new { color: var(--gate-error, #f48771); font-weight: 600; }
+#sp-loop-toast .sp-loop-remain { color: var(--muted, #9da5b4); }
+@keyframes sp-loop-toast-in {
+  from { transform: translateX(-50%) translateY(12px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #sp-loop-toast { animation: none; }
+}
+
+/* -------- Iteration pill -------- */
+
+/* Sits to the left of the gate badge, and only once the loop has actually looped — a document
+   nobody is revising keeps its corner clean. */
+#sp-loop-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 56px;
+  z-index: 1001;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 999px;
+  background: var(--code-bg, #252526);
+  color: var(--fg, #d4d4d4);
+  font: inherit;
+  font-size: 0.78em;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+#sp-loop-pill:hover { border-color: var(--focus, #7cb7ff); }
+#sp-loop-pill:focus-visible {
+  outline: 2px solid var(--focus, #7cb7ff);
+  outline-offset: 2px;
+}
+#sp-loop-pill .sp-loop-trend-up { color: var(--gate-error, #f48771); }
+#sp-loop-pill .sp-loop-trend-down { color: var(--gate-pass, #89d185); }
+#sp-loop-pill .sp-loop-trend-flat { color: var(--muted, #9da5b4); }
+
+/* -------- Timeline panel -------- */
+
+#sp-loop-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: 90vw;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  background: var(--code-bg, #252526);
+  color: var(--fg, #d4d4d4);
+  border-left: 1px solid var(--rule, #3c3c3c);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  padding: 16px 0 0 0;
+}
+#sp-loop-panel[hidden] { display: none; }
+#sp-loop-panel:focus-visible { outline: none; }
+
+#sp-loop-title {
+  margin: 0 16px 4px 16px;
+  font-size: 1em;
+  color: var(--link, #4ea1ff);
+}
+.sp-loop-headline {
+  margin: 0 16px 10px 16px;
+  font-size: 0.82em;
+  color: var(--muted, #9da5b4);
+}
+.sp-loop-headline .sp-loop-verdict-clean { color: var(--gate-pass, #89d185); font-weight: 600; }
+.sp-loop-headline .sp-loop-verdict-diverging { color: var(--gate-error, #f48771); font-weight: 600; }
+.sp-loop-headline .sp-loop-verdict-converging { color: var(--gate-pass, #89d185); font-weight: 600; }
+.sp-loop-headline .sp-loop-verdict-holding { color: var(--gate-warning, #dcdcaa); font-weight: 600; }
+
+/* The blocking-count sparkline: one bar per iteration, height proportional to the count, so the
+   whole session's shape — converging, thrashing, done — is one glance. */
+#sp-loop-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 42px;
+  margin: 0 16px 12px 16px;
+  padding: 6px 8px;
+  background: var(--bg, #1e1e1e);
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 3px;
+}
+#sp-loop-spark .sp-loop-bar {
+  flex: 1 1 0;
+  max-width: 26px;
+  min-height: 2px;
+  border-radius: 1px 1px 0 0;
+  background: var(--gate-error, #f48771);
+}
+#sp-loop-spark .sp-loop-bar.sp-loop-bar-clean { background: var(--gate-pass, #89d185); }
+#sp-loop-spark .sp-loop-bar.sp-loop-bar-latest { outline: 1px solid var(--focus, #7cb7ff); }
+
+#sp-loop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.sp-loop-row {
+  padding: 8px 16px;
+  border-top: 1px solid var(--rule, #3c3c3c);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+.sp-loop-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.92em;
+}
+.sp-loop-row-n { font-weight: 600; }
+.sp-loop-row-time { color: var(--muted, #9da5b4); }
+.sp-loop-row-counts { color: var(--muted, #9da5b4); margin-left: auto; }
+.sp-loop-row-delta { margin-top: 2px; }
+.sp-loop-row-delta .sp-loop-fixed { color: var(--gate-pass, #89d185); }
+.sp-loop-row-delta .sp-loop-new { color: var(--gate-error, #f48771); }
+
+/* The latest iteration's finding-level detail: what this exact save fixed and what it broke. */
+.sp-loop-detail {
+  margin: 4px 0 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sp-loop-detail li {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  padding: 1px 0;
+  font-size: 0.95em;
+}
+.sp-loop-detail .sp-loop-sign { font-weight: 700; flex: 0 0 auto; }
+.sp-loop-detail li.sp-loop-detail-fixed .sp-loop-sign { color: var(--gate-pass, #89d185); }
+.sp-loop-detail li.sp-loop-detail-fixed .sp-loop-detail-msg {
+  color: var(--muted, #9da5b4);
+  text-decoration: line-through;
+}
+.sp-loop-detail li.sp-loop-detail-new { cursor: pointer; }
+.sp-loop-detail li.sp-loop-detail-new:hover { background: var(--bg, #1e1e1e); }
+.sp-loop-detail li.sp-loop-detail-new .sp-loop-sign { color: var(--gate-error, #f48771); }
+.sp-loop-detail .sp-loop-detail-rule {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: var(--muted, #9da5b4);
+  flex: 0 0 auto;
+}
+.sp-loop-detail .sp-loop-detail-msg { overflow-wrap: anywhere; }
+
+.sp-loop-empty {
+  flex: 1 1 auto;
+  margin: 12px 16px;
+  font-size: 0.85em;
+  color: var(--muted, #9da5b4);
+}
+.sp-loop-footer {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  border-top: 1px solid var(--rule, #3c3c3c);
+  font-size: 0.75em;
+  color: var(--muted, #9da5b4);
+}
