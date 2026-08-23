@@ -183,4 +183,74 @@ public class ClaudeRevisionPipelineTests : IDisposable
         var end = html.IndexOf(";</script>", start, StringComparison.Ordinal);
         return html[start..end].Replace("<\\/", "</");
     }
+
+    private static JsonElement LoopPayload(string html)
+    {
+        const string marker = "window.__spectacleLoop__ = ";
+        var start = html.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+        var end = html.IndexOf(";</script>", start, StringComparison.Ordinal);
+        return JsonDocument.Parse(html[start..end].Replace("<\\/", "</")).RootElement;
+    }
+
+    // ---------- the run's account of itself, on the timeline ----------
+
+    [Fact]
+    public void Stream_progress_rides_the_running_chip()
+    {
+        var sink = new RecordingSink();
+        using var pipeline = Open(Failing, sink);
+        pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
+        pipeline.Start();
+
+        pipeline.OnClaudeRunStarted();
+        ClaudePayload(sink.Last).GetProperty("state").GetString().Should().Be("running");
+
+        pipeline.OnClaudeRunProgress(new ClaudeRunProgress(3, 2));
+        var claude = ClaudePayload(sink.Last);
+        claude.GetProperty("state").GetString().Should().Be("running");
+        claude.GetProperty("detail").GetString().Should().Be("turn 3 · 2 edits");
+    }
+
+    [Fact]
+    public void A_run_that_saved_nothing_becomes_a_visible_timeline_entry_not_silence()
+    {
+        var sink = new RecordingSink();
+        using var pipeline = Open(Failing, sink);
+        pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
+        pipeline.Start();
+
+        pipeline.OnClaudeRunStarted();
+        pipeline.OnClaudeRunCompleted(new ClaudeRunResult(
+            false, 1, "credit balance too low", "",
+            new ClaudeRunStats(Turns: 5, Edits: 0, DurationMs: 900, CostUsd: null, SessionId: "s-1")));
+
+        var run = LoopPayload(sink.Last).GetProperty("runs")[0];
+        run.GetProperty("ok").GetBoolean().Should().BeFalse();
+        run.GetProperty("afterIteration").GetInt32().Should().Be(1, "the run started after the opening render");
+        run.GetProperty("iterations").GetInt32().Should().Be(0, "no save landed");
+        run.GetProperty("message").GetString().Should().Be("credit balance too low");
+        run.GetProperty("turns").GetInt32().Should().Be(5);
+
+        ClaudePayload(sink.Last).GetProperty("state").GetString().Should().Be("failed");
+    }
+
+    [Fact]
+    public void A_finished_run_carries_the_agents_closing_message()
+    {
+        var sink = new RecordingSink();
+        using var pipeline = Open(Failing, sink);
+        pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
+        pipeline.Start();
+
+        pipeline.OnClaudeRunStarted();
+        pipeline.OnClaudeRunCompleted(new ClaudeRunResult(
+            true, 0, "", "Rewrote the intro as the brief asked.",
+            new ClaudeRunStats(Turns: 4, Edits: 2, DurationMs: 41250, CostUsd: 0.07, SessionId: "s-1")));
+
+        var run = LoopPayload(sink.Last).GetProperty("runs")[0];
+        run.GetProperty("ok").GetBoolean().Should().BeTrue();
+        run.GetProperty("message").GetString().Should().Be("Rewrote the intro as the brief asked.");
+        run.GetProperty("edits").GetInt32().Should().Be(2);
+        ClaudePayload(sink.Last).GetProperty("state").GetString().Should().Be("done");
+    }
 }

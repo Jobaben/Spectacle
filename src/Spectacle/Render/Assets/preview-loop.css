@@ -189,7 +189,24 @@
 .sp-loop-row-n { font-weight: 600; }
 .sp-loop-row-time { color: var(--muted, #9da5b4); }
 .sp-loop-row-counts { color: var(--muted, #9da5b4); margin-left: auto; }
+.sp-loop-row-agent { flex: 0 0 auto; font-size: 0.9em; cursor: default; }
 .sp-loop-row-delta { margin-top: 2px; }
+
+/* A finished background run: a normal timeline row, tinted by how it ended. The message is the
+   agent's own closing text — quoted, because it is the run speaking, not the reader. */
+.sp-loop-run { background: color-mix(in srgb, var(--link, #4ea1ff) 6%, transparent); }
+.sp-loop-run-noop { background: color-mix(in srgb, var(--gate-warning, #cca700) 8%, transparent); }
+.sp-loop-run-noop .sp-loop-row-delta { color: var(--gate-warning, #cca700); }
+.sp-loop-run-failed { background: color-mix(in srgb, var(--gate-error, #f48771) 8%, transparent); }
+.sp-loop-run-failed .sp-loop-row-delta { color: var(--gate-error, #f48771); }
+.sp-loop-run-msg {
+  margin-top: 3px;
+  padding-left: 8px;
+  border-left: 2px solid var(--rule, #3c3c3c);
+  color: var(--muted, #9da5b4);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
 .sp-loop-row-delta .sp-loop-fixed { color: var(--gate-pass, #89d185); }
 .sp-loop-row-delta .sp-loop-new { color: var(--gate-error, #f48771); }
 .sp-loop-row-delta .sp-loop-comments { color: var(--link, #4ea1ff); }

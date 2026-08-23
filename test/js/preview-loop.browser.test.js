@@ -350,6 +350,76 @@ function check(name, ok, detail) {
     await page.close();
   }
 
+  // ---- background runs on the timeline: attribution, failures, and no-op runs ----
+  {
+    console.log('\n[claude runs]');
+    const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    // Run 1 produced iterations 2 and 3 and closed with the agent's own receipt; run 2 failed
+    // after iteration 3 without saving anything; run 3 finished cleanly but never saved.
+    const withRuns = Object.assign({}, SESSION, {
+      runs: [
+        { n: 1, at: '2026-08-23T09:45:06Z', afterIteration: 1, iterations: 2, ok: true, message: 'Tightened the overview and rollout sections.', turns: 6, edits: 3, durationMs: 41000, costUsd: 0.07 },
+        { n: 2, at: '2026-08-23T09:47:00Z', afterIteration: 3, iterations: 0, ok: false, message: 'API error: rate limited', turns: 2, edits: 0, durationMs: 900, costUsd: null },
+        { n: 3, at: '2026-08-23T09:48:00Z', afterIteration: 3, iterations: 0, ok: true, message: 'The quoted block already matches the ask; nothing to change.', turns: 3, edits: 0, durationMs: 8000, costUsd: 0.01 },
+      ],
+    });
+    await page.setContent(buildHtml('dark', withRuns, ANNOTATIONS), { waitUntil: 'load' });
+    await page.keyboard.press('l');
+
+    check('every run is a timeline row', (await page.locator('.sp-loop-run').count()) === 3);
+    check('a failed run is styled as a failure', (await page.locator('.sp-loop-run-failed').count()) === 1);
+    check('a run that saved nothing is styled as a no-op', (await page.locator('.sp-loop-run-noop').count()) === 1);
+
+    const failedText = await page.locator('.sp-loop-run-failed').innerText();
+    check('the failure names itself', failedText.includes('Run failed'));
+    check('the failure carries the CLI\'s reason', failedText.includes('API error: rate limited'));
+
+    const noopText = await page.locator('.sp-loop-run-noop').innerText();
+    check('a no-save run says so instead of showing nothing', noopText.includes('Finished without changing the document'));
+    check('the no-op run explains itself in the agent\'s words', noopText.includes('nothing to change'));
+
+    const okRun = page.locator('.sp-loop-run:not(.sp-loop-run-failed):not(.sp-loop-run-noop)');
+    const okText = await okRun.innerText();
+    check('a productive run counts its saves', okText.includes('2 saves landed'));
+    check('a productive run carries the agent\'s receipt', okText.includes('Tightened the overview'));
+    check('run rows show turns and edits', okText.includes('6 turns') && okText.includes('3 edits'));
+
+    check('the agent\'s saves are attributed', (await page.locator('.sp-loop-row-agent').count()) === 2);
+    check('iteration 1 stays the reader\'s own', await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('.sp-loop-row:not(.sp-loop-run)'));
+      const row1 = rows.find((r) => r.querySelector('.sp-loop-row-n').textContent === '#1');
+      return !!row1 && !row1.querySelector('.sp-loop-row-agent');
+    }));
+
+    // Newest first: the two zero-iteration runs ended last, so they sit on top of the list.
+    check('runs that produced nothing surface at the top of the timeline', await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('#sp-loop-list > li'));
+      return rows.length >= 2 && rows[0].classList.contains('sp-loop-run') &&
+        rows[1].classList.contains('sp-loop-run');
+    }));
+
+    check('no runtime errors', errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+
+  // ---- the running chip carries the stream's live progress ----
+  {
+    console.log('\n[running chip detail]');
+    const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    const gateRunning = Object.assign({}, GATE, {
+      claude: { available: true, state: 'running', detail: 'turn 3 · 2 edits' },
+    });
+    const html = buildHtml('dark', SESSION, ANNOTATIONS)
+      .replace('window.__spectacleGate__ = ' + JSON.stringify(GATE).replace(/<\//g, '<\\/'),
+               'window.__spectacleGate__ = ' + JSON.stringify(gateRunning).replace(/<\//g, '<\\/'));
+    await page.setContent(html, { waitUntil: 'load' });
+    const chip = await page.locator('#sp-claude-chip').innerText();
+    check('the chip shows the run working, not just a pulse', chip.includes('turn 3 · 2 edits'), chip);
+    await page.close();
+  }
+
   // ---- help sheet documents the shortcut ----
   {
     console.log('\n[help sheet]');

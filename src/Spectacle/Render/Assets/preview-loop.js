@@ -330,16 +330,92 @@
     return spark;
   }
 
+  function runs() { return (LOOP && LOOP.runs) || []; }
+
+  // The Claude run whose saves produced iteration n, if any: runs carry the iteration they
+  // started after and how many iterations their saves produced, read from the CLI's own
+  // stream-json feed — attribution is arithmetic, not guesswork.
+  function runBehind(n) {
+    var rs = runs();
+    for (var i = 0; i < rs.length; i++) {
+      if (rs[i].afterIteration < n && n <= rs[i].afterIteration + rs[i].iterations) return rs[i];
+    }
+    return null;
+  }
+
   function buildTimeline() {
     var list = document.createElement("ul");
     list.id = "sp-loop-list";
 
+    // Iterations and finished runs interleaved. A run's row sits at the last iteration its saves
+    // produced — and a run that produced none (failed, or finished without a save) sits at the
+    // iteration it started after, so nothing the agent did can happen off the record.
     var h = history();
-    // Newest first: the row the reader came for is the save that just happened.
-    for (var i = h.length - 1; i >= 0; i--) {
-      list.appendChild(buildRow(h[i], i === h.length - 1));
+    var rs = runs();
+    var entries = [];
+    var oldest = h.length ? h[0].n : 0;
+    for (var r = 0; r < rs.length; r++) {
+      if (rs[r].afterIteration + rs[r].iterations < oldest) entries.push({ run: rs[r] });
+    }
+    for (var i = 0; i < h.length; i++) {
+      entries.push({ iter: h[i], isLatest: i === h.length - 1 });
+      for (var j = 0; j < rs.length; j++) {
+        if (rs[j].afterIteration + rs[j].iterations === h[i].n) entries.push({ run: rs[j] });
+      }
+    }
+    // Newest first: the row the reader came for is the save (or run) that just happened.
+    for (var k = entries.length - 1; k >= 0; k--) {
+      list.appendChild(entries[k].run
+        ? buildRunRow(entries[k].run)
+        : buildRow(entries[k].iter, entries[k].isLatest));
     }
     return list;
+  }
+
+  // One finished background run, in the agent's own words. Three shapes: saves landed (the quiet
+  // case — its iterations tell the story), finished without a save (the run must explain itself),
+  // failed (the failure is the row). The message is the run's closing text from the stream's
+  // result event — the transparency the timeline used to swallow.
+  function buildRunRow(run) {
+    var li = document.createElement("li");
+    li.className = "sp-loop-row sp-loop-run" +
+      (!run.ok ? " sp-loop-run-failed" : (run.iterations === 0 ? " sp-loop-run-noop" : ""));
+
+    var head = document.createElement("div");
+    head.className = "sp-loop-row-head";
+
+    var n = document.createElement("span");
+    n.className = "sp-loop-row-n";
+    n.textContent = (run.ok ? (run.iterations === 0 ? "⚠" : "🤖") : "✖") + " run " + run.n;
+    head.appendChild(n);
+
+    var time = document.createElement("span");
+    time.className = "sp-loop-row-time";
+    time.textContent = timeText(run.at);
+    head.appendChild(time);
+
+    var counts = document.createElement("span");
+    counts.className = "sp-loop-row-counts";
+    counts.textContent = run.turns + " turn" + (run.turns === 1 ? "" : "s") +
+      " · " + run.edits + " edit" + (run.edits === 1 ? "" : "s");
+    head.appendChild(counts);
+
+    li.appendChild(head);
+
+    var status = document.createElement("div");
+    status.className = "sp-loop-row-delta";
+    if (!run.ok) status.textContent = "Run failed" + (run.message ? "" : " — no detail reported");
+    else if (run.iterations === 0) status.textContent = "Finished without changing the document";
+    else status.textContent = run.iterations + " save" + (run.iterations === 1 ? "" : "s") + " landed";
+    li.appendChild(status);
+
+    if (run.message) {
+      var msg = document.createElement("div");
+      msg.className = "sp-loop-run-msg";
+      msg.textContent = run.message;
+      li.appendChild(msg);
+    }
+    return li;
   }
 
   function buildRow(iter, isLatest) {
@@ -353,6 +429,16 @@
     n.className = "sp-loop-row-n";
     n.textContent = "#" + iter.n;
     head.appendChild(n);
+
+    var byRun = runBehind(iter.n);
+    if (byRun) {
+      var agent = document.createElement("span");
+      agent.className = "sp-loop-row-agent";
+      agent.textContent = "🤖";
+      agent.title = "Saved by Claude run " + byRun.n;
+      agent.setAttribute("aria-label", "Saved by Claude run " + byRun.n);
+      head.appendChild(agent);
+    }
 
     var time = document.createElement("span");
     time.className = "sp-loop-row-time";

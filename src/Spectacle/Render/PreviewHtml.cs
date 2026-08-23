@@ -68,13 +68,14 @@ public static class PreviewHtml
         string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
         IReadOnlyList<OutlineEntry>? outline, GateVerdict? verdict,
         IReadOnlyList<LoopIteration>? loopHistory, IReadOnlyCollection<string>? waivedKeys,
-        Spectacle.Ai.ClaudeRevisionStatus? claude = null)
+        Spectacle.Ai.ClaudeRevisionStatus? claude = null,
+        IReadOnlyList<Spectacle.Ai.ClaudeRunRecord>? claudeRuns = null)
     {
         var themeCss = ThemeCss(theme);
         var payloadJson = BuildPayload(matchResult);
         var outlineJson = BuildOutlinePayload(outline);
         var gateJson = BuildGatePayload(verdict, waivedKeys, claude);
-        var loopJson = BuildLoopPayload(loopHistory);
+        var loopJson = BuildLoopPayload(loopHistory, claudeRuns);
 
         return $$"""
             <!DOCTYPE html>
@@ -201,7 +202,9 @@ public static class PreviewHtml
     /// carries its full delta, the changed block ids, and the reviewer comments the save
     /// addressed, which is everything the HUD shows.
     /// </summary>
-    private static string BuildLoopPayload(IReadOnlyList<LoopIteration>? loopHistory)
+    private static string BuildLoopPayload(
+        IReadOnlyList<LoopIteration>? loopHistory,
+        IReadOnlyList<Spectacle.Ai.ClaudeRunRecord>? claudeRuns = null)
     {
         if (loopHistory is null || loopHistory.Count == 0) return "null";
 
@@ -241,6 +244,23 @@ public static class PreviewHtml
                 }),
             },
             changedBlockIds = latest.ChangedBlockIds,
+            // The background runs behind the iterations, from the CLI's own stream-json feed:
+            // which bars were the agent's saves (afterIteration + 1 … afterIteration +
+            // iterations), and — the part the timeline used to swallow — runs that produced no
+            // save at all, each carrying the agent's closing message or the failure reason.
+            runs = (claudeRuns ?? Array.Empty<Spectacle.Ai.ClaudeRunRecord>()).Select(r => new
+            {
+                n = r.Number,
+                at = r.EndedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                afterIteration = r.AfterIteration,
+                iterations = r.Iterations,
+                ok = r.Succeeded,
+                message = r.Message,
+                turns = r.Turns,
+                edits = r.Edits,
+                durationMs = r.DurationMs,
+                costUsd = r.CostUsd,
+            }),
         };
 
         // Same `</` -> `<\/` guard as every other payload: finding messages quote document text.

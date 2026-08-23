@@ -128,8 +128,29 @@ public class ClaudeCliTests
     {
         var prompt = ClaudeRevisionPrompt.Build(DocPath, Brief);
 
-        prompt.Should().Contain("The saved file is the entire deliverable");
+        prompt.Should().Contain("The saved file is the deliverable");
         prompt.Should().Contain("change nothing else");
+    }
+
+    [Fact]
+    public void The_prompt_asks_for_a_closing_receipt_the_timeline_can_show()
+    {
+        // The run's final message rides the stream-json result event onto the loop timeline —
+        // so the prompt must ask for one, and ask for unappliable asks to be reported there
+        // instead of papered over with an unrelated save.
+        var prompt = ClaudeRevisionPrompt.Build(DocPath, Brief);
+
+        prompt.Should().Contain("your final message is its receipt");
+        prompt.Should().Contain("If you could not apply an ask, say which one and why");
+    }
+
+    [Fact]
+    public void The_prompt_states_the_comment_resolution_contract()
+    {
+        // The reader marks a reviewer's ask addressed only when its anchored block changes;
+        // an agent that edits around the block leaves the comment open forever.
+        ClaudeRevisionPrompt.Build(DocPath, Brief)
+            .Should().Contain("only when the block it anchors to changes");
     }
 
     [Fact]
@@ -157,7 +178,7 @@ public class ClaudeCliTests
         var psi = ClaudeRevisionRunner.BuildStartInfo("C:\\tools\\claude.exe", "C:\\specs");
 
         psi.FileName.Should().Be("C:\\tools\\claude.exe");
-        psi.Arguments.Should().Be("-p --permission-mode acceptEdits");
+        psi.Arguments.Should().Be("-p --output-format stream-json --verbose --permission-mode acceptEdits");
         psi.WorkingDirectory.Should().Be("C:\\specs");
     }
 
@@ -167,7 +188,7 @@ public class ClaudeCliTests
         var psi = ClaudeRevisionRunner.BuildStartInfo("C:\\npm\\claude.CMD", "C:\\specs");
 
         psi.FileName.Should().Be("cmd.exe");
-        psi.Arguments.Should().Contain("\"C:\\npm\\claude.CMD\" -p --permission-mode acceptEdits");
+        psi.Arguments.Should().Contain("\"C:\\npm\\claude.CMD\" -p --output-format stream-json --verbose --permission-mode acceptEdits");
     }
 
     [Fact]

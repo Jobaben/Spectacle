@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using FluentAssertions;
@@ -90,6 +91,56 @@ public class ClaudeRevisionRunnerTests : IDisposable
         result.Succeeded.Should().BeFalse();
         result.Detail.Should().Contain("could not launch");
         runner.IsRunning.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_stream_json_run_reports_the_agents_message_and_measured_stats()
+    {
+        // A stub speaking the CLI's stream-json feed: one edit, one closing text, one result line.
+        var stub = Stub("claude.cmd",
+            "@echo off\r\n" +
+            "more > nul\r\n" +
+            "echo {\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\",\"model\":\"m\"}\r\n" +
+            "echo {\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Edit\",\"input\":{\"file_path\":\"draft.md\"}}]}}\r\n" +
+            "echo {\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}\r\n" +
+            "echo {\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"num_turns\":4,\"duration_ms\":1200,\"total_cost_usd\":0.05,\"result\":\"Rewrote the intro.\"}\r\n" +
+            "exit /b 0\r\n");
+        var runner = new ClaudeRevisionRunner(stub);
+
+        var progress = new List<ClaudeRunProgress>();
+        runner.Progress += (_, p) => progress.Add(p);
+
+        var result = Run(runner, _root, "prompt");
+
+        result.Succeeded.Should().BeTrue();
+        result.Message.Should().Be("Rewrote the intro.");
+        result.Stats.Should().NotBeNull();
+        result.Stats!.Turns.Should().Be(4, "the result event's own count wins over ours");
+        result.Stats.Edits.Should().Be(1);
+        result.Stats.DurationMs.Should().Be(1200);
+        result.Stats.CostUsd.Should().Be(0.05);
+        result.Stats.SessionId.Should().Be("s-1");
+        progress.Should().Contain(new ClaudeRunProgress(1, 1), "the first turn's edit must be reported live");
+    }
+
+    [Fact]
+    public void A_result_event_reporting_an_error_fails_the_run_even_on_a_clean_exit()
+    {
+        // `claude -p` can exit 0 while its result line says the run errored; the exit code alone
+        // must never make that read as a success.
+        var stub = Stub("claude.cmd",
+            "@echo off\r\n" +
+            "more > nul\r\n" +
+            "echo {\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":true,\"num_turns\":2,\"duration_ms\":300,\"result\":\"API error: rate limited\"}\r\n" +
+            "exit /b 0\r\n");
+        var runner = new ClaudeRevisionRunner(stub);
+
+        var result = Run(runner, _root, "prompt");
+
+        result.Succeeded.Should().BeFalse();
+        result.ExitCode.Should().Be(0);
+        result.Detail.Should().Contain("rate limited");
+        result.Message.Should().Contain("rate limited");
     }
 
     [Fact]

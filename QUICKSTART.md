@@ -8,43 +8,46 @@ vocabulary — everything else lives in the [README](README.md).
 ## Ten minutes
 
 1. **Open a file.** `Spectacle.exe design.md`. No setup needed — the gate is already running.
-2. **Read the corner.** The badge says `GATE PASS` or `GATE FAIL` with counts like `2E 1W`
-   (2 errors, 1 warning). `--gate` is the same grade without a window: `Spectacle.exe design.md
-   --gate` exits 0 when the document passes and 1 when it has blocking findings, so CI, a commit
-   hook, or the agent that wrote the file can branch on it. Both audiences read one verdict — you
-   get the badge, they get the exit code. Green badge = your pipeline's `--gate` will also pass.
-   Same computation, not an approximation.
+2. **Read the corner.** The badge says `GATE PASS` or `GATE FAIL` with counts like `2E · 1W`
+   (2 errors, 1 warning — `clean` when there are none). `--gate` is the same grade without a
+   window: `Spectacle.exe design.md --gate` exits 0 when the document passes and 1 when it has
+   blocking findings, so CI, a commit hook, or the agent that wrote the file can branch on it.
+   Both audiences read one verdict — you get the badge, they get the exit code. Green badge =
+   your pipeline's `--gate` will also pass. Same computation, not an approximation.
 3. **Press `v`.** The findings panel lists everything the gate found: severity, line, rule,
    and the concrete fix. Arrows move, `Enter` jumps to the line in the document.
-4. **Let your agent revise the file.** Keep Spectacle open — it watches the file. Each save
-   shows a toast like `Iteration 2 · ✓ 5 fixed · +1 new · 1 blocking remain`, and marks the
-   blocks that save changed so you only re-read what moved.
-5. **Press `l` when you wonder if it's converging.** From the second save a corner pill
+4. **Add your own asks.** `Enter` on a block adds a comment — the reviewer's half of the
+   loop, tracked exactly like the gate's findings. In the findings panel, `Space` waives any
+   finding you disagree with, so the brief you send next carries only what you actually want
+   fixed.
+5. **Press `a` — the loop closes itself.** If the [Claude Code CLI](https://claude.com/claude-code)
+   is installed, `a` hands a revision brief to `claude -p` in the background and Claude
+   revises the open document in place; a corner chip shows the run working live from the
+   CLI's own event stream (`turn 3 · 2 edits`) — one run at a time, and the reason if it
+   fails. The panel decides what the brief carries: open, the triaged
+   findings; closed, your unresolved comments. No CLI, or an agent that lives elsewhere?
+   `c` copies the same brief to the clipboard — paste it as the agent's next prompt.
+6. **Watch the saves land.** Keep Spectacle open — it watches the file. Each save shows a
+   toast like `Iteration 2 · ✓ 5 fixed · +1 new · 1 blocking remain` (`gate passes` once
+   nothing blocking is left), adds `💬 1 comment addressed` when it rewrites a commented
+   block, and marks the blocks that save changed so you only re-read what moved. An addressed
+   comment is resolved automatically — it drops out of the next brief instead of stranding
+   in the orphan tray.
+7. **Press `l` when you wonder if it's converging.** From the second save a corner pill
    (`↻ iter 2` plus a trend arrow) already answers at a glance; `l` — or clicking the pill —
    opens the timeline: one row per save and a bar per iteration, the gate's blocking count at
-   the base, your open comments stacked on top. The newest bar is live: add or resolve a
-   comment between saves and its comment layer moves immediately — that's the document's
-   current state, not a new iteration. Shrinking bars mean the loop is working; a bar is clean
-   only when both are zero.
-6. **Close the loop.** In the findings panel: `Space` waives anything you disagree with,
-   `c` copies a fix brief of the rest. Paste that brief as the agent's next prompt. Repeat
-   until the badge is green.
-7. **Or skip the copying.** If the [Claude Code CLI](https://claude.com/claude-code) is
-   installed, the panel also offers `a`: Spectacle hands the brief to `claude -p` in the
-   background, Claude revises the open document in place, and steps 4–5 happen by themselves.
-   A corner chip shows the run (and the reason, if it fails).
-8. **Your own comments work the same way.** `Enter` on a block adds a comment. With the
-   findings panel *closed*, `c` copies a revision brief built from your unresolved comments
-   and `a` hands it to Claude — the panel open/closed decides whether the keys carry the
-   gate's findings or your review. And the loop tracks them like findings: a save that
-   rewrites a commented block shows `💬 1 comment addressed` in the toast, the timeline
-   lists the addressed asks so you can jump to the revised block and check the answer, and
-   the addressed comment is resolved automatically — it drops out of the next brief instead
-   of stranding in the orphan tray.
+   the base, your open comments stacked on top (each row tallies its own, `💬2` beside the
+   gate counts). The newest bar is live: add or resolve a comment between saves and its
+   comment layer moves immediately — that's the document's current state, not a new iteration.
+   Shrinking bars mean the loop is working; a bar is clean only when both are zero. Every
+   background run is a row of its own too: Claude's closing message as its receipt, its turn
+   and edit counts, `🤖` on the saves it produced — and a run that failed or finished without
+   saving anything says so right there, instead of leaving silent bars that tell you nothing.
+   Revise again — `a` or `c` — until the badge is green and no comments remain open.
 
 To try this without an agent, [`docs/example/spec/`](docs/example/spec/) ships three saved
 iterations of one document — copy v1 over a working file, open it, then copy v2 and v3 over
-it and watch steps 4–6 happen.
+it and watch steps 6–7 happen.
 
 ## The words on the screen
 

@@ -39,8 +39,9 @@ public static class ClaudeRevisionPrompt
         sb.Append("2. Create no other file. No `").Append(name).Append(".revised.md`, no copy, no backup, ")
           .AppendLine("no draft alongside, no scratch file. Do not rename, move, or delete the target file.");
         sb.AppendLine("3. Apply the revision brief below and change nothing else. Leave every line the brief does not name exactly as it is.");
-        sb.AppendLine("4. Do not print the revised document, a diff, or a summary of your edits as chat output, and do not append any of those to the file. The saved file is the entire deliverable.");
+        sb.AppendLine("4. Do not print the revised document or a diff as chat output, and do not append either to the file. The saved file is the deliverable; your final message is its receipt: end with one or two sentences saying what you changed — the reader shows that message on the run's timeline entry. If you could not apply an ask, say which one and why there, instead of saving an unrelated edit.");
         sb.AppendLine("5. Save in a few coherent passes rather than one monolithic rewrite when the brief allows it — the reader records each save as an iteration, and smaller saves make that history legible.");
+        sb.AppendLine("6. When a revision asks for changes to a quoted block, the saved text of that exact block must change: the reader marks a reviewer's ask as addressed only when the block it anchors to changes, so editing only the text around it leaves the ask open no matter how good the edit is.");
         sb.AppendLine();
         sb.AppendLine("The revision brief:");
         sb.AppendLine();

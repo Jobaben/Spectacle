@@ -18,6 +18,12 @@ public sealed record ClaudeRevisionStatus(bool Available, string State, string? 
     /// <summary>A background revision run is writing to the open document right now.</summary>
     public static readonly ClaudeRevisionStatus Running = new(true, "running", null);
 
+    /// <summary>
+    /// A run in flight, with what its stream has reported so far ("turn 3 · 2 edits") — the chip
+    /// shows the run working instead of a bare spinner.
+    /// </summary>
+    public static ClaudeRevisionStatus RunningWith(string detail) => new(true, "running", detail);
+
     /// <summary>The last run finished cleanly.</summary>
     public static readonly ClaudeRevisionStatus Done = new(true, "done", null);
 

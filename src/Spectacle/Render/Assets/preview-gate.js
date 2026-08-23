@@ -397,7 +397,10 @@
       pulse.setAttribute("aria-hidden", "true");
       pulse.textContent = "✳";
       chip.appendChild(pulse);
-      chip.appendChild(document.createTextNode("Claude is revising this document…"));
+      // The detail is the run's live progress from its stream-json feed ("turn 3 · 2 edits") —
+      // the reader sees the run working, not just a pulse that could mean anything.
+      chip.appendChild(document.createTextNode("Claude is revising this document…" +
+        (CLAUDE.detail ? " " + CLAUDE.detail : "")));
     } else {
       chip.className = "sp-claude-chip-failed";
       chip.textContent = "Claude revision failed" + (CLAUDE.detail ? " — " + CLAUDE.detail : "");

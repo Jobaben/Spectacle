@@ -85,11 +85,12 @@ public partial class MainWindow : Window, IPreviewSink
         if (claudeCli is not null)
         {
             var runner = new ClaudeRevisionRunner(claudeCli);
-            runner.Started += (_, _) => _pipeline.SetClaudeStatus(ClaudeRevisionStatus.Running);
-            runner.Completed += (_, r) => _pipeline.SetClaudeStatus(r.Succeeded
-                ? ClaudeRevisionStatus.Done
-                : ClaudeRevisionStatus.Failed(
-                    r.Detail.Length != 0 ? r.Detail : $"claude exited with code {r.ExitCode}"));
+            // The pipeline owns the run's whole account: the running chip, the live turn/edit
+            // progress the stream reports, and the finished run's timeline record — including a
+            // run that failed or saved nothing, which used to vanish without a trace.
+            runner.Started += (_, _) => _pipeline.OnClaudeRunStarted();
+            runner.Progress += (_, p) => _pipeline.OnClaudeRunProgress(p);
+            runner.Completed += (_, r) => _pipeline.OnClaudeRunCompleted(r);
             _pipeline.ClaudeReviseRequested += (_, brief) =>
                 runner.TryStart(_document.BaseDirectory, ClaudeRevisionPrompt.Build(_sourcePath, brief));
             _pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);

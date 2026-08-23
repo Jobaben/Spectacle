@@ -31,7 +31,13 @@ public sealed class PreviewPipeline : IDisposable
     private readonly LoopSession _loop = new();
     private HashSet<string> _waived = new(StringComparer.Ordinal);
     private ClaudeRevisionStatus _claude = ClaudeRevisionStatus.Unavailable;
+    private readonly List<ClaudeRunRecord> _runs = new();
+    private int _runBaseIteration;      // the loop iteration current when the active run started
+    private DateTime _runStartedAt;     // guarded by _sync, valid while a run is in flight
     private long _renderVersion; // guarded by _sync; identifies the newest render
+
+    /// <summary>Finished runs kept for the timeline; beyond this the oldest fall away.</summary>
+    private const int MaxRuns = 50;
 
     public event EventHandler? Rendered;
 
@@ -110,6 +116,66 @@ public sealed class PreviewPipeline : IDisposable
         lock (_sync)
         {
             _claude = status;
+            if (_started) render = RenderLocked();
+        }
+        Publish(render);
+    }
+
+    /// <summary>
+    /// A background run has started: remember which loop iteration it starts *after*, so its saves
+    /// can be attributed to it when it completes. Safe from any thread.
+    /// </summary>
+    public void OnClaudeRunStarted()
+    {
+        (string Html, long Version)? render = null;
+        lock (_sync)
+        {
+            _runBaseIteration = _loop.CurrentIteration;
+            _runStartedAt = DateTime.UtcNow;
+            _claude = ClaudeRevisionStatus.Running;
+            if (_started) render = RenderLocked();
+        }
+        Publish(render);
+    }
+
+    /// <summary>The run's stream reported work; the chip shows it live. Safe from any thread.</summary>
+    public void OnClaudeRunProgress(ClaudeRunProgress progress)
+    {
+        var detail = $"turn {progress.Turns} · {progress.Edits} edit{(progress.Edits == 1 ? "" : "s")}";
+        SetClaudeStatus(ClaudeRevisionStatus.RunningWith(detail));
+    }
+
+    /// <summary>
+    /// A background run has ended: record what it was — how many iterations its saves produced
+    /// (zero is the whole point: a run that failed or saved nothing becomes a visible timeline
+    /// entry instead of silence), and the agent's own closing message. A save the watcher is
+    /// still debouncing when the process exits lands after the record and reads as the reader's
+    /// own; the stream's edit count on the record says when that happened. Safe from any thread.
+    /// </summary>
+    public void OnClaudeRunCompleted(ClaudeRunResult result)
+    {
+        (string Html, long Version)? render = null;
+        lock (_sync)
+        {
+            var message = !string.IsNullOrWhiteSpace(result.Message) ? result.Message : result.Detail;
+            _runs.Add(new ClaudeRunRecord(
+                Number: _runs.Count == 0 ? 1 : _runs[^1].Number + 1,
+                StartedAt: _runStartedAt,
+                EndedAt: DateTime.UtcNow,
+                AfterIteration: _runBaseIteration,
+                Iterations: Math.Max(0, _loop.CurrentIteration - _runBaseIteration),
+                Succeeded: result.Succeeded,
+                Message: message,
+                Turns: result.Stats?.Turns ?? 0,
+                Edits: result.Stats?.Edits ?? 0,
+                DurationMs: result.Stats?.DurationMs ?? 0,
+                CostUsd: result.Stats?.CostUsd));
+            if (_runs.Count > MaxRuns) _runs.RemoveAt(0);
+
+            _claude = result.Succeeded
+                ? ClaudeRevisionStatus.Done
+                : ClaudeRevisionStatus.Failed(
+                    string.IsNullOrWhiteSpace(result.Detail) ? $"exit code {result.ExitCode}" : result.Detail);
             if (_started) render = RenderLocked();
         }
         Publish(render);
@@ -350,7 +416,8 @@ public sealed class PreviewPipeline : IDisposable
             _waived,
             // No CLI on this machine is payload `null`, the same shape the export path and older
             // payloads have — the overlay renders nothing new at all.
-            _claude.Available ? _claude : null);
+            _claude.Available ? _claude : null,
+            _runs);
         return (html, ++_renderVersion);
     }
 
