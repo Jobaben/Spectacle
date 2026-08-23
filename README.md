@@ -27,6 +27,9 @@ the authoring agent, assembled without leaving the reader. See
 ![The reader mid-loop: an agent's save just landed — the toast reports 2 findings fixed and the
 gate passing, the pill tracks iteration 3, and the badge is green](docs/screenshots/01-revision-loop.png)
 
+New here? [QUICKSTART.md](QUICKSTART.md) is the first ten minutes plus the vocabulary — every
+term the UI puts on screen (gate, finding, blocking, iteration, waive…) defined in one line each.
+
 The gate is one command over ~40 rules, graded by severity, configured once per project, and
 emitted in whatever your pipeline reads — its own JSON, SARIF, GitHub Actions annotations, JUnit
 XML, or Markdown for a pull request. Five things make it a *workflow* gate rather than a linter:
