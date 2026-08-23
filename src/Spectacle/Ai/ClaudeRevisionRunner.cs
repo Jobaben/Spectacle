@@ -105,11 +105,12 @@ public sealed class ClaudeRevisionRunner
     }
 
     /// <summary>
-    /// The exact invocation, separated out so it can be asserted without spawning anything.
+    /// The exact invocation, separated out so it can be asserted without spawning anything (the
+    /// project keeps its test surface public rather than using InternalsVisibleTo).
     /// <c>.cmd</c>/<c>.bat</c> shims (the npm install) go through <c>cmd.exe</c> because
     /// CreateProcess with redirected streams wants a real executable.
     /// </summary>
-    internal static ProcessStartInfo BuildStartInfo(string executable, string workingDirectory)
+    public static ProcessStartInfo BuildStartInfo(string executable, string workingDirectory)
     {
         const string args = "-p --permission-mode acceptEdits";
         var ext = Path.GetExtension(executable);
