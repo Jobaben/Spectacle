@@ -9,15 +9,23 @@ vocabulary — everything else lives in the [README](README.md).
 
 1. **Open a file.** `Spectacle.exe design.md`. No setup needed — the gate is already running.
 2. **Read the corner.** The badge says `GATE PASS` or `GATE FAIL` with counts like `2E 1W`
-   (2 errors, 1 warning). Green badge = your pipeline's `--gate` will also pass. Same
-   computation, not an approximation.
+   (2 errors, 1 warning). `--gate` is the same grade without a window: `Spectacle.exe design.md
+   --gate` exits 0 when the document passes and 1 when it has blocking findings, so CI, a commit
+   hook, or the agent that wrote the file can branch on it. Both audiences read one verdict — you
+   get the badge, they get the exit code. Green badge = your pipeline's `--gate` will also pass.
+   Same computation, not an approximation.
 3. **Press `v`.** The findings panel lists everything the gate found: severity, line, rule,
    and the concrete fix. Arrows move, `Enter` jumps to the line in the document.
 4. **Let your agent revise the file.** Keep Spectacle open — it watches the file. Each save
    shows a toast like `Iteration 2 · ✓ 5 fixed · +1 new · 1 blocking remain`, and marks the
    blocks that save changed so you only re-read what moved.
-5. **Press `l` when you wonder if it's converging.** The timeline shows one row per save and
-   a bar chart of blocking counts — shrinking bars mean the loop is working.
+5. **Press `l` when you wonder if it's converging.** From the second save a corner pill
+   (`↻ iter 2` plus a trend arrow) already answers at a glance; `l` — or clicking the pill —
+   opens the timeline: one row per save and a bar per iteration, the gate's blocking count at
+   the base, your open comments stacked on top. The newest bar is live: add or resolve a
+   comment between saves and its comment layer moves immediately — that's the document's
+   current state, not a new iteration. Shrinking bars mean the loop is working; a bar is clean
+   only when both are zero.
 6. **Close the loop.** In the findings panel: `Space` waives anything you disagree with,
    `c` copies a fix brief of the rest. Paste that brief as the agent's next prompt. Repeat
    until the badge is green.
@@ -29,8 +37,10 @@ vocabulary — everything else lives in the [README](README.md).
    findings panel *closed*, `c` copies a revision brief built from your unresolved comments
    and `a` hands it to Claude — the panel open/closed decides whether the keys carry the
    gate's findings or your review. And the loop tracks them like findings: a save that
-   rewrites a commented block shows `💬 1 comment addressed` in the toast, and the timeline
-   lists the addressed asks so you can jump to the revised block and check the answer.
+   rewrites a commented block shows `💬 1 comment addressed` in the toast, the timeline
+   lists the addressed asks so you can jump to the revised block and check the answer, and
+   the addressed comment is resolved automatically — it drops out of the next brief instead
+   of stranding in the orphan tray.
 
 To try this without an agent, [`docs/example/spec/`](docs/example/spec/) ships three saved
 iterations of one document — copy v1 over a working file, open it, then copy v2 and v3 over
@@ -38,23 +48,48 @@ it and watch steps 4–6 happen.
 
 ## The words on the screen
 
-| Term | Means |
-| --- | --- |
-| **Gate** | The graded review: every check runs, every finding gets a severity, and the document passes or fails as a whole. Same thing in the reader (badge) and the CLI (`--gate`, exit code 0/1). |
-| **Verdict** | One gate result: pass/fail, the counts, and the findings. |
-| **Finding** | One problem at one place: a severity, a line, a rule, a message, and a fix. |
-| **Check → rule** | A check is a family (`ai-artifacts`, `bare-urls`); a rule is one thing it catches (`ai-artifacts/unfilled-template`). You disable checks; findings cite rules. |
-| **Severity** | How much a finding matters: `error`, `warning`, or `info` (advisory). Set per project in `.spectacle.json`. |
-| **Threshold / blocking** | The `failOn` line (default `error`). Findings at or above it are *blocking* — they fail the gate. A warning under an `error` threshold is reported but doesn't block. |
-| **Front matter** | The `---`-fenced YAML header a workflow stamps on its output. Rendered as the metadata card at the top; validated against `requiredFrontMatter`; echoed into the verdict. |
-| **Iteration** | One real save of the file while the reader is open. Theme flips and comment saves don't count — only text changes do. |
-| **Delta** | What an iteration changed in the review: findings *fixed*, findings *new* (introduced), and what remains. Same math as `--review --baseline`. |
-| **Waive** | A session-only "leave this out of the brief" mark (`Space` in the panel). The badge and the pipeline still count the finding — only the copied brief shrinks. Gone when the finding is fixed or the window closes. |
-| **Suppression** | The permanent version: an HTML comment in the document itself, `<!-- spectacle-disable-next-line bare-urls -->`. Changes the verdict for everyone and is visible in the file. |
-| **Fix brief** | The findings rewritten as instructions addressed to the tool that wrote the document, ordered bottom-up so line numbers stay valid while it edits. `c` in the panel, `--fix-brief` in the CLI. |
-| **Hand-off (`a`)** | A brief given straight to the Claude Code CLI instead of the clipboard, with an in-place contract: revise this exact file, create no new one. Panel open, it carries the triaged findings; panel closed, your unresolved comments. Offered only when a `claude` install is detected (pin one with `SPECTACLE_CLAUDE_CLI`). |
-| **Coverage** | The honesty note on a verdict: which checks were disabled and how many findings were suppressed, so a clean pass can't hide a narrowed gate. |
-| **Comments / comment brief** | Your own margin notes (`Enter` on a block), separate from the gate. With the findings panel closed, `c` copies them as a revision brief — the human-authored counterpart to the fix brief (`--revision-plan` is the headless route). |
+- **Gate** — The graded review: every check runs, every finding gets a severity, and the
+  document passes or fails as a whole. Same thing in the reader (badge) and the CLI, where
+  `Spectacle.exe <file> --gate` runs it headlessly and exits 0 (pass) or 1 (blocking findings).
+- **Verdict** — One gate result: pass/fail, the counts, and the findings.
+- **Finding** — One problem at one place: a severity, a line, a rule, a message, and a fix.
+- **Check → rule** — A check is a family (`ai-artifacts`, `bare-urls`); a rule is one thing it
+  catches (`ai-artifacts/unfilled-template`). You disable checks; findings cite rules.
+- **Severity** — How much a finding matters: `error`, `warning`, or `info` (advisory). Set per
+  project in `.spectacle.json`.
+- **Threshold / blocking** — The `failOn` line in `.spectacle.json` — the lowest severity that
+  fails the gate (default `error`). Findings at or above it are *blocking* — they fail the
+  gate. A warning under an `error` threshold is reported but doesn't block.
+- **Front matter** — The `---`-fenced YAML header a workflow stamps on its output. Rendered as
+  the metadata card at the top; validated against `requiredFrontMatter`, the `.spectacle.json`
+  list of metadata keys every document must declare; echoed into the verdict.
+- **Iteration** — One real save of the file while the reader is open. Theme flips and comment
+  saves don't count — only text changes do.
+- **Delta** — What an iteration changed in the review: findings *fixed*, findings *new*
+  (introduced), and what remains. Same math as `Spectacle.exe <file> --review --baseline <old>`,
+  which prints that diff against an older copy of the document.
+- **Waive** — A session-only "leave this out of the brief" mark (`Space` in the panel). The
+  badge and the pipeline still count the finding — only the copied brief shrinks. Gone when the
+  finding is fixed or the window closes.
+- **Suppression** — The permanent version: an HTML comment in the document itself,
+  `<!-- spectacle-disable-next-line bare-urls -->`. Changes the verdict for everyone and is
+  visible in the file.
+- **Fix brief** — The findings rewritten as instructions addressed to the tool that wrote the
+  document, ordered bottom-up so line numbers stay valid while it edits. `c` in the panel;
+  `Spectacle.exe <file> --fix-brief [out]` in the CLI, which writes that brief to a file and
+  exits with the gate's own code.
+- **Hand-off (`a`)** — A brief given straight to the Claude Code CLI instead of the clipboard,
+  with an in-place contract: revise this exact file, create no new one. Panel open, it carries
+  the triaged findings; panel closed, your unresolved comments. Offered only when a `claude`
+  install is detected (pin a specific one by pointing the `SPECTACLE_CLAUDE_CLI` environment
+  variable at its executable).
+- **Coverage** — The honesty note on a verdict: which checks were disabled and how many
+  findings were suppressed, so a clean pass can't hide a narrowed gate.
+- **Comments / comment brief** — Your own margin notes (`Enter` on a block), separate from the
+  gate. With the findings panel closed, `c` copies them as a revision brief — the
+  human-authored counterpart to the fix brief. `Spectacle.exe <file> --revision-plan [out]` is
+  the headless route, exporting the same brief to a file (add `--unresolved` for open comments
+  only).
 
 Rule of thumb for the two easily confused pairs: **waive** is "not in this brief", **suppress**
 is "not ever, and visibly so"; the **fix brief** carries the gate's findings, the **comment
