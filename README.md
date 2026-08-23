@@ -16,9 +16,20 @@ Spectacle.exe design.md --fix-brief brief.md   # the revision list, addressed to
 my-agent write | Spectacle.exe - --gate --json # gate a document that was never written to disk
 ```
 
+And it is a **cockpit for the write → gate → revise loop itself**. Leave the document open while
+your agent revises it: every save re-renders, re-grades, and lands as an iteration in the reader's
+memory — a toast says what the save fixed and what it broke, edge markers show exactly which
+blocks changed, and `l` opens the session's convergence timeline. In the findings panel, `Space`
+waives what you disagree with and `c` copies a fix brief covering the rest — the next prompt for
+the authoring agent, assembled without leaving the reader. See
+[The revision loop](#the-revision-loop-in-the-reader).
+
+![The reader mid-loop: an agent's save just landed — the toast reports 2 findings fixed and the
+gate passing, the pill tracks iteration 3, and the badge is green](docs/screenshots/01-revision-loop.png)
+
 The gate is one command over ~40 rules, graded by severity, configured once per project, and
 emitted in whatever your pipeline reads — its own JSON, SARIF, GitHub Actions annotations, JUnit
-XML, or Markdown for a pull request. Four things make it a *workflow* gate rather than a linter:
+XML, or Markdown for a pull request. Five things make it a *workflow* gate rather than a linter:
 
 - **Front matter is data.** The YAML header a workflow stamps on its output is parsed, validated
   against a required-key template, rendered as a metadata card, and echoed into the verdict so a
@@ -33,6 +44,10 @@ XML, or Markdown for a pull request. Four things make it a *workflow* gate rathe
 - **The reader shows the same verdict.** Not an approximation of it — literally the same computed
   result, so a green badge and a green pipeline are the same statement. See
   [The gate in the reader](#the-gate-in-the-reader).
+- **The reader remembers the loop.** Each save an agent makes becomes an iteration with a delta
+  (fixed / new / remaining) and a marked set of changed blocks, and the findings panel triages
+  straight into the next revision brief. See
+  [The revision loop](#the-revision-loop-in-the-reader).
 
 ## Install
 
@@ -762,6 +777,98 @@ hues rather than inheriting them: the dark palette's severities sit near 2.5:1 o
 `light.css` picks its own set at AA against the page, and high contrast drops the hues entirely and
 lets each row's `error` / `warning` / `info` label carry the distinction.
 
+### The revision loop in the reader
+
+The reader has always re-rendered and re-graded when the file changes on disk. What it used to
+lack was memory: each render replaced the last one wholesale, so an agent could rewrite the
+document four times and the reader could say what the document *is* but nothing about where it had
+*been*. Now every save whose text actually changed becomes an **iteration**, and the session keeps
+them all:
+
+- **A toast per save.** The moment the agent's write lands, a toast reports the delta —
+  `Iteration 3 · ✓ 2 fixed · +1 new · 1 blocking remain` — computed by the same line-insensitive
+  diff `--review --baseline` uses, so a finding that merely moved lines never reads as fixed-plus-new.
+  Click it (or press `l`) for the full timeline.
+- **Changed-block markers.** Every block the revision touched gets an edge marker that announces
+  itself once and settles to a faint trace, so your eye lands on the agent's edit instead of
+  re-reading the whole document. Detection is by the render pipeline's own block hashes — the same
+  anchors review comments use — so a duplicated paragraph flags exactly the surplus copy.
+- **The timeline (`l`).** An iteration pill next to the gate badge tracks the count and the trend
+  (`↓` converging, `↑` diverging, `✓` clean). Press `l` and the panel shows the whole session:
+  one sparkline bar per save, one row per iteration with its tallies and delta, and the latest
+  save's finding-level detail — what it fixed struck through in green, what it introduced in red
+  and clickable to jump straight to the line.
+
+![The revision-loop timeline: a sparkline converging 6 → 1 → 0 blocking across three iterations,
+with the latest save's fixed findings struck through](docs/screenshots/02-loop-timeline.png)
+
+Only real revisions count. A theme flip or a comment save re-renders the same text and advances
+nothing, so the timeline never lies about how many passes the author took. The first render is
+iteration 1 and shows no HUD at all — a document nobody is revising keeps its corners clean.
+
+### Triage: from findings to the next prompt
+
+The findings panel (`v`) is also where you *act* on a verdict. Two keys turn it from a report into
+a workbench:
+
+- **`Space` waives the selected finding.** Waiving is deliberately not suppression: the badge, the
+  counts, and `--gate`'s exit code do not move — the only thing that changes is which findings the
+  *brief* hands back to the authoring agent. That split lets a reviewer say "fix these four, I
+  disagree with those two" without the two silently vanishing from the record. A waive is keyed by
+  the finding's identity, not its line, so it survives both re-renders and revisions — and clears
+  on its own the moment the finding is actually gone.
+- **`c` copies the fix brief** for everything not waived, straight to the clipboard — the same
+  bottom-up, agent-addressed format `--fix-brief` writes, assembled by the same exporter. Paste it
+  into your agent's next prompt and watch the toast when the save lands.
+
+The panel's header keeps score (`4 finding(s) · 1 waived · brief covers 3`), and both the open
+panel and its selection survive the re-render that follows every save — waiving five findings
+while an agent rewrites the document underneath is not five panel re-openings.
+
+![The triage bench: a waived bare-URL finding struck through and tagged, the header scoring the
+brief's coverage, and the just-copied confirmation](docs/screenshots/03-triage-bench.png)
+
+### Replay it yourself
+
+[`docs/example/`](docs/example/) holds a `.spectacle.json` and three saved iterations of an
+agent-written spec — the raw draft with its residue (`{{capture_ttl}}`, "Certainly!", a truncation
+marker, an empty required key), the partial fix that introduces a new bare URL, and the version
+that passes. To watch the loop live, open the working copy and let the "agent" revise it:
+
+```powershell
+cd docs/example/spec
+copy payment-flow-v1.md payment-flow.md
+Spectacle.exe payment-flow.md            # GATE FAIL — 6 blocking; press v for the findings
+copy payment-flow-v2.md payment-flow.md  # toast: Iteration 2 · ✓ 5 fixed · +1 new · 1 blocking remain
+copy payment-flow-v3.md payment-flow.md  # toast: Iteration 3 · ✓ 2 fixed · gate passes; press l
+```
+
+The same three files drive the gate headlessly — `--gate` on v1 exits 1 with six errors,
+`--review --baseline payment-flow-v1.md payment-flow-v2.md` prints the delta the toast showed, and
+`--fix-brief` on any of them writes the brief `c` copies:
+
+```text
+payment-flow-v1.md — GATE FAIL
+  6 blocking · 6 error, 1 warning, 1 advisory · threshold: error
+  metadata: workflow=spec-writer · run=2026-08-23.4 · stage=draft · reviewer=
+  grades: bare-urls=warning · prose=info
+
+  error    line  1  sections                        missing required section: 'Rollout'
+  error    line  5  front-matter/empty-value        required front-matter key 'reviewer' is present but empty
+  error    line 10  ai-artifacts/assistant-voice    assistant framing 'Certainly!' — the text addresses whoever prompted it…
+  error    line 16  ai-artifacts/unfilled-template  unsubstituted template token '{{capture_ttl}}' — the template reached…
+  error    line 39  lint/placeholder                placeholder marker 'TODO'
+  info     line 41  prose/hedge                     hedging language 'should probably'
+  warning  line 42  bare-urls/bare-url              bare URL: https://internal.example/ledger/reservations
+  error    line 52  ai-artifacts/truncated-output   truncation marker 'The rest of the document is unchanged' — content…
+
+  tasks: 2/4 checklist item(s) complete
+  next: --fix-brief writes the revision list for the authoring agent
+```
+
+![The reader in the light theme: the metadata card, the drawn sequence diagram, the iteration pill
+and the green badge](docs/screenshots/04-light-reading.png)
+
 ### Verifying it
 
 The xUnit suite covers the checks, the grading, the exporters, and the payload the preview injects
@@ -776,7 +883,12 @@ cd test/js && npm install && npx playwright install chromium && npm test
 It asserts what the badge, the metadata card and the findings panel actually lay out, that `v` /
 arrows / `Enter` / `Esc` do what the help sheet claims, that jumping to a finding scrolls to and
 flashes the right block, and that the panel neither steals keys from the other overlays nor opens
-underneath them.
+underneath them. The triage sections drive `Space` and `c` against a captured host bridge and
+assert the exact messages the host receives, then re-serve the page the way a save re-render does
+and check the panel, its selection, and the waive all come back. The revision-loop suite
+(`preview-loop.browser.test.js`) covers the toast, the changed-block markers, the pill, the
+timeline, the same containment contract, and that an already-announced iteration never toasts
+twice.
 
 This started out as a test against a hand-rolled DOM stub. The stub passed every assertion while
 three real defects were live — the overlay ignored the containment contract the other overlays
@@ -833,6 +945,9 @@ keeping a clean result honest.
 
 Spectacle can be operated entirely without a mouse. Press `?` inside the preview to see the full cheatsheet.
 
+![The keyboard help sheet, listing the global, preview-wide and per-panel
+shortcuts](docs/screenshots/05-keyboard-help.png)
+
 ### Window-level (anywhere)
 
 | Keys | Action |
@@ -858,7 +973,8 @@ Spectacle can be operated entirely without a mouse. Press `?` inside the preview
 | G | Jump to last |
 | Ctrl+F | Find in document (Enter / Shift+Enter or F3 / Shift+F3 to cycle matches, Esc to close) |
 | t | Toggle the document outline (↑ / ↓ to move, Enter to jump, Esc to close) |
-| v | Toggle the quality gate verdict (↑ / ↓ to move, Enter to jump to the line, Esc to close) |
+| v | Toggle the quality gate verdict (↑ / ↓ to move, Enter to jump to the line, Space to waive / restore, c to copy the fix brief for everything unwaived, Esc to close) |
+| l | Toggle the revision-loop timeline (↑ / ↓ to scroll, click a new finding to jump to it, Esc to close) |
 | ? | Show keyboard help overlay |
 
 ### On a focused block
