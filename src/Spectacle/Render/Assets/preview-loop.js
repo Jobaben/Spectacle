@@ -37,9 +37,13 @@
   function latest() { var h = history(); return h.length ? h[h.length - 1] : null; }
   function previous() { var h = history(); return h.length > 1 ? h[h.length - 2] : null; }
 
-  // The HUD appears once the loop has actually looped. Iteration 1 is just "the document was
-  // opened"; showing a timeline for it would teach the reader to ignore the pill.
-  var active = !!(LOOP && LOOP.iteration >= 2 && latest());
+  // The panel and its "l" shortcut answer from the first render — a reader who asks for the
+  // timeline should always get it, even when it only has the opening iteration to show. The
+  // *ambient* HUD (pill, toast, changed-block markers) still waits for the loop to actually
+  // loop: iteration 1 is just "the document was opened", and advertising it would teach the
+  // reader to ignore the pill.
+  var active = !!(LOOP && latest());
+  var looped = !!(active && LOOP.iteration >= 2);
 
   // -------- Changed-block markers --------
 
@@ -452,8 +456,10 @@
   // -------- Init --------
 
   if (active) {
-    markChangedBlocks();
-    pillEl = buildPill();
+    if (looped) {
+      markChangedBlocks();
+      pillEl = buildPill();
+    }
     panelEl = buildPanel();
     document.addEventListener("keydown", onKeyDown, true);
 
@@ -463,7 +469,7 @@
     if (read(STORAGE_OPEN) === "1") {
       open();
       write(STORAGE_SEEN, String(latest().n));
-    } else {
+    } else if (looped) {
       maybeToast();
     }
   }
