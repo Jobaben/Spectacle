@@ -17,8 +17,15 @@
   // the fix brief for everything not waived: the next prompt for the authoring agent, assembled
   // host-side by the same FixBriefExporter the --fix-brief command uses. Waives are keyed
   // line-insensitively and held by the host, so they survive both re-renders and revisions.
+  //
+  // When the host found a Claude CLI on this machine (GATE.claude.available), the copy round-trip
+  // is unnecessary: "a" hands the same brief to `claude -p` in a background process addressed at
+  // the open file, and the agent's saves land here live — each one an iteration in the loop HUD.
+  // A chip above the badge shows the run while it is in flight (and a failure afterwards), payload-
+  // driven so it survives the re-renders the run's own saves cause.
 
   var GATE = window.__spectacleGate__ || null;
+  var CLAUDE = (GATE && GATE.claude) || null;
 
   var STORAGE_OPEN = "spectacle.gatePanelOpen";
   var STORAGE_SELECTED = "spectacle.gateSelected";
@@ -221,9 +228,12 @@
 
     var footer = document.createElement("div");
     footer.className = "sp-gate-footer";
-    // Don't offer a jump when there is nothing to jump to.
+    // Don't offer a jump when there is nothing to jump to, and don't offer the Claude hand-off
+    // when the host found no CLI.
     footer.textContent = findings.length
-      ? "Enter jump · Space waive · c copy fix brief · Esc close"
+      ? (CLAUDE && CLAUDE.available
+        ? "Enter jump · Space waive · c copy fix brief · a Claude revises in place · Esc close"
+        : "Enter jump · Space waive · c copy fix brief · Esc close")
       : "Esc to close";
     panel.appendChild(footer);
 
@@ -268,10 +278,32 @@
   function copyBrief() {
     var covered = (GATE.findings || []).length - waivedCount();
     sendToHost("copyFixBrief", {});
-    announceCopied(covered);
+    announce(covered === 1
+      ? "Fix brief copied — 1 finding"
+      : "Fix brief copied — " + covered + " findings");
   }
 
-  function announceCopied(covered) {
+  // The hands-free variant of copyBrief: same triaged brief, handed to the host's Claude runner.
+  // The optimistic announcement covers the gap until the host's "running" state comes back
+  // through the next render's payload.
+  function reviseWithClaude() {
+    if (!CLAUDE || !CLAUDE.available) return;
+    if (CLAUDE.state === "running") {
+      announce("Claude is already revising — saves land here as they happen");
+      return;
+    }
+    var covered = (GATE.findings || []).length - waivedCount();
+    if (covered <= 0) {
+      announce("Every finding is waived — nothing to hand to Claude");
+      return;
+    }
+    sendToHost("claudeRevise", {});
+    announce(covered === 1
+      ? "Handed to Claude — 1 finding. Saves land here live."
+      : "Handed to Claude — " + covered + " findings. Saves land here live.");
+  }
+
+  function announce(text) {
     if (!panelEl) return;
     if (!copiedEl) {
       copiedEl = document.createElement("div");
@@ -279,14 +311,41 @@
       copiedEl.setAttribute("role", "status");
       panelEl.appendChild(copiedEl);
     }
-    copiedEl.textContent = covered === 1
-      ? "Fix brief copied — 1 finding"
-      : "Fix brief copied — " + covered + " findings";
+    copiedEl.textContent = text;
     copiedEl.classList.add("sp-gate-copied-visible");
     if (copiedTimer) clearTimeout(copiedTimer);
     copiedTimer = setTimeout(function () {
       if (copiedEl) copiedEl.classList.remove("sp-gate-copied-visible");
     }, 2200);
+  }
+
+  // -------- Claude run chip --------
+
+  // Ambient state for the background run, visible without the panel: the reader should never
+  // wonder whether anything is happening while Claude works. Rebuilt from the payload on every
+  // render — a run's own saves re-render this page, and the chip must ride through that. A clean
+  // finish shows nothing here: the loop HUD's toast already announces the save that ended it.
+  function buildClaudeChip() {
+    if (!CLAUDE || !CLAUDE.available) return;
+    if (CLAUDE.state !== "running" && CLAUDE.state !== "failed") return;
+
+    var chip = document.createElement("div");
+    chip.id = "sp-claude-chip";
+    chip.setAttribute("role", "status");
+
+    if (CLAUDE.state === "running") {
+      var pulse = document.createElement("span");
+      pulse.className = "sp-claude-pulse";
+      pulse.setAttribute("aria-hidden", "true");
+      pulse.textContent = "✳";
+      chip.appendChild(pulse);
+      chip.appendChild(document.createTextNode("Claude is revising this document…"));
+    } else {
+      chip.className = "sp-claude-chip-failed";
+      chip.textContent = "Claude revision failed" + (CLAUDE.detail ? " — " + CLAUDE.detail : "");
+    }
+
+    document.body.appendChild(chip);
   }
 
   function itemHead(f) {
@@ -444,6 +503,7 @@
       case "Enter": e.preventDefault(); activate(-1); return;
       case " ": e.preventDefault(); toggleWaive(); return;
       case "c": e.preventDefault(); copyBrief(); return;
+      case "a": e.preventDefault(); reviseWithClaude(); return;
       // The shortcut is a toggle, so the same key closes it — matching "t" on the outline.
       case "v": e.preventDefault(); close(); return;
       default: e.preventDefault(); return;
@@ -458,6 +518,7 @@
     buildMetadata();
     badgeEl = buildBadge();
     panelEl = buildPanel();
+    buildClaudeChip();
     document.addEventListener("keydown", onKeyDown, true);
 
     // Triage survives the re-render that follows every save: the panel reopens where it was, so

@@ -42,6 +42,7 @@
         { key: "Enter",               label: "Jump to the finding's line", action: null /* preview-gate.js */ },
         { key: "Space",               label: "Waive / restore finding (drops it from the brief)", action: null /* preview-gate.js */ },
         { key: "c",                   label: "Copy fix brief for unwaived findings", action: null /* preview-gate.js */ },
+        { key: "a",                   label: "Claude revises the document in place (needs the Claude CLI)", action: null /* preview-gate.js */ },
         { key: "Esc",                 label: "Close gate panel",           action: null /* preview-gate.js */ }
       ]
     },

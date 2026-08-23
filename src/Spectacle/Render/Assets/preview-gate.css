@@ -212,6 +212,45 @@
   color: var(--muted, #9da5b4);
 }
 
+/* -------- Claude run chip -------- */
+
+/* Ambient state for a background `claude -p` revision run. Bottom-left, because the other three
+   ambient corners are taken: badge and loop pill bottom-right, toast bottom-center. Running pulses
+   quietly; a failure holds the error hue until the next attempt. */
+#sp-claude-chip {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1001;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 999px;
+  background: var(--code-bg, #252526);
+  color: var(--fg, #d4d4d4);
+  font-size: 0.78em;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  max-width: 60vw;
+  overflow-wrap: anywhere;
+}
+#sp-claude-chip .sp-claude-pulse {
+  color: var(--link, #4ea1ff);
+  animation: sp-claude-pulse 1.4s ease-in-out infinite;
+}
+#sp-claude-chip.sp-claude-chip-failed {
+  border-color: var(--gate-error, #f48771);
+  color: var(--gate-error, #f48771);
+}
+@keyframes sp-claude-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #sp-claude-chip .sp-claude-pulse { animation: none; }
+}
+
 /* -------- Jump target flash -------- */
 
 /* Scrolling to a finding without marking the destination leaves the reader hunting for what
