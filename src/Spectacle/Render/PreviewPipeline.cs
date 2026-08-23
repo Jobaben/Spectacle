@@ -304,7 +304,9 @@ public sealed class PreviewPipeline : IDisposable
             _lastVerdict,
             _loop.History,
             _waived,
-            _claude);
+            // No CLI on this machine is payload `null`, the same shape the export path and older
+            // payloads have — the overlay renders nothing new at all.
+            _claude.Available ? _claude : null);
         return (html, ++_renderVersion);
     }
 
