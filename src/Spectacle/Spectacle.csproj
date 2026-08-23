@@ -7,7 +7,41 @@
     <RootNamespace>Spectacle</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>Spectacle.Program</StartupObject>
+    <Version>1.0.0</Version>
   </PropertyGroup>
+  <!-- The version flag has to name the commit that produced the exe, not the static 1.0.0.0. The
+       SDK appends SourceRevisionId to AssemblyInformationalVersion, so stamping that one property
+       is the whole mechanism. Deliberately *not* gated on _IsPublishing: a plain `dotnet build` gets
+       the same stamp, otherwise a locally built binary would report an empty revision. The commit
+       date rather than the build date keeps the value stable across rebuilds of one commit, so
+       incremental builds stay incremental. `.dirty` marks a binary built from an edited tree,
+       whose sha alone would name a commit it does not contain. No .git (a source archive) leaves
+       SourceRevisionId unset and the informational version falls back to the plain version.
+       The SDK's source-control integration has already put the full 40-character sha in
+       SourceRevisionId by this point; this overwrites it with a form a human can read out loud,
+       hence ordering against both that target and the one that consumes the property. -->
+  <Target Name="StampCommitRevision" AfterTargets="InitializeSourceControlInformation"
+          BeforeTargets="AddSourceRevisionToInformationalVersion">
+    <!-- %25%25 is one literal percent twice over: MSBuild unescapes %25 to %, and Exec runs the
+         command through a temp batch file where cmd would otherwise expand `%h.%` as a variable
+         and hand git the format string `cs`. -->
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; log -1 --pretty=format:%25%25h.%25%25cs"
+          ConsoleToMSBuild="true" StandardOutputImportance="low"
+          ContinueOnError="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_CommitStamp" />
+      <Output TaskParameter="ExitCode" PropertyName="_CommitStampExit" />
+    </Exec>
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; status --porcelain"
+          ConsoleToMSBuild="true" StandardOutputImportance="low"
+          ContinueOnError="true" IgnoreExitCode="true"
+          Condition="'$(_CommitStampExit)' == '0'">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_WorkingTreeChanges" />
+    </Exec>
+    <PropertyGroup Condition="'$(_CommitStampExit)' == '0' and '$(_CommitStamp)' != ''">
+      <SourceRevisionId>$(_CommitStamp)</SourceRevisionId>
+      <SourceRevisionId Condition="'$(_WorkingTreeChanges)' != ''">$(_CommitStamp).dirty</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
   <!-- Solution-level `dotnet publish` lands in publish\win-x64 too; gated on
        _IsPublishing so the profile's RID never affects regular builds. -->
   <PropertyGroup Condition="'$(_IsPublishing)' == 'true' and '$(PublishProfile)' == ''">

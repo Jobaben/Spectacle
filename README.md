@@ -111,8 +111,13 @@ Spectacle.exe --init-config [path] [--force]   Scaffold a documented .spectacle.
 Spectacle.exe --register                       Register file association
 Spectacle.exe --unregister                     Remove file association
 Spectacle.exe --help                           Show help
-Spectacle.exe --version                        Show version
+Spectacle.exe --version                        Show version, build commit and commit date
 ```
+
+`--version` answers with the commit the binary was built from, not a static number:
+`1.0.0+9f2c1ab.2026-08-23` is the version, the short sha and that commit's date. A `.dirty` suffix
+means the build came from an edited working tree, so the sha names a commit the binary does not
+quite contain. A source tree without `.git` reports the bare version.
 
 `--export-html` writes a portable, single-file HTML document (theme and syntax-highlight
 styling inlined, no external assets; the Mermaid renderer too when the document has a diagram) next

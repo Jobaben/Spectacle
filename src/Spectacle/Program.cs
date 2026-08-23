@@ -71,7 +71,8 @@ public static class Program
           Spectacle.exe --register                Register as default handler for .md/.markdown (per-user)
           Spectacle.exe --unregister              Remove the file association
           Spectacle.exe --help, -h                Show this help
-          Spectacle.exe --version                 Show version
+          Spectacle.exe --version                 Show version, the commit it was built from and
+                                                  that commit's date
         """;
 
     [STAThread]
@@ -81,7 +82,7 @@ public static class Program
         return command switch
         {
             CliCommand.Help => Print(UsageText, 0),
-            CliCommand.Version => Print(GetVersion(), 0),
+            CliCommand.Version => Print(BuildStamp.Current, 0),
             CliCommand.Register => DoRegister(),
             CliCommand.Unregister => DoUnregister(),
             CliCommand.InitConfig init => DoInitConfig(init.Path, init.Force),
