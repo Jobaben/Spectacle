@@ -29,6 +29,8 @@ public static class PreviewHtml
     private static readonly Lazy<string> OutlineJs = new(() => LoadAsset("preview-outline.js"));
     private static readonly Lazy<string> GateCss = new(() => LoadAsset("preview-gate.css"));
     private static readonly Lazy<string> GateJs = new(() => LoadAsset("preview-gate.js"));
+    private static readonly Lazy<string> LoopCss = new(() => LoadAsset("preview-loop.css"));
+    private static readonly Lazy<string> LoopJs = new(() => LoadAsset("preview-loop.js"));
 
     private static readonly JsonSerializerOptions PayloadOpts = new()
     {
@@ -47,19 +49,29 @@ public static class PreviewHtml
         IReadOnlyList<OutlineEntry>? outline) =>
         Build(bodyHtml, baseHref, theme, matchResult, outline, verdict: null);
 
+    public static string Build(
+        string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
+        IReadOnlyList<OutlineEntry>? outline, GateVerdict? verdict) =>
+        Build(bodyHtml, baseHref, theme, matchResult, outline, verdict,
+            loopHistory: null, waivedKeys: null);
+
     /// <summary>
     /// Builds the preview document. <paramref name="verdict"/> is the gate result for the open
     /// document; pass <c>null</c> for a preview with no gate overlay (the exported, static HTML
-    /// takes that path).
+    /// takes that path). <paramref name="loopHistory"/> is the revision-session timeline and
+    /// <paramref name="waivedKeys"/> the findings the reader has waived this session; both are
+    /// live-reader state, so the export path passes <c>null</c> for them too.
     /// </summary>
     public static string Build(
         string bodyHtml, string baseHref, PreviewTheme theme, MatchResult? matchResult,
-        IReadOnlyList<OutlineEntry>? outline, GateVerdict? verdict)
+        IReadOnlyList<OutlineEntry>? outline, GateVerdict? verdict,
+        IReadOnlyList<LoopIteration>? loopHistory, IReadOnlyCollection<string>? waivedKeys)
     {
         var themeCss = ThemeCss(theme);
         var payloadJson = BuildPayload(matchResult);
         var outlineJson = BuildOutlinePayload(outline);
-        var gateJson = BuildGatePayload(verdict);
+        var gateJson = BuildGatePayload(verdict, waivedKeys);
+        var loopJson = BuildLoopPayload(loopHistory);
 
         return $$"""
             <!DOCTYPE html>
@@ -76,6 +88,7 @@ public static class PreviewHtml
               <style>{{FindCss.Value}}</style>
               <style>{{OutlineCss.Value}}</style>
               <style>{{GateCss.Value}}</style>
+              <style>{{LoopCss.Value}}</style>
               {{MermaidAssets.HeadFor(bodyHtml)}}
             </head>
             <body>
@@ -86,11 +99,13 @@ public static class PreviewHtml
               <script>window.__spectacleAnnotations__ = {{payloadJson}};</script>
               <script>window.__spectacleOutline__ = {{outlineJson}};</script>
               <script>window.__spectacleGate__ = {{gateJson}};</script>
+              <script>window.__spectacleLoop__ = {{loopJson}};</script>
               <script>{{AnnotationsJs.Value}}</script>
               <script>{{KeynavJs.Value}}</script>
               <script>{{FindJs.Value}}</script>
               <script>{{OutlineJs.Value}}</script>
               <script>{{GateJs.Value}}</script>
+              <script>{{LoopJs.Value}}</script>
               {{MermaidAssets.BodyFor(bodyHtml, theme)}}
             </body>
             </html>
@@ -117,7 +132,7 @@ public static class PreviewHtml
     /// no gate was computed — the script renders nothing at all in that case, so an exported HTML
     /// file carries no badge.
     /// </summary>
-    private static string BuildGatePayload(GateVerdict? verdict)
+    private static string BuildGatePayload(GateVerdict? verdict, IReadOnlyCollection<string>? waivedKeys)
     {
         if (verdict is null) return "null";
 
@@ -139,11 +154,15 @@ public static class PreviewHtml
                 checksDisabled = verdict.SkippedChecks,
                 suppressed = verdict.SuppressedCount,
             },
+            // The session's waived finding keys, echoed back so triage state survives a re-render.
+            triage = new { waived = waivedKeys ?? Array.Empty<string>() },
             // A list of pairs rather than an object: front-matter keys come from the document, so
             // preserving source order matters and a duplicate key must not silently vanish.
             metadata = verdict.Metadata.Select(m => new { key = m.Key, value = m.Value }),
             findings = verdict.Findings.Select(f => new
             {
+                // The line-insensitive identity the waive set is keyed by.
+                key = GateTriage.KeyOf(f),
                 severity = f.SeverityName,
                 rule = f.RuleId,
                 check = f.CheckId,
@@ -160,6 +179,47 @@ public static class PreviewHtml
         // covers the same ground for any value the encoder passes through. JSON decodes both back
         // to the original string, so the JS side reads exactly what the document said.
         return JsonSerializer.Serialize(payload, PayloadOpts).Replace("</", "<\\/");
+    }
+
+    /// <summary>
+    /// Serializes the revision-loop timeline for <c>preview-loop.js</c>, or the JSON literal
+    /// <c>null</c> when no session is being tracked (the export path) — the script renders nothing
+    /// at all in that case. History rows carry counts only; the latest iteration additionally
+    /// carries its full delta and the changed block ids, which is everything the HUD shows.
+    /// </summary>
+    private static string BuildLoopPayload(IReadOnlyList<LoopIteration>? loopHistory)
+    {
+        if (loopHistory is null || loopHistory.Count == 0) return "null";
+
+        var latest = loopHistory[^1];
+        var payload = new
+        {
+            iteration = latest.Number,
+            history = loopHistory.Select(i => new
+            {
+                n = i.Number,
+                at = i.At.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                blocking = i.Blocking,
+                errors = i.Errors,
+                warnings = i.Warnings,
+                advisories = i.Advisories,
+                @fixed = i.Delta?.Fixed.Count ?? 0,
+                introduced = i.Delta?.New.Count ?? 0,
+            }),
+            delta = latest.Delta is null ? null : new
+            {
+                @fixed = latest.Delta.Fixed.Select(DeltaRow),
+                introduced = latest.Delta.New.Select(DeltaRow),
+                persisting = latest.Delta.Persisting.Count,
+            },
+            changedBlockIds = latest.ChangedBlockIds,
+        };
+
+        // Same `</` -> `<\/` guard as every other payload: finding messages quote document text.
+        return JsonSerializer.Serialize(payload, PayloadOpts).Replace("</", "<\\/");
+
+        static object DeltaRow(DeltaFinding f) =>
+            new { category = f.Category, rule = f.Rule, line = f.Line, message = f.Message };
     }
 
     private static string BuildPayload(MatchResult? matchResult)

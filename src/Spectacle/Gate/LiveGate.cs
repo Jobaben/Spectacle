@@ -5,6 +5,9 @@ using Spectacle.Cli;
 
 namespace Spectacle.Gate;
 
+/// <summary>A live grading: the verdict the reader shows and the report it was graded from.</summary>
+public sealed record LiveGradeResult(GateVerdict Verdict, ReviewReport Report);
+
 /// <summary>
 /// Computes the gate verdict for the document currently open in the reader, using exactly the same
 /// checks, project config and grading policy as the <c>--gate</c> command.
@@ -27,7 +30,15 @@ public static class LiveGate
     /// never take down the reader, so any exception yields an ungraded verdict rather than
     /// propagating into the render.
     /// </summary>
-    public static GateVerdict Evaluate(string? text, string baseDirectory, string displayName)
+    public static GateVerdict Evaluate(string? text, string baseDirectory, string displayName) =>
+        Grade(text, baseDirectory, displayName).Verdict;
+
+    /// <summary>
+    /// <see cref="Evaluate"/>, keeping the underlying <see cref="ReviewReport"/> alongside the
+    /// verdict — the revision-loop timeline diffs consecutive reports, and recomputing the review
+    /// a second time per render just to diff it would double the grading cost for nothing.
+    /// </summary>
+    public static LiveGradeResult Grade(string? text, string baseDirectory, string displayName)
     {
         var content = text ?? string.Empty;
         try
@@ -43,13 +54,15 @@ public static class LiveGate
                 config.RequiredFrontMatter);
 
             var policy = GatePolicy.Create(config.Severity, config.FailOn);
-            return GateVerdict.Compute(displayName, report, policy, FrontMatter.Parse(content));
+            return new LiveGradeResult(
+                GateVerdict.Compute(displayName, report, policy, FrontMatter.Parse(content)), report);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             Console.Error.WriteLine($"[LiveGate] Could not grade the document; showing an ungraded verdict: {ex.Message}");
-            return GateVerdict.Compute(
-                displayName, ReviewReport.Compute(content), GatePolicy.Default, FrontMatter.Parse(content));
+            var report = ReviewReport.Compute(content);
+            return new LiveGradeResult(
+                GateVerdict.Compute(displayName, report, GatePolicy.Default, FrontMatter.Parse(content)), report);
         }
     }
 

@@ -11,15 +11,46 @@
   // Three pieces: a metadata card at the top of the document (front matter, rendered as data), a
   // badge in the corner (pass/fail at a glance), and a panel listing findings, where selecting one
   // scrolls to the line and flashes it.
+  //
+  // The panel is also the triage bench. Space waives the selected finding — it stays in the
+  // verdict (the badge and the pipeline never lie), but drops out of the brief — and "c" copies
+  // the fix brief for everything not waived: the next prompt for the authoring agent, assembled
+  // host-side by the same FixBriefExporter the --fix-brief command uses. Waives are keyed
+  // line-insensitively and held by the host, so they survive both re-renders and revisions.
 
   var GATE = window.__spectacleGate__ || null;
+
+  var STORAGE_OPEN = "spectacle.gatePanelOpen";
+  var STORAGE_SELECTED = "spectacle.gateSelected";
 
   var badgeEl = null;
   var panelEl = null;
   var listEl = null;
+  var progressEl = null;
+  var copiedEl = null;
+  var copiedTimer = null;
   var optionEls = [];
   var selected = -1;
   var prevFocus = null;
+  var waived = {};
+
+  (GATE && GATE.triage && GATE.triage.waived || []).forEach(function (k) { waived[k] = true; });
+
+  function sendToHost(type, payload) {
+    if (!window.chrome || !window.chrome.webview) return;
+    window.chrome.webview.postMessage(JSON.stringify(Object.assign({ type: type }, payload)));
+  }
+
+  function store(key, value) {
+    try {
+      if (value === null) sessionStorage.removeItem(key);
+      else sessionStorage.setItem(key, value);
+    } catch (err) { /* ignore */ }
+  }
+
+  function stored(key) {
+    try { return sessionStorage.getItem(key); } catch (err) { return null; }
+  }
 
   // -------- Metadata card --------
 
@@ -138,6 +169,13 @@
       panel.appendChild(warn);
     }
 
+    // The triage line: how much of what the panel shows the brief will carry.
+    if ((GATE.findings || []).length) {
+      progressEl = document.createElement("p");
+      progressEl.className = "sp-gate-progress";
+      panel.appendChild(progressEl);
+    }
+
     var findings = GATE.findings || [];
     if (!findings.length) {
       var empty = document.createElement("p");
@@ -157,6 +195,7 @@
         li.className = "sp-gate-item";
         li.setAttribute("role", "option");
         li.setAttribute("aria-selected", "false");
+        if (f.key && waived[f.key]) li.classList.add("sp-gate-waived");
         li.appendChild(itemHead(f));
 
         var msg = document.createElement("div");
@@ -184,12 +223,70 @@
     footer.className = "sp-gate-footer";
     // Don't offer a jump when there is nothing to jump to.
     footer.textContent = findings.length
-      ? "Enter to jump to the line · Esc to close"
+      ? "Enter jump · Space waive · c copy fix brief · Esc close"
       : "Esc to close";
     panel.appendChild(footer);
 
     document.body.appendChild(panel);
+    updateProgress();
     return panel;
+  }
+
+  // -------- Triage --------
+
+  function waivedCount() {
+    return (GATE.findings || []).reduce(function (n, f) {
+      return n + (f.key && waived[f.key] ? 1 : 0);
+    }, 0);
+  }
+
+  function updateProgress() {
+    if (!progressEl) return;
+    var total = (GATE.findings || []).length;
+    var w = waivedCount();
+    progressEl.textContent = w === 0
+      ? total + " finding(s) · brief covers all " + total
+      : total + " finding(s) · " + w + " waived · brief covers " + (total - w);
+  }
+
+  function toggleWaive() {
+    var finding = (GATE.findings || [])[selected];
+    if (!finding || !finding.key) return;
+
+    var now = !waived[finding.key];
+    waived[finding.key] = now;
+    if (!now) delete waived[finding.key];
+
+    var el = optionEls[selected];
+    if (el) el.classList.toggle("sp-gate-waived", now);
+    updateProgress();
+    // The host owns the durable set — it echoes it back through the next render's payload, so
+    // this optimistic flip and the persisted state can never drift for long.
+    sendToHost("gateWaive", { key: finding.key, waived: now });
+  }
+
+  function copyBrief() {
+    var covered = (GATE.findings || []).length - waivedCount();
+    sendToHost("copyFixBrief", {});
+    announceCopied(covered);
+  }
+
+  function announceCopied(covered) {
+    if (!panelEl) return;
+    if (!copiedEl) {
+      copiedEl = document.createElement("div");
+      copiedEl.className = "sp-gate-copied";
+      copiedEl.setAttribute("role", "status");
+      panelEl.appendChild(copiedEl);
+    }
+    copiedEl.textContent = covered === 1
+      ? "Fix brief copied — 1 finding"
+      : "Fix brief copied — " + covered + " findings";
+    copiedEl.classList.add("sp-gate-copied-visible");
+    if (copiedTimer) clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(function () {
+      if (copiedEl) copiedEl.classList.remove("sp-gate-copied-visible");
+    }, 2200);
   }
 
   function itemHead(f) {
@@ -230,6 +327,7 @@
     el.setAttribute("aria-selected", "true");
     if (listEl) listEl.setAttribute("aria-activedescendant", el.id || "");
     el.scrollIntoView({ block: "nearest" });
+    store(STORAGE_SELECTED, String(selected));
   }
 
   function activate(i) {
@@ -279,6 +377,7 @@
     if (badgeEl) badgeEl.setAttribute("aria-expanded", "true");
     panelEl.focus();
     if (optionEls.length) setSelected(selected < 0 ? 0 : selected);
+    store(STORAGE_OPEN, "1");
   }
 
   function close() {
@@ -287,6 +386,7 @@
     if (badgeEl) badgeEl.setAttribute("aria-expanded", "false");
     if (prevFocus && typeof prevFocus.focus === "function") prevFocus.focus();
     prevFocus = null;
+    store(STORAGE_OPEN, null);
   }
 
   function toggle() { if (isOpen()) close(); else open(); }
@@ -300,6 +400,10 @@
     if (document.body.classList && document.body.classList.contains("sp-reanchor-mode")) return true;
     var help = document.getElementById("sp-help");
     if (help && !help.hidden) return true;
+    // The revision-loop timeline is registered after this script, so its open panel cannot swallow
+    // "v" itself the way this panel swallows "l" — it has to be respected from this side.
+    var loop = document.getElementById("sp-loop-panel");
+    if (loop && !loop.hidden) return true;
     var el = target || document.activeElement;
     if (el && el.isContentEditable === true) return true;
     return !!(el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT"));
@@ -338,6 +442,8 @@
       case "Home": e.preventDefault(); setSelected(0); return;
       case "End": e.preventDefault(); setSelected(optionEls.length - 1); return;
       case "Enter": e.preventDefault(); activate(-1); return;
+      case " ": e.preventDefault(); toggleWaive(); return;
+      case "c": e.preventDefault(); copyBrief(); return;
       // The shortcut is a toggle, so the same key closes it — matching "t" on the outline.
       case "v": e.preventDefault(); close(); return;
       default: e.preventDefault(); return;
@@ -353,5 +459,13 @@
     badgeEl = buildBadge();
     panelEl = buildPanel();
     document.addEventListener("keydown", onKeyDown, true);
+
+    // Triage survives the re-render that follows every save: the panel reopens where it was, so
+    // waiving five findings while an agent revises underneath is not five panel re-openings.
+    if (stored(STORAGE_OPEN) === "1") {
+      var restored = parseInt(stored(STORAGE_SELECTED) || "0", 10);
+      if (isFinite(restored) && restored >= 0 && restored < optionEls.length) selected = restored;
+      open();
+    }
   }
 })();

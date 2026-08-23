@@ -151,6 +151,51 @@
   color: var(--muted, #9da5b4);
   font-size: 0.95em;
 }
+/* -------- Triage -------- */
+
+/* How much of the panel the copied brief will carry. Sits between the coverage note and the list
+   so the reader's eye passes it on the way down. */
+.sp-gate-progress {
+  margin: 0 16px 10px 16px;
+  font-size: 0.78em;
+  color: var(--muted, #9da5b4);
+}
+
+/* A waived finding stays visible — the verdict still counts it — but reads as set aside: dimmed,
+   struck message, and an explicit tag so the state never depends on opacity alone. */
+.sp-gate-item.sp-gate-waived { opacity: 0.55; }
+.sp-gate-item.sp-gate-waived .sp-gate-msg { text-decoration: line-through; }
+.sp-gate-item.sp-gate-waived .sp-gate-head::after {
+  content: "waived";
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--muted, #9da5b4);
+  border: 1px solid var(--rule, #3c3c3c);
+  border-radius: 3px;
+  padding: 0 5px;
+  margin-left: auto;
+}
+
+/* Confirmation that "c" did something, since the clipboard itself is invisible. */
+.sp-gate-copied {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 44px;
+  padding: 7px 12px;
+  border: 1px solid var(--gate-pass, #89d185);
+  border-radius: 3px;
+  background: var(--bg, #1e1e1e);
+  color: var(--gate-pass, #89d185);
+  font-size: 0.8em;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-out;
+}
+.sp-gate-copied.sp-gate-copied-visible { opacity: 1; }
+
 .sp-gate-empty {
   /* Absorbs the space the findings list would have taken, so the footer stays pinned to the bottom
      of the panel rather than floating under a single line of text. */

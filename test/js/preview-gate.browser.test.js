@@ -46,11 +46,15 @@ const BODY = [
     block(9 + k, 'paragraph', 26 + k * 2, `Filler paragraph ${k + 1}, so the document is long enough to scroll and a jump is observable.`)),
 ].join('\n');
 
-// A failing verdict with one finding at each severity, reduced coverage, and a blank metadata value.
+// A failing verdict with one finding at each severity, reduced coverage, and a blank metadata
+// value. Findings carry the line-insensitive `key` the triage layer waives by, exactly as
+// PreviewHtml emits it (check|rule|message).
+const keyed = (f) => Object.assign({ key: f.check + '|' + f.rule + '|' + f.message }, f);
 const FAILING = {
   status: 'fail', passed: false, failOn: 'error',
   counts: { blocking: 4, error: 4, warning: 1, info: 1, suppressed: 1 },
   coverage: { checksDisabled: ['duplication'], suppressed: 1 },
+  triage: { waived: [] },
   metadata: [
     { key: 'workflow', value: 'spec-writer' },
     { key: 'stage', value: 'draft' },
@@ -64,20 +68,22 @@ const FAILING = {
     { severity: 'error', rule: 'ai-artifacts/truncated-output', check: 'ai-artifacts', line: 24, message: "truncation marker 'The rest of the document is unchanged'", remedy: 'Write the omitted content, or cut the section and its marker.' },
     { severity: 'warning', rule: 'bare-urls/bare-url', check: 'bare-urls', line: 20, message: 'bare URL: https://internal.example/keys', remedy: 'Wrap the URL in a descriptive link.' },
     { severity: 'info', rule: 'prose/hedge', check: 'prose', line: 20, message: "hedging: 'should probably'", remedy: 'Commit to the decision.' },
-  ],
+  ].map(keyed),
 };
 
 const PASSING = {
   status: 'pass', passed: true, failOn: 'error',
   counts: { blocking: 0, error: 0, warning: 0, info: 0, suppressed: 0 },
   coverage: { checksDisabled: [], suppressed: 0 },
+  triage: { waived: [] },
   metadata: [{ key: 'workflow', value: 'spec-writer' }, { key: 'stage', value: 'final' }],
   findings: [],
 };
 
 // Mirrors PreviewHtml.Build, including the `</` -> `<\/` payload guard and the script order that
-// decides which overlay wins a shortcut.
-function buildHtml(theme, gate) {
+// decides which overlay wins a shortcut. `loop` is the revision-loop payload (null for none), and
+// `bridge` injects a captured host bridge the way WebView2 provides one.
+function buildHtml(theme, gate, loop, bridge) {
   const json = (v) => JSON.stringify(v).replace(/<\//g, '<\\/');
   return `<!DOCTYPE html>
 <html lang="en">
@@ -92,12 +98,14 @@ function buildHtml(theme, gate) {
   <style>${asset('preview-find.css')}</style>
   <style>${asset('preview-outline.css')}</style>
   <style>${asset('preview-gate.css')}</style>
+  <style>${asset('preview-loop.css')}</style>
 </head>
 <body>
   <main role="main">
 ${BODY}
   </main>
   <script>${asset('prism.min.js')}</script>
+  ${bridge ? '<script>window.__posted = []; window.chrome = { webview: { postMessage: function (m) { window.__posted.push(m); } } };</script>' : ''}
   <script>window.__spectacleAnnotations__ = ${json({ comments: [], orphaned: [] })};</script>
   <script>window.__spectacleOutline__ = ${json([
     { level: 1, text: 'Authentication design', id: 'authentication-design', line: 6 },
@@ -106,11 +114,13 @@ ${BODY}
     { level: 2, text: 'Rollout', id: 'rollout', line: 22 },
   ])};</script>
   <script>window.__spectacleGate__ = ${gate ? json(gate) : 'null'};</script>
+  <script>window.__spectacleLoop__ = ${loop ? json(loop) : 'null'};</script>
   <script>${asset('preview-annotations.js')}</script>
   <script>${asset('preview-keynav.js')}</script>
   <script>${asset('preview-find.js')}</script>
   <script>${asset('preview-outline.js')}</script>
   <script>${asset('preview-gate.js')}</script>
+  <script>${asset('preview-loop.js')}</script>
 </body>
 </html>`;
 }
@@ -266,6 +276,71 @@ function check(name, ok, detail) {
   check('no metadata card when no gate was computed', (await page.locator('#sp-gate-meta').count()) === 0);
   check('the document itself still renders', (await page.locator('h1').innerText()).includes('Authentication'));
   await page.close();
+
+  // ---- triage: waiving, the fix brief, and state across the save re-render ----
+  // Served over a stable origin, because that is what the reader gives the preview: panel state
+  // rides sessionStorage across the re-render that follows every save.
+  {
+    console.log('\n[triage]');
+    const tPage = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    const tErrors = [];
+    tPage.on('pageerror', (e) => tErrors.push(String(e)));
+
+    let served = buildHtml('dark', FAILING, null, true);
+    await tPage.route('http://spectacle.test/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: served }));
+    await tPage.goto('http://spectacle.test/doc.html', { waitUntil: 'load' });
+
+    await tPage.keyboard.press('v');
+    const panel = tPage.locator('#sp-gate-panel');
+    check('panel opens', await panel.isVisible());
+    check('footer offers triage', (await tPage.locator('.sp-gate-footer').innerText()).includes('Space waive'));
+    check('progress says the brief covers everything',
+      (await tPage.locator('.sp-gate-progress').innerText()).includes('brief covers all 6'));
+
+    // Waive the selected finding.
+    await tPage.keyboard.press(' ');
+    const first = tPage.locator('.sp-gate-item').first();
+    check('Space marks the finding waived', (await first.getAttribute('class')).includes('sp-gate-waived'));
+    check('progress counts the waive',
+      (await tPage.locator('.sp-gate-progress').innerText()).includes('1 waived · brief covers 5'));
+    let posted = await tPage.evaluate(() => window.__posted.map((m) => JSON.parse(m)));
+    check('the waive reached the host with the finding key',
+      posted.some((m) => m.type === 'gateWaive' && m.waived === true && m.key === FAILING.findings[0].key),
+      JSON.stringify(posted));
+
+    // Copy the brief for what is left.
+    await tPage.keyboard.press('c');
+    posted = await tPage.evaluate(() => window.__posted.map((m) => JSON.parse(m)));
+    check('"c" asks the host for the fix brief', posted.some((m) => m.type === 'copyFixBrief'));
+    check('the copy is confirmed on screen with the covered count',
+      (await tPage.locator('.sp-gate-copied').innerText()).includes('5 findings'));
+
+    // Waiving is a toggle.
+    await tPage.keyboard.press(' ');
+    posted = await tPage.evaluate(() => window.__posted.map((m) => JSON.parse(m)));
+    check('Space again restores the finding',
+      posted.some((m) => m.type === 'gateWaive' && m.waived === false) &&
+      !(await first.getAttribute('class')).includes('sp-gate-waived'));
+    await tPage.keyboard.press(' '); // waive it back for the persistence leg
+    await tPage.keyboard.press('ArrowDown');
+
+    // The save re-render: the host pushes fresh HTML whose payload echoes the waive set. The
+    // panel must come back open, on the same finding, with the waive intact.
+    served = buildHtml(
+      'dark', Object.assign({}, FAILING, { triage: { waived: [FAILING.findings[0].key] } }), null, true);
+    await tPage.goto('http://spectacle.test/doc.html', { waitUntil: 'load' });
+    check('panel reopens after the re-render', await tPage.locator('#sp-gate-panel').isVisible());
+    check('selection survives the re-render',
+      (await tPage.locator('.sp-gate-item').nth(1).getAttribute('aria-selected')) === 'true');
+    check('the waive comes back from the payload',
+      (await tPage.locator('.sp-gate-item').first().getAttribute('class')).includes('sp-gate-waived'));
+    check('progress still counts it',
+      (await tPage.locator('.sp-gate-progress').innerText()).includes('1 waived · brief covers 5'));
+
+    check('no runtime errors in triage', tErrors.length === 0, tErrors.join(' | '));
+    await tPage.close();
+  }
 
   await browser.close();
   console.log(failures === 0 ? '\nall browser assertions passed' : `\n${failures} assertion(s) failed`);

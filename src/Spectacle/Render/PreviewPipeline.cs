@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using Spectacle.Annotations;
 using Spectacle.Documents;
+using Spectacle.Export;
 using Spectacle.Gate;
 
 namespace Spectacle.Render;
@@ -26,9 +27,18 @@ public sealed class PreviewPipeline : IDisposable
     private RenderResult? _lastRender;
     private MatchResult? _lastMatch;
     private GateVerdict? _lastVerdict;
+    private readonly LoopSession _loop = new();
+    private HashSet<string> _waived = new(StringComparer.Ordinal);
     private long _renderVersion; // guarded by _sync; identifies the newest render
 
     public event EventHandler? Rendered;
+
+    /// <summary>
+    /// Raised with text the preview asked the host to place on the clipboard (the triaged fix
+    /// brief). Clipboard access is a UI concern, so the pipeline hands the text out rather than
+    /// touching System.Windows itself.
+    /// </summary>
+    public event EventHandler<string>? CopyTextRequested;
 
     public PreviewPipeline(Document document, IPreviewSink sink, PreviewTheme theme, AnnotationStore store)
     {
@@ -82,6 +92,7 @@ public sealed class PreviewPipeline : IDisposable
     public void HandleHostMessage(string json)
     {
         (string Html, long Version)? render = null;
+        string? copyText = null;
         lock (_sync)
         {
             try
@@ -97,18 +108,45 @@ public sealed class PreviewPipeline : IDisposable
                     case "commentDelete":  OnCommentDelete(root); break;
                     case "commentResolve": OnCommentResolve(root); break;
                     case "orphanReanchor": OnOrphanReanchor(root); break;
+                    // Triage messages carry no annotation state: nothing to persist, and a waive
+                    // does not need a re-render either — the page updated itself optimistically
+                    // and the next render picks the set up from the payload.
+                    case "gateWaive":      OnGateWaive(root); return;
+                    case "copyFixBrief":   copyText = BuildTriagedFixBrief(); break;
                     default: return;
                 }
-                Persist();
-                render = RenderLocked();
+
+                if (copyText is null)
+                {
+                    Persist();
+                    render = RenderLocked();
+                }
             }
             catch (Exception ex) when (ex is JsonException || ex is KeyNotFoundException || ex is InvalidOperationException)
             {
                 Console.Error.WriteLine($"[PreviewPipeline] Malformed host message; ignored: {ex.Message}. Payload: {Truncate(json, 200)}");
             }
         }
+        if (copyText is not null) CopyTextRequested?.Invoke(this, copyText);
         Publish(render);
     }
+
+    private void OnGateWaive(JsonElement root)
+    {
+        var key = root.GetProperty("key").GetString()!;
+        var waived = root.GetProperty("waived").GetBoolean();
+        if (waived) _waived.Add(key);
+        else _waived.Remove(key);
+    }
+
+    /// <summary>
+    /// The fix brief for the current verdict minus the waived findings — the exact text the reader
+    /// hands back to the authoring agent. <c>null</c> before the first render.
+    /// </summary>
+    private string? BuildTriagedFixBrief() =>
+        _lastVerdict is null
+            ? null
+            : FixBriefExporter.Build(GateTriage.Without(_lastVerdict, _waived), json: false);
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s.Substring(0, max) + "…";
@@ -214,14 +252,23 @@ public sealed class PreviewPipeline : IDisposable
         _lastMatch = AnnotationMatcher.Match(_lastRender.Blocks, _file.Comments);
         // Graded on every render, so editing the document — or an agent rewriting it under the
         // watcher — moves the badge live. This is the same verdict `--gate` exits on.
-        _lastVerdict = LiveGate.Evaluate(text, _document.BaseDirectory, _store.SourceName);
+        var graded = LiveGate.Grade(text, _document.BaseDirectory, _store.SourceName);
+        _lastVerdict = graded.Verdict;
+        // The session timeline. Advance is a no-op for a re-render of unchanged text (a theme
+        // flip, a comment save), so only real revisions become iterations.
+        _loop.Advance(text, graded.Report, graded.Verdict, _lastRender.Blocks, DateTime.UtcNow);
+        // Waives whose finding no longer exists fall away with it, so a finding the agent fixed
+        // does not come back pre-waived if a later revision reintroduces it.
+        _waived = GateTriage.Prune(_lastVerdict, _waived).ToHashSet(StringComparer.Ordinal);
         var html = PreviewHtml.Build(
             _lastRender.Html,
             $"https://{Web.WebViewHost.VirtualHost}/",
             _theme,
             _lastMatch,
             _lastRender.Outline,
-            _lastVerdict);
+            _lastVerdict,
+            _loop.History,
+            _waived);
         return (html, ++_renderVersion);
     }
 
