@@ -9,9 +9,7 @@
         { key: "Ctrl+R / F5",         label: "Reload from disk",           action: null /* WPF */ },
         { key: "Ctrl+= / - / 0",      label: "Zoom in / out / reset",      action: null /* WPF */ },
         { key: "F11",                 label: "Toggle fullscreen",          action: null /* WPF */ },
-        { key: "Esc",                 label: "Close window (when idle)",   action: null /* WPF */ },
-        { key: "Ctrl+Shift+C",        label: "Copy revision plan",         action: null /* WPF */ },
-        { key: "Ctrl+Shift+E",        label: "Export revision plan…",      action: null /* WPF */ }
+        { key: "Esc",                 label: "Close window (when idle)",   action: null /* WPF */ }
       ]
     },
     "preview-wide": {
@@ -22,6 +20,8 @@
         { key: "t",                   label: "Toggle document outline",    action: "outline.toggle" /* preview-outline.js */ },
         { key: "v",                   label: "Toggle quality gate verdict", action: "gate.toggle" /* preview-gate.js */ },
         { key: "l",                   label: "Toggle revision-loop timeline", action: "loop.toggle" /* preview-loop.js */ },
+        { key: "c",                   label: "Copy revision brief from unresolved comments", action: null /* preview-gate.js */ },
+        { key: "a",                   label: "Claude applies unresolved comments in place (needs the Claude CLI)", action: null /* preview-gate.js */ },
         { key: "gg",                  label: "Jump to first",              action: "nav.first" },
         { key: "G",                   label: "Jump to last",               action: "nav.last" }
       ]
@@ -67,7 +67,7 @@
       rows: [
         { key: "↑ / ↓",               label: "Previous / next focusable",  action: "nav.prevnext" },
         { key: "Home / End",          label: "First / last focusable",     action: "nav.firstlast" },
-        { key: "Enter or c",          label: "Add comment on this block",  action: "block.compose" }
+        { key: "Enter",               label: "Add comment on this block",  action: "block.compose" }
       ]
     },
     "on-card": {
@@ -336,9 +336,10 @@
     var kind = kindOf(focused);
 
     if (kind === "block") {
+      // Enter only: bare "c" is the collapsed-panel "copy revision brief" key (preview-gate.js
+      // takes it in the capture phase), so composing a comment lives on Enter alone.
       var bareEnter = e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
-      var bareC = e.key === "c" && !e.ctrlKey && !e.metaKey && !e.altKey;
-      if (bareEnter || bareC) {
+      if (bareEnter) {
         e.preventDefault();
         var blockId = focused.getAttribute("data-block-id");
         if (blockId && window.__sp_startCompose) {

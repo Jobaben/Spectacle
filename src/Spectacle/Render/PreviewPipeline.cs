@@ -43,9 +43,10 @@ public sealed class PreviewPipeline : IDisposable
     public event EventHandler<string>? CopyTextRequested;
 
     /// <summary>
-    /// Raised with the triaged fix brief when the preview asked for a hands-free revision — the
-    /// same text <see cref="CopyTextRequested"/> carries, but addressed to the host's Claude CLI
-    /// runner instead of the clipboard. Launching a process is a host concern, exactly like the
+    /// Raised with a revision brief — the triaged fix brief, or the unresolved-comment brief —
+    /// when the preview asked for a hands-free revision: the same text
+    /// <see cref="CopyTextRequested"/> carries, but addressed to the host's Claude CLI runner
+    /// instead of the clipboard. Launching a process is a host concern, exactly like the
     /// clipboard: the pipeline hands the brief out and stays out of System.Diagnostics.
     /// </summary>
     public event EventHandler<string>? ClaudeReviseRequested;
@@ -147,6 +148,14 @@ public sealed class PreviewPipeline : IDisposable
                         if (_claude.Available && _claude.State != "running")
                             reviseBrief = BuildTriagedFixBrief();
                         break;
+                    // The comment-side twins of copyFixBrief / claudeRevise, sent with the gate
+                    // panel collapsed: the brief is built from the reviewer's unresolved comments
+                    // instead of the triaged verdict, and travels the exact same two host paths.
+                    case "copyCommentBrief": copyText = BuildCommentBrief(); break;
+                    case "claudeReviseComments":
+                        if (_claude.Available && _claude.State != "running")
+                            reviseBrief = BuildCommentBrief();
+                        break;
                     default: return;
                 }
 
@@ -182,6 +191,22 @@ public sealed class PreviewPipeline : IDisposable
         _lastVerdict is null
             ? null
             : FixBriefExporter.Build(GateTriage.Without(_lastVerdict, _waived), json: false);
+
+    /// <summary>
+    /// The revision brief built from the reviewer's unresolved, still-anchored comments — what the
+    /// collapsed-panel <c>c</c> copies and <c>a</c> hands to Claude. <c>null</c> before the first
+    /// render and when there is nothing unresolved: an empty brief would send an agent off to
+    /// revise nothing, so it is never handed out.
+    /// </summary>
+    private string? BuildCommentBrief()
+    {
+        var unresolved = (_lastMatch?.Matched ?? Array.Empty<MatchedComment>())
+            .Where(m => m.Comment.ResolvedAt is null)
+            .ToList();
+        return unresolved.Count == 0
+            ? null
+            : CommentBriefExporter.Build(_store.SourcePath, unresolved);
+    }
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s.Substring(0, max) + "…";

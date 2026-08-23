@@ -25,6 +25,10 @@ vocabulary — everything else lives in the [README](README.md).
    installed, the panel also offers `a`: Spectacle hands the brief to `claude -p` in the
    background, Claude revises the open document in place, and steps 4–5 happen by themselves.
    A corner chip shows the run (and the reason, if it fails).
+8. **Your own comments work the same way.** `Enter` on a block adds a comment. With the
+   findings panel *closed*, `c` copies a revision brief built from your unresolved comments
+   and `a` hands it to Claude — the panel open/closed decides whether the keys carry the
+   gate's findings or your review.
 
 To try this without an agent, [`docs/example/spec/`](docs/example/spec/) ships three saved
 iterations of one document — copy v1 over a working file, open it, then copy v2 and v3 over
@@ -46,13 +50,13 @@ it and watch steps 4–6 happen.
 | **Waive** | A session-only "leave this out of the brief" mark (`Space` in the panel). The badge and the pipeline still count the finding — only the copied brief shrinks. Gone when the finding is fixed or the window closes. |
 | **Suppression** | The permanent version: an HTML comment in the document itself, `<!-- spectacle-disable-next-line bare-urls -->`. Changes the verdict for everyone and is visible in the file. |
 | **Fix brief** | The findings rewritten as instructions addressed to the tool that wrote the document, ordered bottom-up so line numbers stay valid while it edits. `c` in the panel, `--fix-brief` in the CLI. |
-| **Hand-off (`a`)** | The fix brief given straight to the Claude Code CLI instead of the clipboard, with an in-place contract: revise this exact file, create no new one. Offered only when a `claude` install is detected (pin one with `SPECTACLE_CLAUDE_CLI`). |
+| **Hand-off (`a`)** | A brief given straight to the Claude Code CLI instead of the clipboard, with an in-place contract: revise this exact file, create no new one. Panel open, it carries the triaged findings; panel closed, your unresolved comments. Offered only when a `claude` install is detected (pin one with `SPECTACLE_CLAUDE_CLI`). |
 | **Coverage** | The honesty note on a verdict: which checks were disabled and how many findings were suppressed, so a clean pass can't hide a narrowed gate. |
-| **Comments / revision plan** | Your own margin notes (`Enter` on a block), separate from the gate. They export as a revision plan (`Ctrl+Shift+C`) — the human-authored counterpart to the fix brief. |
+| **Comments / comment brief** | Your own margin notes (`Enter` on a block), separate from the gate. With the findings panel closed, `c` copies them as a revision brief — the human-authored counterpart to the fix brief (`--revision-plan` is the headless route). |
 
 Rule of thumb for the two easily confused pairs: **waive** is "not in this brief", **suppress**
-is "not ever, and visibly so"; the **fix brief** carries the gate's findings, the **revision
-plan** carries your comments.
+is "not ever, and visibly so"; the **fix brief** carries the gate's findings, the **comment
+brief** carries your comments — one pair of keys (`c` / `a`), with the panel deciding which.
 
 ## Where things live
 

@@ -23,6 +23,11 @@
   // the open file, and the agent's saves land here live — each one an iteration in the loop HUD.
   // A chip above the badge shows the run while it is in flight (and a failure afterwards), payload-
   // driven so it survives the re-renders the run's own saves cause.
+  //
+  // The same two keys work with the panel *collapsed*, where they act on the reviewer's half of
+  // the loop instead: "c" copies the revision brief built from the unresolved review comments and
+  // "a" hands that brief to the same Claude runner. Opening the panel is thus a modifier on what
+  // gets revised — collapsed, the reviewer's comments; open, the triaged gate findings.
 
   var GATE = window.__spectacleGate__ || null;
   var CLAUDE = (GATE && GATE.claude) || null;
@@ -319,6 +324,59 @@
     }, 2200);
   }
 
+  // -------- Collapsed-panel revision keys (the reviewer's half of the loop) --------
+
+  // The reviewer's comments come through the annotations payload; a comment counts here while it
+  // is unresolved and still anchored (orphans travel separately and never reach the brief).
+  function unresolvedCommentCount() {
+    var annot = window.__spectacleAnnotations__ || {};
+    var list = annot.comments || [];
+    var n = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].resolvedAt) n++;
+    }
+    return n;
+  }
+
+  function orphanFocused(target) {
+    var el = target || document.activeElement;
+    return !!(el && el.classList && el.classList.contains("sp-orphan-row"));
+  }
+
+  // The collapsed keys have no panel to write status into, so they speak through the ambient
+  // hint toast keynav owns — the same element the re-anchor flow already announces through.
+  function hint(text) {
+    if (window.__sp_flash_hint) window.__sp_flash_hint(text);
+  }
+
+  function copyCommentBrief() {
+    var n = unresolvedCommentCount();
+    if (!n) { hint("No unresolved comments — nothing to copy"); return; }
+    sendToHost("copyCommentBrief", {});
+    hint(n === 1
+      ? "Revision brief copied — 1 comment"
+      : "Revision brief copied — " + n + " comments");
+  }
+
+  // The hands-free variant of copyCommentBrief, mirroring reviseWithClaude: same brief, handed to
+  // the host's Claude runner, with every refusal explained rather than swallowed.
+  function reviseCommentsWithClaude() {
+    if (!CLAUDE || !CLAUDE.available) {
+      hint("Claude CLI not found — c copies the brief instead");
+      return;
+    }
+    if (CLAUDE.state === "running") {
+      hint("Claude is already revising — saves land here as they happen");
+      return;
+    }
+    var n = unresolvedCommentCount();
+    if (!n) { hint("No unresolved comments — nothing to hand to Claude"); return; }
+    sendToHost("claudeReviseComments", {});
+    hint(n === 1
+      ? "Handed to Claude — 1 comment. Saves land here live."
+      : "Handed to Claude — " + n + " comments. Saves land here live.");
+  }
+
   // -------- Claude run chip --------
 
   // Ambient state for the background run, visible without the panel: the reader should never
@@ -472,14 +530,34 @@
     if (!panelEl) return;
 
     if (!isOpen()) {
+      var bare = !e.ctrlKey && !e.metaKey && !e.altKey;
       // "v" for verdict, bare only.
-      if (e.key === "v" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === "v" && bare) {
         if (blockedTarget(e.target)) return;
         e.preventDefault();
         // stopImmediatePropagation, not stopPropagation: the other overlays are capture listeners
         // on this same element, so only the "immediate" form keeps the key away from them.
         e.stopImmediatePropagation();
         open();
+        return;
+      }
+      // With the panel collapsed, the same two revision keys act on the *reviewer's* half of the
+      // loop: "c" copies the brief built from the unresolved comments and "a" hands it to Claude.
+      // Opening the panel is the modifier — the keys then cover the triaged findings instead.
+      if (e.key === "c" && bare) {
+        if (blockedTarget(e.target)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        copyCommentBrief();
+        return;
+      }
+      if (e.key === "a" && bare) {
+        // A focused orphan row owns "a" (begin re-anchor): the narrower gesture wins.
+        if (blockedTarget(e.target) || orphanFocused(e.target)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        reviseCommentsWithClaude();
+        return;
       }
       return;
     }
