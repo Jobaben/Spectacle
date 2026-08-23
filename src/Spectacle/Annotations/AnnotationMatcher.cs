@@ -26,7 +26,9 @@ public static class AnnotationMatcher
 
             if (byKey.TryGetValue(key, out var block))
                 matched.Add(new MatchedComment(comment, block));
-            else
+            else if (comment.ResolvedAt is null)
+                // A resolved comment that lost its block is finished work — surfacing it in the
+                // orphan tray would nag the reviewer about an ask that was already answered.
                 orphaned.Add(comment);
         }
 

@@ -231,6 +231,19 @@ function check(name, ok, detail) {
     const panelText = await panel.innerText();
     check('headline reads converging', panelText.includes('Converging'));
     check('one sparkline bar per iteration', (await page.locator('#sp-loop-spark .sp-loop-bar').count()) === 3);
+    check('every bar stacks its open-comment share',
+      (await page.locator('#sp-loop-spark .sp-loop-bar-seg-comments').count()) === 3);
+    check('every bar keeps its blocking share',
+      (await page.locator('#sp-loop-spark .sp-loop-bar-seg-blocking').count()) === 3);
+    if (theme !== 'hc') {
+      const segColours = await page.evaluate(() => ['.sp-loop-bar-seg-blocking', '.sp-loop-bar-seg-comments'].map((s) => {
+        const el = document.querySelector('#sp-loop-spark ' + s);
+        return el ? getComputedStyle(el).backgroundColor : null;
+      }));
+      check('blocking and comment shares paint distinct colours',
+        segColours.every((c) => c && c !== 'rgba(0, 0, 0, 0)') && segColours[0] !== segColours[1],
+        JSON.stringify(segColours));
+    }
     check('one timeline row per iteration', (await page.locator('.sp-loop-row').count()) === 3);
     check('rows are newest first', (await page.locator('.sp-loop-row').first().innerText()).includes('#3'));
     check('the latest row details the fixes', panelText.includes('{{token_ttl}}'));
@@ -291,6 +304,47 @@ function check(name, ok, detail) {
       (await page.locator('#sp-loop-toast').count()) === 0);
     check('the open timeline survives the re-render', await page.locator('#sp-loop-panel').isVisible());
     await page.keyboard.press('Escape');
+
+    check('no runtime errors', errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+
+  // ---- a comments-only session: the gate is clean throughout, the reviewer's asks converge ----
+  {
+    console.log('\n[comments only]');
+    const COMMENTS_ONLY = {
+      iteration: 3,
+      history: [
+        { n: 1, at: '2026-08-23T10:01:00Z', blocking: 0, errors: 0, warnings: 0, advisories: 0, fixed: 0, introduced: 0, commentsAddressed: 0, commentsOpen: 2 },
+        { n: 2, at: '2026-08-23T10:02:00Z', blocking: 0, errors: 0, warnings: 0, advisories: 0, fixed: 0, introduced: 0, commentsAddressed: 1, commentsOpen: 1 },
+        { n: 3, at: '2026-08-23T10:03:00Z', blocking: 0, errors: 0, warnings: 0, advisories: 0, fixed: 0, introduced: 0, commentsAddressed: 1, commentsOpen: 0 },
+      ],
+      delta: { fixed: [], introduced: [], persisting: 0 },
+      comments: { addressed: [{ body: 'Say which tenant goes first.', context: 'Rollout is keyed by tenant', line: 16 }] },
+      changedBlockIds: ['b5'],
+    };
+    const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.setContent(buildHtml('dark', COMMENTS_ONLY), { waitUntil: 'load' });
+    await page.keyboard.press('l');
+
+    const bars = await page.evaluate(() => Array.from(
+      document.querySelectorAll('#sp-loop-spark .sp-loop-bar')).map((b) => ({
+        clean: b.classList.contains('sp-loop-bar-clean'),
+        height: b.style.height,
+        comments: b.querySelectorAll('.sp-loop-bar-seg-comments').length,
+        blocking: b.querySelectorAll('.sp-loop-bar-seg-blocking').length,
+      })));
+    check('open comments give the bars height even with the gate clean',
+      bars.length === 3 && bars[0].height === '100%' && bars[1].height === '50%',
+      JSON.stringify(bars));
+    check('a bar with open comments is not painted clean',
+      !bars[0].clean && !bars[1].clean, JSON.stringify(bars));
+    check('the comment share is the whole bar when nothing blocks',
+      bars[0].comments === 1 && bars[0].blocking === 0, JSON.stringify(bars));
+    check('the settled iteration keeps the clean stub',
+      bars[2].clean && bars[2].comments === 0, JSON.stringify(bars));
 
     check('no runtime errors', errors.length === 0, errors.join(' | '));
     await page.close();

@@ -136,8 +136,10 @@
 /* The reviewer's unresolved asks — the comment-brief set — beside the gate's trend. */
 .sp-loop-headline .sp-loop-comments-open { color: var(--link, #4ea1ff); font-weight: 600; }
 
-/* The blocking-count sparkline: one bar per iteration, height proportional to the count, so the
-   whole session's shape — converging, thrashing, done — is one glance. */
+/* The sparkline: one bar per iteration, height proportional to blocking findings plus the
+   reviewer's open comments, stacked — blocking share at the base, comment share (blue) on top —
+   so the whole session's shape — converging, thrashing, done — is one glance even when the gate
+   itself is clean throughout. */
 #sp-loop-spark {
   display: flex;
   align-items: flex-end;
@@ -154,8 +156,13 @@
   max-width: 26px;
   min-height: 2px;
   border-radius: 1px 1px 0 0;
-  background: var(--gate-error, #f48771);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+#sp-loop-spark .sp-loop-bar .sp-loop-bar-seg { flex-basis: 0; flex-shrink: 0; }
+#sp-loop-spark .sp-loop-bar .sp-loop-bar-seg-blocking { background: var(--gate-error, #f48771); }
+#sp-loop-spark .sp-loop-bar .sp-loop-bar-seg-comments { background: var(--link, #4ea1ff); }
 #sp-loop-spark .sp-loop-bar.sp-loop-bar-clean { background: var(--gate-pass, #89d185); }
 #sp-loop-spark .sp-loop-bar.sp-loop-bar-latest { outline: 1px solid var(--focus, #7cb7ff); }
 

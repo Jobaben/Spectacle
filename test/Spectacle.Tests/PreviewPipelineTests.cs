@@ -149,7 +149,7 @@ public class PreviewPipelineTests : IDisposable
     }
 
     [Fact]
-    public void Comment_becomes_orphan_when_anchor_block_text_changes()
+    public void Comment_is_resolved_not_orphaned_when_a_save_changes_its_block()
     {
         var doc = new StubDocument();
         doc.Update("Hello.\n");
@@ -162,8 +162,8 @@ public class PreviewPipelineTests : IDisposable
 
         doc.Update("Goodbye.\n");
 
-        sink.Pushed.Last().Should().Contain("\"orphaned\":[")
-            .And.Contain("\"c-1\"");
+        sink.Pushed.Last().Should().Contain("\"orphaned\":[]",
+            "the save addressed the comment, so it resolves instead of stranding in the tray");
         sink.Pushed.Last().Should().NotContain("\"blockIdAtRender\":\"b0\",\"");
     }
 
@@ -269,20 +269,28 @@ public class PreviewPipelineTests : IDisposable
     }
 
     [Fact]
-    public void SnapshotOrphans_returns_orphaned_after_anchor_block_text_changes()
+    public void SnapshotOrphans_returns_orphaned_when_the_document_changed_between_sessions()
     {
+        // The open comment is saved in one session; the document is different when the next
+        // session opens it. The opening render has no previous save to credit, so the comment
+        // is genuinely lost — that is what the orphan tray is for.
         var doc = new StubDocument();
         doc.Update("Hello.\n");
         var sink = new StubSink();
-        using var p = NewPipeline(doc, sink);
-        p.Start();
-        p.HandleHostMessage("""
-        {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
-        """);
+        using (var p1 = NewPipeline(doc, sink))
+        {
+            p1.Start();
+            p1.HandleHostMessage("""
+            {"type":"commentSave","commentId":"c-1","blockId":"b0","body":"x"}
+            """);
+        }
 
-        doc.Update("Goodbye.\n");
+        var doc2 = new StubDocument();
+        doc2.Update("Goodbye.\n");
+        using var p2 = NewPipeline(doc2, new StubSink());
+        p2.Start();
 
-        p.SnapshotOrphans().Should().ContainSingle()
+        p2.SnapshotOrphans().Should().ContainSingle()
             .Which.Id.Should().Be("c-1");
     }
 

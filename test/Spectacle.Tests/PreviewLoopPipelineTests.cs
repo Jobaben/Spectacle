@@ -124,6 +124,26 @@ public class PreviewLoopPipelineTests : IDisposable
     }
 
     [Fact]
+    public void A_save_that_addresses_a_comment_resolves_it_instead_of_orphaning_it()
+    {
+        var doc = new StubDocument();
+        doc.Update("# Title\n\nFirst paragraph.\n\nSecond paragraph.\n");
+        var sink = new StubSink();
+        var store = new AnnotationStore(sourcePath: Path.Combine(_root, "doc.md"), sidecarRoot: _root);
+        using var p = new PreviewPipeline(doc, sink, PreviewTheme.Dark, store);
+        p.Start();
+
+        p.HandleHostMessage(
+            """{"type":"commentSave","commentId":"c-1","blockId":"b1","body":"Tighten this paragraph."}""");
+        doc.Update("# Title\n\nFirst paragraph, tightened.\n\nSecond paragraph.\n");
+
+        p.SnapshotOrphans().Should().BeEmpty("an addressed comment is answered work, not a lost anchor");
+        sink.Pushed.Last().Should().Contain("\"orphaned\":[]");
+        store.Load().Comments.Should().ContainSingle()
+            .Which.ResolvedAt.Should().NotBeNull("the resolution must survive a reload");
+    }
+
+    [Fact]
     public void A_save_that_leaves_the_commented_block_alone_keeps_the_comment_open()
     {
         var doc = new StubDocument();

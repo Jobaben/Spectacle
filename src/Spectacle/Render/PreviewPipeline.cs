@@ -318,7 +318,24 @@ public sealed class PreviewPipeline : IDisposable
         // flip, a comment save), so only real revisions become iterations. It also gets the
         // matched comments — the same set the cards and the comment brief build from — so each
         // iteration can say which of the reviewer's comment blocks the save acted on.
-        _loop.Advance(text, graded.Report, graded.Verdict, _lastRender.Blocks, _lastMatch.Matched, DateTime.UtcNow);
+        var iteration = _loop.Advance(text, graded.Report, graded.Verdict, _lastRender.Blocks, _lastMatch.Matched, DateTime.UtcNow);
+        // A comment the save addressed is an answered ask: the loop already credits it to this
+        // iteration, so resolving it here keeps it out of the orphan tray instead of leaving it
+        // stranded there after every revision. Re-matching folds the resolution into this render.
+        if (iteration is not null && iteration.CommentsAddressed.Count > 0)
+        {
+            var addressedIds = iteration.CommentsAddressed.Select(a => a.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            _file = _file with
+            {
+                Comments = _file.Comments.Select(c =>
+                    addressedIds.Contains(c.Id) && c.ResolvedAt is null
+                        ? c with { ResolvedAt = iteration.At }
+                        : c).ToArray()
+            };
+            Persist();
+            _lastMatch = AnnotationMatcher.Match(_lastRender.Blocks, _file.Comments);
+        }
         // Waives whose finding no longer exists fall away with it, so a finding the agent fixed
         // does not come back pre-waived if a later revision reintroduces it.
         _waived = GateTriage.Prune(_lastVerdict, _waived).ToHashSet(StringComparer.Ordinal);

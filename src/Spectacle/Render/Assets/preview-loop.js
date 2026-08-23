@@ -286,23 +286,47 @@
 
     var h = history();
     var max = 1;
-    for (var i = 0; i < h.length; i++) if (h[i].blocking > max) max = h[i].blocking;
+    for (var i = 0; i < h.length; i++) {
+      var t = h[i].blocking + (h[i].commentsOpen || 0);
+      if (t > max) max = t;
+    }
 
     var described = [];
     for (var j = 0; j < h.length; j++) {
+      var blocking = h[j].blocking;
+      var comments = h[j].commentsOpen || 0;
+      var total = blocking + comments;
+
       var bar = document.createElement("span");
       bar.className = "sp-loop-bar" +
-        (h[j].blocking === 0 ? " sp-loop-bar-clean" : "") +
+        (total === 0 ? " sp-loop-bar-clean" : "") +
         (j === h.length - 1 ? " sp-loop-bar-latest" : "");
-      // A clean iteration keeps a visible stub via min-height; everything else scales linearly.
-      bar.style.height = Math.round((h[j].blocking / max) * 100) + "%";
-      bar.title = "Iteration " + h[j].n + ": " + h[j].blocking + " blocking";
+      // A settled iteration keeps a visible stub via min-height; everything else scales linearly.
+      bar.style.height = Math.round((total / max) * 100) + "%";
+
+      // The reviewer's open asks stack on top of the gate's blocking count, so a session that
+      // the gate calls clean but the reviewer is still arguing over reads as work left, not done.
+      if (comments) {
+        var cseg = document.createElement("span");
+        cseg.className = "sp-loop-bar-seg sp-loop-bar-seg-comments";
+        cseg.style.flexGrow = String(comments);
+        bar.appendChild(cseg);
+      }
+      if (blocking) {
+        var bseg = document.createElement("span");
+        bseg.className = "sp-loop-bar-seg sp-loop-bar-seg-blocking";
+        bseg.style.flexGrow = String(blocking);
+        bar.appendChild(bseg);
+      }
+
+      bar.title = "Iteration " + h[j].n + ": " + blocking + " blocking" +
+        (comments ? ", " + comments + " open comment" + (comments === 1 ? "" : "s") : "");
       spark.appendChild(bar);
-      described.push(h[j].blocking);
+      described.push(blocking + (comments ? " blocking + " + comments + " comment(s)" : ""));
     }
 
     spark.setAttribute("aria-label",
-      "Blocking findings per iteration: " + described.join(", ") + ".");
+      "Blocking findings and open comments per iteration: " + described.join(", ") + ".");
     return spark;
   }
 

@@ -108,6 +108,34 @@ public class AnnotationMatcherTests
     }
 
     [Fact]
+    public void Resolved_comment_whose_block_is_gone_is_not_orphaned()
+    {
+        var c = MakeComment("paragraph", "h", 0) with
+        {
+            ResolvedAt = new DateTime(2026, 5, 16, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        var result = AnnotationMatcher.Match(Array.Empty<TaggedBlock>(), new[] { c });
+
+        result.Matched.Should().BeEmpty();
+        result.Orphaned.Should().BeEmpty("a resolved comment is finished work, not a lost anchor");
+    }
+
+    [Fact]
+    public void Resolved_comment_that_still_anchors_stays_matched()
+    {
+        var c = MakeComment("paragraph", "h1", 0) with
+        {
+            ResolvedAt = new DateTime(2026, 5, 16, 0, 0, 0, DateTimeKind.Utc)
+        };
+        var b = MakeBlock("b0", "paragraph", 5, "h1", 0);
+
+        var result = AnnotationMatcher.Match(new[] { b }, new[] { c });
+
+        result.Matched.Should().ContainSingle();
+    }
+
+    [Fact]
     public void Block_inserted_above_does_not_disturb_existing_match()
     {
         var c = MakeComment("paragraph", "target", 0);
