@@ -50,6 +50,32 @@ Two decisions carry weight:
 History is capped at 200 iterations with numbering preserved; a reader left open under a chatty
 workflow must not grow without bound.
 
+### The reviewer's comments in the loop
+
+The gate's findings were only half of what a save is asked to fix — the comment brief hands the
+agent the reviewer's unresolved comments, and the loop used to be blind to that half. `Advance`
+now also takes the render's matched comments (the same set the cards and the brief build from),
+and each iteration carries which of them the save **addressed** and how many stayed **open**.
+
+The signal is the anchor itself: a comment is anchored by (kind, normalized-text hash,
+occurrence), so an unresolved comment that drops out of the anchored set had its block changed or
+removed by exactly this save — the same event that orphans it in the tray, now credited to the
+iteration that caused it. Two rules keep the credit honest:
+
+- **The baseline refreshes on every render, not just on advances.** A comment the reviewer
+  resolves between saves is the reviewer's sign-off and must not be credited to the next save; a
+  comment added between saves is the next save's to address. Both are absorbed while the text
+  holds still.
+- **Open counts come from the unresolved-anchored set** — the exact set the comment brief would
+  carry next, so the HUD and the brief can never disagree about what is still being asked. The
+  panel headline reads the count live from the annotations payload; the per-iteration count in
+  each timeline row is the loop's own record.
+
+In the HUD: the toast gains `💬 n comment(s) addressed`, timeline rows tally `💬 n addressed`
+beside the fixed/new delta and carry the open count beside the gate tallies, and the latest row
+lists the addressed comments in the reviewer's own words — clickable, landing where the block sat,
+because verifying that the revision answered the ask is the whole point of showing it.
+
 ### `GateTriage` (Gate)
 
 Waives are a session-scoped set of finding keys, where `KeyOf` is `(check, rule, message)` — the

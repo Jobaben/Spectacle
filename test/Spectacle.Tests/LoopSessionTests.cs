@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
+using Spectacle.Annotations;
 using Spectacle.Gate;
 using Spectacle.Render;
 using Xunit;
@@ -9,20 +11,33 @@ namespace Spectacle.Tests;
 
 /// <summary>
 /// The reader's revision-session memory: iterations advance only on real text changes, deltas are
-/// computed between consecutive reports, and changed-block detection flags exactly the blocks a
-/// revision touched.
+/// computed between consecutive reports, changed-block detection flags exactly the blocks a
+/// revision touched, and the reviewer's comments are credited to the save that acted on them.
 /// </summary>
 public class LoopSessionTests
 {
     private static readonly MdRenderer Renderer = new();
     private static readonly DateTime T0 = new(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc);
 
-    private static LoopIteration? Advance(LoopSession session, string text, DateTime at)
+    private static LoopIteration? Advance(
+        LoopSession session, string text, DateTime at, IReadOnlyList<Comment>? comments = null)
     {
         var report = ReviewReport.Compute(text);
         var verdict = GateVerdict.Compute("doc.md", report, GatePolicy.Default, FrontMatter.Parse(text));
         var blocks = Renderer.Render(text).Blocks;
-        return session.Advance(text, report, verdict, blocks, at);
+        var matched = AnnotationMatcher.Match(blocks, comments ?? Array.Empty<Comment>()).Matched;
+        return session.Advance(text, report, verdict, blocks, matched, at);
+    }
+
+    /// <summary>A comment anchored to the block of <paramref name="text"/> containing <paramref name="fragment"/>.</summary>
+    private static Comment CommentOn(
+        string text, string fragment, string id, string body, DateTime? resolvedAt = null)
+    {
+        var block = Renderer.Render(text).Blocks.Single(b => b.OriginalText.Contains(fragment));
+        var anchor = new BlockAnchor(
+            block.Kind, block.Line, block.TextHash, block.OccurrenceIndex,
+            block.OriginalText.Split('\n')[0]);
+        return new Comment(id, anchor, block.OriginalText, body, T0, resolvedAt);
     }
 
     [Fact]
@@ -36,6 +51,7 @@ public class LoopSessionTests
         it!.Number.Should().Be(1);
         it.Delta.Should().BeNull("there is nothing to compare the opening render against");
         it.ChangedBlockIds.Should().BeEmpty("flashing every block on open would be noise");
+        it.CommentsAddressed.Should().BeEmpty("opening a document addresses nothing");
         session.CurrentIteration.Should().Be(1);
     }
 
@@ -77,7 +93,8 @@ public class LoopSessionTests
         var report = ReviewReport.Compute(text);
         var verdict = GateVerdict.Compute("doc.md", report, GatePolicy.Default, FrontMatter.Parse(text));
 
-        var it = session.Advance(text, report, verdict, Renderer.Render(text).Blocks, T0);
+        var it = session.Advance(
+            text, report, verdict, Renderer.Render(text).Blocks, Array.Empty<MatchedComment>(), T0);
 
         it!.Blocking.Should().Be(verdict.BlockingCount);
         it.Errors.Should().Be(verdict.ErrorCount);
@@ -110,6 +127,77 @@ public class LoopSessionTests
         var blocks = Renderer.Render(revised).Blocks;
         var surplus = blocks.Single(b => b.OriginalText.Contains("Repeated") && b.OccurrenceIndex == 1);
         it!.ChangedBlockIds.Should().ContainSingle().Which.Should().Be(surplus.BlockId);
+    }
+
+    [Fact]
+    public void A_revision_that_changes_a_commented_block_addresses_the_comment()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        var comment = CommentOn(v1, "First", "c-1", "Tighten this paragraph.");
+        Advance(session, v1, T0, new[] { comment });
+
+        var v2 = "# Title\n\nFirst paragraph, tightened.\n\nSecond paragraph.\n";
+        var it = Advance(session, v2, T0.AddMinutes(1), new[] { comment });
+
+        var addressed = it!.CommentsAddressed.Should().ContainSingle().Subject;
+        addressed.Id.Should().Be("c-1");
+        addressed.Body.Should().Be("Tighten this paragraph.");
+        addressed.Context.Should().Be("First paragraph.");
+        it.CommentsOpen.Should().Be(0, "the comment lost its anchor to this save");
+    }
+
+    [Fact]
+    public void An_untouched_comment_stays_open_and_is_not_addressed()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        var comment = CommentOn(v1, "Second", "c-1", "Name the failure modes.");
+        Advance(session, v1, T0, new[] { comment });
+
+        var v2 = "# Title\n\nFirst paragraph, edited.\n\nSecond paragraph.\n";
+        var it = Advance(session, v2, T0.AddMinutes(1), new[] { comment });
+
+        it!.CommentsAddressed.Should().BeEmpty("the save never touched the commented block");
+        it.CommentsOpen.Should().Be(1);
+    }
+
+    [Fact]
+    public void A_comment_resolved_between_saves_is_the_reviewers_work_not_the_next_saves()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        var open = CommentOn(v1, "First", "c-1", "Tighten this paragraph.");
+        Advance(session, v1, T0, new[] { open });
+
+        // The reviewer resolves the comment: a re-render of the same text, not an iteration —
+        // but the comment baseline must move with it.
+        var resolved = open with { ResolvedAt = T0.AddMinutes(1) };
+        Advance(session, v1, T0.AddMinutes(1), new[] { resolved }).Should().BeNull();
+
+        var v2 = "# Title\n\nFirst paragraph, rewritten anyway.\n\nSecond paragraph.\n";
+        var it = Advance(session, v2, T0.AddMinutes(2), new[] { resolved });
+
+        it!.CommentsAddressed.Should().BeEmpty(
+            "a comment the reviewer already resolved is work already signed off, not this save's fix");
+    }
+
+    [Fact]
+    public void A_comment_added_between_saves_is_credited_to_the_save_that_acts_on_it()
+    {
+        var session = new LoopSession();
+        var v1 = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+        Advance(session, v1, T0);
+
+        // The reviewer comments after the opening render: same text, no iteration — but the
+        // baseline picks the comment up so the next save can be measured against it.
+        var comment = CommentOn(v1, "First", "c-1", "Tighten this paragraph.");
+        Advance(session, v1, T0.AddMinutes(1), new[] { comment }).Should().BeNull();
+
+        var v2 = "# Title\n\nFirst paragraph, tightened.\n\nSecond paragraph.\n";
+        var it = Advance(session, v2, T0.AddMinutes(2), new[] { comment });
+
+        it!.CommentsAddressed.Should().ContainSingle().Which.Id.Should().Be("c-1");
     }
 
     [Fact]

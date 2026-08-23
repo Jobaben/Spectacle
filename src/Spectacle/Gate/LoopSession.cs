@@ -3,15 +3,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Spectacle.Annotations;
 using Spectacle.Render;
 
 namespace Spectacle.Gate;
 
 /// <summary>
+/// A reviewer comment a revision acted on: it was unresolved and anchored before the save, and the
+/// save changed (or removed) the block it pointed at. <see cref="Line"/> is where the block sat in
+/// the text the comment was written against — the best landing the reader has, since the block
+/// itself no longer exists in that form. <see cref="Context"/> is the anchor's leading text, the
+/// same snippet the orphan tray uses to say what a comment was about.
+/// </summary>
+public sealed record AddressedComment(string Id, string Body, string Context, int Line);
+
+/// <summary>
 /// One pass through the write → gate → revise loop, as the reader saw it: the graded tallies at
-/// that moment, what changed in the review since the previous pass, and which rendered blocks the
-/// revision touched. <see cref="Delta"/> is <c>null</c> for the first iteration — there is nothing
-/// to compare the opening render against.
+/// that moment, what changed in the review since the previous pass, which rendered blocks the
+/// revision touched, and which of the reviewer's comment blocks it acted on. <see cref="Delta"/>
+/// is <c>null</c> for the first iteration — there is nothing to compare the opening render
+/// against. <see cref="CommentsOpen"/> counts the unresolved, still-anchored comments after this
+/// pass — the same set the comment brief is built from, so the HUD and the brief can never
+/// disagree about what is still being asked.
 /// </summary>
 public sealed record LoopIteration(
     int Number,
@@ -21,7 +34,9 @@ public sealed record LoopIteration(
     int Warnings,
     int Advisories,
     ReviewDelta? Delta,
-    IReadOnlyList<string> ChangedBlockIds);
+    IReadOnlyList<string> ChangedBlockIds,
+    IReadOnlyList<AddressedComment> CommentsAddressed,
+    int CommentsOpen);
 
 /// <summary>
 /// The reader's memory of a revision session. The preview already re-renders and re-grades on
@@ -49,6 +64,7 @@ public sealed class LoopSession
     private string? _lastTextHash;
     private ReviewReport? _lastReport;
     private IReadOnlyList<TaggedBlock> _lastBlocks = Array.Empty<TaggedBlock>();
+    private IReadOnlyList<MatchedComment> _lastUnresolved = Array.Empty<MatchedComment>();
 
     /// <summary>The recorded iterations, oldest first.</summary>
     public IReadOnlyList<LoopIteration> History => _history;
@@ -60,20 +76,41 @@ public sealed class LoopSession
     /// Records a pass, or returns <c>null</c> when <paramref name="text"/> is byte-identical to the
     /// previous pass (a re-render that is not a revision). The caller supplies the same
     /// <paramref name="report"/> and <paramref name="verdict"/> the render was built from, so the
-    /// timeline can never disagree with the badge.
+    /// timeline can never disagree with the badge — and the same <paramref name="matched"/>
+    /// comments the cards render from, so the timeline can never disagree with the comment brief.
     /// </summary>
     public LoopIteration? Advance(
         string text, ReviewReport report, GateVerdict verdict, IReadOnlyList<TaggedBlock> blocks,
-        DateTime atUtc)
+        IReadOnlyList<MatchedComment> matched, DateTime atUtc)
     {
+        var unresolvedNow = matched.Where(m => m.Comment.ResolvedAt is null).ToList();
         var hash = Sha256Hex(text);
-        if (hash == _lastTextHash) return null;
+        if (hash != _lastTextHash) return AdvanceChanged(hash, report, verdict, blocks, unresolvedNow, atUtc);
 
+        // A re-render that is not a revision (a theme flip, a comment save or resolve) still
+        // refreshes the comment baseline: a comment the reviewer resolved between saves is the
+        // reviewer's work, and a comment added between saves is the next save's to address —
+        // neither may be credited to (or hidden from) the iteration the next save records.
+        _lastUnresolved = unresolvedNow;
+        return null;
+    }
+
+    private LoopIteration AdvanceChanged(
+        string hash, ReviewReport report, GateVerdict verdict, IReadOnlyList<TaggedBlock> blocks,
+        IReadOnlyList<MatchedComment> unresolvedNow, DateTime atUtc)
+    {
         var isFirst = _lastTextHash is null;
         var delta = _lastReport is null ? null : ReviewDelta.Compute(_lastReport, report);
         // The opening render "changed" every block only in the vacuous sense; flashing the whole
         // document on open would teach the reader to ignore the markers.
         var changed = isFirst ? Array.Empty<string>() : ChangedBlockIds(_lastBlocks, blocks);
+        // An unresolved comment counts as addressed when the save left it without its block: the
+        // anchor is (kind, text-hash, occurrence), so a comment that dropped out of the
+        // unresolved-anchored set had its block changed or removed by this exact revision. That is
+        // the same signal that orphans it in the tray — the loop just says *which save* did it.
+        var addressed = isFirst
+            ? Array.Empty<AddressedComment>()
+            : AddressedComments(_lastUnresolved, unresolvedNow);
 
         var iteration = new LoopIteration(
             Number: CurrentIteration + 1,
@@ -83,14 +120,33 @@ public sealed class LoopSession
             Warnings: verdict.WarningCount,
             Advisories: verdict.InfoCount,
             Delta: delta,
-            ChangedBlockIds: changed);
+            ChangedBlockIds: changed,
+            CommentsAddressed: addressed,
+            CommentsOpen: unresolvedNow.Count);
 
         _history.Add(iteration);
         if (_history.Count > MaxHistory) _history.RemoveAt(0);
         _lastTextHash = hash;
         _lastReport = report;
         _lastBlocks = blocks;
+        _lastUnresolved = unresolvedNow;
         return iteration;
+    }
+
+    private static IReadOnlyList<AddressedComment> AddressedComments(
+        IReadOnlyList<MatchedComment> previous, IReadOnlyList<MatchedComment> current)
+    {
+        var stillOpen = new HashSet<string>(current.Select(m => m.Comment.Id), StringComparer.Ordinal);
+        return previous
+            .Where(m => !stillOpen.Contains(m.Comment.Id))
+            .Select(m => new AddressedComment(
+                Id: m.Comment.Id,
+                Body: m.Comment.Body,
+                Context: m.Comment.BlockAnchor.LeadingText,
+                // The block's line in the previous render — where the comment's target sat when
+                // the reviewer could last see it, and the closest landing the new text offers.
+                Line: m.CurrentBlock.Line))
+            .ToList();
     }
 
     /// <summary>

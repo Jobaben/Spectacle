@@ -86,7 +86,23 @@
   // -------- Toast --------
 
   function deltaParts(iter) {
-    return { fixed: iter.fixed || 0, introduced: iter.introduced || 0, remaining: iter.blocking };
+    return {
+      fixed: iter.fixed || 0,
+      introduced: iter.introduced || 0,
+      comments: iter.commentsAddressed || 0,
+      remaining: iter.blocking
+    };
+  }
+
+  // The unresolved, still-anchored comments as of *this* render — read live from the annotations
+  // payload (the same set the comment brief is built from), not from the loop history, so a
+  // comment added or resolved between saves shows here without waiting for the next iteration.
+  function openComments() {
+    var ann = window.__spectacleAnnotations__;
+    var list = (ann && ann.comments) || [];
+    var n = 0;
+    for (var i = 0; i < list.length; i++) if (!list[i].resolvedAt) n++;
+    return n;
   }
 
   function buildToast() {
@@ -106,6 +122,15 @@
     fixedSpan.textContent = "✓ " + d.fixed + " fixed";
     toast.appendChild(fixedSpan);
 
+    // The reviewer's half of the save: comment blocks this revision acted on.
+    if (d.comments) {
+      var commentSpan = document.createElement("span");
+      commentSpan.className = "sp-loop-comments";
+      commentSpan.textContent =
+        "💬 " + d.comments + (d.comments === 1 ? " comment" : " comments") + " addressed";
+      toast.appendChild(commentSpan);
+    }
+
     if (d.introduced) {
       var newSpan = document.createElement("span");
       newSpan.className = "sp-loop-new";
@@ -119,7 +144,8 @@
     toast.appendChild(remainSpan);
 
     toast.setAttribute("aria-label",
-      "Revision " + it.n + ": " + d.fixed + " finding(s) fixed, " + d.introduced +
+      "Revision " + it.n + ": " + d.fixed + " finding(s) fixed, " + d.comments +
+      " reviewer comment(s) addressed, " + d.introduced +
       " introduced, " + d.remaining + " blocking remain. Press l for the loop timeline.");
 
     toast.addEventListener("click", function () { hideToast(); open(); });
@@ -195,6 +221,9 @@
     if (iter.errors) parts.push(iter.errors + "E");
     if (iter.warnings) parts.push(iter.warnings + "W");
     if (iter.advisories) parts.push(iter.advisories + "A");
+    // The reviewer's open asks at that pass, alongside the gate tallies: the timeline should
+    // show both counts converging, not just the automated one.
+    if (iter.commentsOpen) parts.push("💬" + iter.commentsOpen);
     return parts.length ? parts.join(" ") : "clean";
   }
 
@@ -227,6 +256,15 @@
     headline.appendChild(verdictSpan);
     headline.appendChild(document.createTextNode(
       " " + history().length + " iteration(s) this session."));
+    // The reviewer's open asks sit beside the gate's trend: both halves of "is this done?".
+    if (openComments()) {
+      headline.appendChild(document.createTextNode(" "));
+      var openSpan = document.createElement("span");
+      openSpan.className = "sp-loop-comments-open";
+      openSpan.textContent =
+        openComments() + (openComments() === 1 ? " comment" : " comments") + " still open.";
+      headline.appendChild(openSpan);
+    }
     panel.appendChild(headline);
 
     panel.appendChild(buildSparkline());
@@ -316,17 +354,27 @@
       nw.className = "sp-loop-new";
       nw.textContent = "+" + (iter.introduced || 0) + " new";
       delta.appendChild(nw);
+      if (iter.commentsAddressed) {
+        delta.appendChild(document.createTextNode(" · "));
+        var cm = document.createElement("span");
+        cm.className = "sp-loop-comments";
+        cm.textContent = "💬 " + iter.commentsAddressed + " addressed";
+        delta.appendChild(cm);
+      }
       li.appendChild(delta);
     }
 
-    // Finding-level detail travels only with the latest iteration — it is the payload's `delta`,
-    // and it is what makes the row actionable rather than a scoreboard.
-    if (isLatest && LOOP.delta) {
+    // Finding- and comment-level detail travels only with the latest iteration — it is the
+    // payload's `delta` and `comments`, and it is what makes the row actionable rather than a
+    // scoreboard.
+    if (isLatest) {
       var detail = document.createElement("ul");
       detail.className = "sp-loop-detail";
-      var fixed = LOOP.delta.fixed || [];
-      var introduced = LOOP.delta.introduced || [];
+      var fixed = (LOOP.delta && LOOP.delta.fixed) || [];
+      var introduced = (LOOP.delta && LOOP.delta.introduced) || [];
+      var addressed = (LOOP.comments && LOOP.comments.addressed) || [];
       for (var i = 0; i < introduced.length; i++) detail.appendChild(detailItem(introduced[i], false));
+      for (var k = 0; k < addressed.length; k++) detail.appendChild(commentItem(addressed[k]));
       for (var j = 0; j < fixed.length; j++) detail.appendChild(detailItem(fixed[j], true));
       if (detail.childNodes.length) li.appendChild(detail);
     }
@@ -357,6 +405,33 @@
       li.setAttribute("title", "Jump to line " + f.line);
       li.addEventListener("click", function () { close(); jumpToLine(f.line); });
     }
+    return li;
+  }
+
+  // A reviewer comment the latest save acted on: the ask in the reviewer's own words, jumping to
+  // where its block sat so the reader can check the revision actually answered it.
+  function commentItem(c) {
+    var li = document.createElement("li");
+    li.className = "sp-loop-detail-comment";
+
+    var sign = document.createElement("span");
+    sign.className = "sp-loop-sign";
+    sign.textContent = "💬";
+    li.appendChild(sign);
+
+    var rule = document.createElement("span");
+    rule.className = "sp-loop-detail-rule";
+    rule.textContent = "comment";
+    li.appendChild(rule);
+
+    var msg = document.createElement("span");
+    msg.className = "sp-loop-detail-msg";
+    msg.textContent = c.body;
+    li.appendChild(msg);
+
+    li.setAttribute("title",
+      (c.context ? "On “" + c.context + "” — " : "") + "jump to line " + c.line);
+    li.addEventListener("click", function () { close(); jumpToLine(c.line); });
     return li;
   }
 

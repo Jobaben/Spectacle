@@ -812,6 +812,14 @@ them all:
   one sparkline bar per save, one row per iteration with its tallies and delta, and the latest
   save's finding-level detail — what it fixed struck through in green, what it introduced in red
   and clickable to jump straight to the line.
+- **Your comments are part of the loop.** A save that rewrites a block you commented on is
+  credited with it: the toast adds `💬 1 comment addressed`, the timeline row tallies it, and the
+  latest row lists the addressed asks in your own words — clickable, so you can jump to the
+  revised block and check the revision actually answered the ask. Each row also carries how many
+  comments were still open at that pass (`💬2` beside the gate tallies), and the panel headline
+  counts what is open right now, so "is this done?" covers both halves of the review: the gate's
+  findings and yours. A comment you resolve yourself is your sign-off, never the next save's
+  credit — only the save that changes the commented block gets counted.
 
 ![The revision-loop timeline: a sparkline converging 6 → 1 → 0 blocking across three iterations,
 with the latest save's fixed findings struck through](docs/screenshots/02-loop-timeline.png)
@@ -976,8 +984,8 @@ underneath them. The triage sections drive `Space` and `c` against a captured ho
 assert the exact messages the host receives, then re-serve the page the way a save re-render does
 and check the panel, its selection, and the waive all come back. The revision-loop suite
 (`preview-loop.browser.test.js`) covers the toast, the changed-block markers, the pill, the
-timeline, the same containment contract, and that an already-announced iteration never toasts
-twice. The hands-free suite (`preview-claude.browser.test.js`) covers the `a` hand-off: offered
+timeline — including the addressed-comment rows and the open-comment counts — the same containment
+contract, and that an already-announced iteration never toasts twice. The hands-free suite (`preview-claude.browser.test.js`) covers the `a` hand-off: offered
 only when the host found a CLI, exactly one message per keypress, the mid-run and fully-waived
 refusals, and the run chip for the running and failed states. The collapsed-panel suite
 (`preview-commentbrief.browser.test.js`) covers the comment-side keys: `c`/`a` routing in both

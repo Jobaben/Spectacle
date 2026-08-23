@@ -56,6 +56,7 @@
 #sp-loop-toast.sp-loop-leaving { opacity: 0; transition: opacity 0.6s ease-out; }
 #sp-loop-toast .sp-loop-iter { font-weight: 600; letter-spacing: 0.04em; }
 #sp-loop-toast .sp-loop-fixed { color: var(--gate-pass, #89d185); font-weight: 600; }
+#sp-loop-toast .sp-loop-comments { color: var(--link, #4ea1ff); font-weight: 600; }
 #sp-loop-toast .sp-loop-new { color: var(--gate-error, #f48771); font-weight: 600; }
 #sp-loop-toast .sp-loop-remain { color: var(--muted, #9da5b4); }
 @keyframes sp-loop-toast-in {
@@ -132,6 +133,8 @@
 .sp-loop-headline .sp-loop-verdict-diverging { color: var(--gate-error, #f48771); font-weight: 600; }
 .sp-loop-headline .sp-loop-verdict-converging { color: var(--gate-pass, #89d185); font-weight: 600; }
 .sp-loop-headline .sp-loop-verdict-holding { color: var(--gate-warning, #dcdcaa); font-weight: 600; }
+/* The reviewer's unresolved asks — the comment-brief set — beside the gate's trend. */
+.sp-loop-headline .sp-loop-comments-open { color: var(--link, #4ea1ff); font-weight: 600; }
 
 /* The blocking-count sparkline: one bar per iteration, height proportional to the count, so the
    whole session's shape — converging, thrashing, done — is one glance. */
@@ -182,6 +185,7 @@
 .sp-loop-row-delta { margin-top: 2px; }
 .sp-loop-row-delta .sp-loop-fixed { color: var(--gate-pass, #89d185); }
 .sp-loop-row-delta .sp-loop-new { color: var(--gate-error, #f48771); }
+.sp-loop-row-delta .sp-loop-comments { color: var(--link, #4ea1ff); }
 
 /* The latest iteration's finding-level detail: what this exact save fixed and what it broke. */
 .sp-loop-detail {
@@ -205,6 +209,12 @@
 .sp-loop-detail li.sp-loop-detail-new { cursor: pointer; }
 .sp-loop-detail li.sp-loop-detail-new:hover { background: var(--bg, #1e1e1e); }
 .sp-loop-detail li.sp-loop-detail-new .sp-loop-sign { color: var(--gate-error, #f48771); }
+/* A reviewer comment the save acted on: the ask in the reviewer's voice, still clickable — the
+   revised block is exactly what the reader wants to verify against the ask. */
+.sp-loop-detail li.sp-loop-detail-comment { cursor: pointer; }
+.sp-loop-detail li.sp-loop-detail-comment:hover { background: var(--bg, #1e1e1e); }
+.sp-loop-detail li.sp-loop-detail-comment .sp-loop-sign { color: var(--link, #4ea1ff); }
+.sp-loop-detail li.sp-loop-detail-comment .sp-loop-detail-msg { font-style: italic; }
 .sp-loop-detail .sp-loop-detail-rule {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   color: var(--muted, #9da5b4);
