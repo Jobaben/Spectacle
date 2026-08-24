@@ -124,15 +124,21 @@ public sealed class PreviewPipeline : IDisposable
     /// <summary>
     /// A background run has started: remember which loop iteration it starts *after*, so its saves
     /// can be attributed to it when it completes. Safe from any thread.
+    ///
+    /// <paramref name="detail"/> is what the chip says until the run's own stream reports work —
+    /// the launch telling the reader something it could not otherwise know, such as which project
+    /// scope the run got. Omitted, the chip is the bare running state it has always been.
     /// </summary>
-    public void OnClaudeRunStarted()
+    public void OnClaudeRunStarted(string? detail = null)
     {
         (string Html, long Version)? render = null;
         lock (_sync)
         {
             _runBaseIteration = _loop.CurrentIteration;
             _runStartedAt = DateTime.UtcNow;
-            _claude = ClaudeRevisionStatus.Running;
+            _claude = string.IsNullOrWhiteSpace(detail)
+                ? ClaudeRevisionStatus.Running
+                : ClaudeRevisionStatus.RunningWith(detail);
             if (_started) render = RenderLocked();
         }
         Publish(render);

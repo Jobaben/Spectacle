@@ -212,6 +212,40 @@ public class ClaudeRevisionPipelineTests : IDisposable
     }
 
     [Fact]
+    public void A_launch_that_fell_back_to_user_scope_says_so_on_the_chip()
+    {
+        // Which project scope a run got is not visible anywhere else, and a run revising a managed
+        // artifact without its project's policy loaded is worth knowing about while it happens.
+        var sink = new RecordingSink();
+        using var pipeline = Open(Failing, sink);
+        pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
+        pipeline.Start();
+
+        pipeline.OnClaudeRunStarted("user scope only — no project root for this artifact");
+
+        var claude = ClaudePayload(sink.Last);
+        claude.GetProperty("state").GetString().Should().Be("running");
+        claude.GetProperty("detail").GetString()
+            .Should().Be("user scope only — no project root for this artifact");
+    }
+
+    [Fact]
+    public void The_run_s_own_progress_replaces_the_launch_note()
+    {
+        // The note answers "what scope did this get"; once the stream reports work, what the run
+        // is *doing* is the more useful thing for the chip to carry.
+        var sink = new RecordingSink();
+        using var pipeline = Open(Failing, sink);
+        pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
+        pipeline.Start();
+
+        pipeline.OnClaudeRunStarted("user scope only — no project root");
+        pipeline.OnClaudeRunProgress(new ClaudeRunProgress(1, 1));
+
+        ClaudePayload(sink.Last).GetProperty("detail").GetString().Should().Be("turn 1 · 1 edit");
+    }
+
+    [Fact]
     public void A_run_that_saved_nothing_becomes_a_visible_timeline_entry_not_silence()
     {
         var sink = new RecordingSink();

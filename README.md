@@ -1,4 +1,4 @@
-# Spectacle
+# Spectacle — Markdown viewer and quality gate for AI-written documents
 
 A Windows-only Markdown viewer. Renders `.md` / `.markdown` files with VS Code-preview fidelity,
 Mermaid diagrams included. Dark and light themes (toggle with `Ctrl+T`). WCAG-accessible. No
@@ -44,12 +44,12 @@ XML, or Markdown for a pull request. Five things make it a *workflow* gate rathe
   against a required-key template, rendered as a metadata card, and echoed into the verdict so a
   downstream step can route on it — instead of being read as prose. See
   [The metadata header](#the-metadata-header).
-- **Generation residue is a defect.** Unsubstituted `{{tokens}}`, "Certainly! Here's the updated…",
-  "rest of the file unchanged", `path/to/file` links — the failures that only happen when a model
+- **Generation residue is a defect.** Unsubstituted `{{tokens}}`, `Certainly! Here's the updated…`,
+  `rest of the file unchanged`, `path/to/file` links — the failures that only happen when a model
   writes the file. See [Generation residue](#generation-residue).
 - **Findings come with fixes.** `--fix-brief` rewrites the verdict as instructions for the tool
   that authored the document, ordered so applying one never invalidates the next one's line
-  number. See [Closing the loop](#closing-the-loop-with---fix-brief).
+  number. See [Closing the loop](#closing-the-loop-with-fix-brief).
 - **The reader shows the same verdict.** Not an approximation of it — literally the same computed
   result, so a green badge and a green pipeline are the same statement. See
   [The gate in the reader](#the-gate-in-the-reader).
@@ -139,7 +139,7 @@ changed or removed (`Orphaned`). Add `--json` for a machine-readable summary. Li
 writes to stdout and never opens a window.
 
 `--lint` reports common readiness gaps in an AI-authored spec: leftover placeholder markers
-(`TODO`, `TBD`, `FIXME`, `<placeholder>`, `lorem ipsum`, … — ignoring fenced code) and empty
+(`TODO`, `TBD`, `FIXME`, `<placeholder>`, `lorem ipsum`, … — ignoring fenced code) and empty <!-- spectacle-disable-line lint -->
 sections (a heading with no content of its own and no subsection beneath it). It prints each
 finding with a line number and exits non-zero when any are found, so it can gate a pipeline; add
 `--json` for structured findings.
@@ -631,19 +631,20 @@ route on. The verdict echoes them too, under `documents[].metadata`.
 
 ### Generation residue
 
-Every other check in Spectacle would pass a document that opens with "Certainly! Here's the updated
-specification:" and ends with "…rest of the file unchanged". Those failures only happen when a model
+Every other check in Spectacle would pass a document that opens with
+`Certainly! Here's the updated specification:` and ends with `…rest of the file unchanged`.
+Those failures only happen when a model
 writes the file, they are exactly what a human reviewer catches in two seconds, and no Markdown
 linter catches them at all. `--check-ai-artifacts` (the `ai-artifacts` gate check) closes that gap:
 
 | Rule | What it catches |
 |---|---|
-| `unfilled-template` | `{{title}}`, `${VERSION}`, `<PROJECT_NAME>`, `%SCOPE%`, `[INSERT SUMMARY]`, a rule of underscores — the template reached the reader instead of the value |
-| `assistant-voice` | "Certainly!", "As an AI language model", "I've updated the section", "Let me know if you…" — text addressed to whoever prompted it rather than whoever reads it |
-| `truncated-output` | "[…]", "(truncated)", "rest of the file unchanged", "content continues" — a marker standing where content should be |
+| `unfilled-template` | `{{title}}`, `${VERSION}`, `<PROJECT_NAME>`, `%SCOPE%`, `[INSERT SUMMARY]`, a rule of underscores — the template reached the reader instead of the value <!-- spectacle-disable-line lint --> |
+| `assistant-voice` | `Certainly!`, `As an AI language model`, `I've updated the section`, `Let me know if you…` — text addressed to whoever prompted it rather than whoever reads it |
+| `truncated-output` | `[…]`, `(truncated)`, `rest of the file unchanged`, `content continues` — a marker standing where content should be |
 | `placeholder-target` | links to `path/to/file`, `your-org/your-repo`, `{{url}}`, a bare `#` — what a model writes when it needs a URL and has none |
 
-Fenced code and inline code spans are skipped, so a docs page about templating can show `` `{{name}}` ``
+Fenced code and inline code spans are skipped, so a docs page about templating can show `{{name}}`
 freely, and a thematic break written with underscores is punctuation rather than a blank to fill.
 The reserved `example.com` domain is deliberately **not** flagged: it exists so documentation can
 show a URL that points nowhere on purpose. At most one finding per rule per line, so a dense line

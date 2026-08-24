@@ -88,11 +88,21 @@ public partial class MainWindow : Window, IPreviewSink
             // The pipeline owns the run's whole account: the running chip, the live turn/edit
             // progress the stream reports, and the finished run's timeline record — including a
             // run that failed or saved nothing, which used to vanish without a trace.
-            runner.Started += (_, _) => _pipeline.OnClaudeRunStarted();
+            // What the chip says while the run gets going: normally nothing, but a run that could
+            // not resolve a project root says so, because "which scope did this run get" is not
+            // otherwise visible anywhere. The service sets it before the process spawns, so the
+            // runner's Started event below can never overwrite a note that has not arrived yet.
+            string? scopeNote = null;
+            runner.Started += (_, _) => _pipeline.OnClaudeRunStarted(scopeNote);
             runner.Progress += (_, p) => _pipeline.OnClaudeRunProgress(p);
             runner.Completed += (_, r) => _pipeline.OnClaudeRunCompleted(r);
+            // Every revision goes through the service, never straight to the runner: it is what
+            // establishes the artifact-continuity invariant — the run starts in the document's own
+            // Claude project root, so the project's instructions, settings, rules and hooks load
+            // rather than the user-scope configuration alone.
+            var revisions = new ClaudeArtifactRevisionService(runner);
             _pipeline.ClaudeReviseRequested += (_, brief) =>
-                runner.TryStart(_document.BaseDirectory, ClaudeRevisionPrompt.Build(_sourcePath, brief));
+                revisions.Revise(_sourcePath, _document.BaseDirectory, brief, note => scopeNote = note);
             _pipeline.SetClaudeStatus(ClaudeRevisionStatus.Idle);
         }
 

@@ -5,9 +5,11 @@ write. You read in it, it grades what you read, and it turns the grade into the 
 instruction for whichever agent wrote the file. This page is the first ten minutes plus the
 vocabulary — everything else lives in the [README](README.md).
 
-## Ten minutes
+## The first ten minutes
 
 1. **Open a file.** `Spectacle.exe design.md`. No setup needed — the gate is already running.
+   The reader is keyboard-first: arrows step block to block, `t` opens the outline, `Ctrl+F`
+   finds in the document, and `?` shows the full keyboard sheet.
 2. **Read the corner.** The badge says `GATE PASS` or `GATE FAIL` with counts like `2E · 1W`
    (2 errors, 1 warning — `clean` when there are none). `--gate` is the same grade without a
    window: `Spectacle.exe design.md --gate` exits 0 when the document passes and 1 when it has
@@ -17,9 +19,11 @@ vocabulary — everything else lives in the [README](README.md).
 3. **Press `v`.** The findings panel lists everything the gate found: severity, line, rule,
    and the concrete fix. Arrows move, `Enter` jumps to the line in the document.
 4. **Add your own asks.** `Enter` on a block adds a comment — the reviewer's half of the
-   loop, tracked exactly like the gate's findings. In the findings panel, `Space` waives any
-   finding you disagree with, so the brief you send next carries only what you actually want
-   fixed.
+   loop, tracked exactly like the gate's findings. A focused comment is yours to manage:
+   `e` edits it, `r` resolves it, `d` deletes it, and a comment whose block a revision
+   removed waits in the orphan tray until you re-anchor it (`a` on the orphan) or drop it.
+   In the findings panel, `Space` waives any finding you disagree with, so the brief you
+   send next carries only what you actually want fixed.
 5. **Press `a` — the loop closes itself.** If the [Claude Code CLI](https://claude.com/claude-code)
    is installed, `a` hands a revision brief to `claude -p` in the background and Claude
    revises the open document in place; a corner chip shows the run working live from the

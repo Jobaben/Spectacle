@@ -205,4 +205,15 @@ public class ClaudeCliTests
         psi.RedirectStandardOutput.Should().BeTrue();
         psi.RedirectStandardError.Should().BeTrue();
     }
+
+    [Fact]
+    public void The_launch_never_uses_bare_mode()
+    {
+        // --bare skips the project instructions, skills, hooks and settings that artifact-context
+        // continuity depends on. A future startup-speed optimization must not silently disable
+        // them: see docs/superpowers/specs/2026-08-24-artifact-context-continuity-design.md.
+        foreach (var exe in new[] { "C:\\tools\\claude.exe", "C:\\npm\\claude.cmd" })
+            ClaudeRevisionRunner.BuildStartInfo(exe, "C:\\specs")
+                .Arguments.Should().NotContain("--bare");
+    }
 }
