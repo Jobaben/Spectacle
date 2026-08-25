@@ -199,4 +199,144 @@ public class FrontMatterTests
         header.Find("title")!.Value.Should().Be("Auth");
         body.Should().Contain("# Body").And.NotContain("title: Auth");
     }
+
+    [Fact]
+    public void Folds_a_folded_block_scalar_into_its_text()
+    {
+        var header = FrontMatter.Parse(
+            "---\npurpose: >-\n  Collects reviewer feedback on the pipeline so a later\n  session can answer it.\n---\n");
+
+        var purpose = header.Find("purpose")!;
+        purpose.Value.Should().Be("Collects reviewer feedback on the pipeline so a later session can answer it.");
+        purpose.Line.Should().Be(2);
+        purpose.HasValue.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Keeps_the_line_breaks_of_a_literal_block_scalar()
+    {
+        var header = FrontMatter.Parse("---\nnotes: |\n  first line\n  second line\n---\n");
+
+        header.Find("notes")!.Value.Should().Be("first line\nsecond line");
+    }
+
+    [Fact]
+    public void A_blank_line_does_not_end_a_block_scalar()
+    {
+        var header = FrontMatter.Parse(
+            "---\nhistory: >\n  The first paragraph.\n\n  The second paragraph.\nstatus: draft\n---\n");
+
+        header.Find("history")!.Value.Should().Be("The first paragraph.\nThe second paragraph.");
+        header.Find("status")!.Value.Should().Be("draft");
+    }
+
+    [Fact]
+    public void Prose_inside_a_block_scalar_is_never_read_as_a_key()
+    {
+        // The body of a block scalar is text, so a colon or a dash in it is punctuation. Reading it
+        // as structure invented metadata the document never declared.
+        var header = FrontMatter.Parse(
+            "---\npurpose: |\n  Line one of the purpose.\n  note: this line is prose, not a key.\n  - and this is prose too\nstatus: draft\n---\n");
+
+        header.Entries.Select(e => e.Key).Should().Equal("purpose", "status");
+        header.Find("purpose")!.Value.Should()
+            .Contain("note: this line is prose").And.Contain("- and this is prose too");
+        header.Find("purpose")!.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void An_empty_block_scalar_is_not_a_filled_in_key()
+    {
+        var header = FrontMatter.Parse("---\npurpose: >-\nstatus: draft\n---\n");
+
+        header.Find("purpose")!.Value.Should().BeEmpty();
+        header.Find("purpose")!.HasValue.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Reads_a_block_scalar_with_an_explicit_indent_indicator()
+    {
+        var header = FrontMatter.Parse("---\npurpose: |2-\n  the text\n---\n");
+
+        header.Find("purpose")!.Value.Should().Be("the text");
+    }
+
+    [Fact]
+    public void Folds_the_continuation_lines_of_a_plain_scalar()
+    {
+        var header = FrontMatter.Parse(
+            "---\npurpose: Collects reviewer feedback so a later\n  session can answer it.\n---\n");
+
+        header.Find("purpose")!.Value.Should().Be("Collects reviewer feedback so a later session can answer it.");
+    }
+
+    [Fact]
+    public void Folds_the_continuation_lines_of_a_sequence_item()
+    {
+        var header = FrontMatter.Parse(
+            "---\nconstraints:\n  - Question headings are stable anchors - never reword\n    them.\n  - Answers are never deleted.\n---\n");
+
+        header.Find("constraints")!.Items.Should().Equal(
+            "Question headings are stable anchors - never reword them.",
+            "Answers are never deleted.");
+    }
+
+    [Fact]
+    public void Reads_a_sequence_of_mappings_as_one_item_per_element()
+    {
+        // The shape the artifact-context policy prescribes. An element's fields belong to that
+        // element, not to a dotted path under the sequence key, where the second element would
+        // overwrite the first and every decision text would vanish.
+        var header = FrontMatter.Parse(
+            "---\ndecisions:\n  - decision: Use a 30-second retry delay.\n    reason: Telemetry showed 10 seconds was too aggressive.\n  - decision: Anchor answers under their question heading.\n    reason: The heading is the stable identity.\n---\n");
+
+        header.Entries.Select(e => e.Key).Should().Equal("decisions");
+        header.Find("decisions")!.Items.Should().Equal(
+            "decision: Use a 30-second retry delay.; reason: Telemetry showed 10 seconds was too aggressive.",
+            "decision: Anchor answers under their question heading.; reason: The heading is the stable identity.");
+    }
+
+    [Fact]
+    public void Reads_a_block_scalar_field_of_a_sequence_element()
+    {
+        var header = FrontMatter.Parse(
+            "---\ndecisions:\n  - decision: >-\n      Use a 30-second retry delay.\n    reason: Telemetry.\n---\n");
+
+        header.Find("decisions")!.Items.Should().Equal(
+            "decision: Use a 30-second retry delay.; reason: Telemetry.");
+    }
+
+    [Fact]
+    public void Reads_a_block_scalar_nested_under_a_mapping()
+    {
+        var header = FrontMatter.Parse(
+            "---\nartifact_context:\n  purpose: >-\n    What this is for.\n  history: >-\n    How it got here.\n---\n");
+
+        header.Find("artifact_context.purpose")!.Value.Should().Be("What this is for.");
+        header.Find("artifact_context.history")!.Value.Should().Be("How it got here.");
+        header.Find("artifact_context")!.IsMapping.Should().BeTrue();
+    }
+
+    [Fact]
+    public void An_unindented_body_line_ends_a_block_scalar_in_an_unclosed_header()
+    {
+        // There is no fence to stop at, so the scalar runs until a line at the key's own indent.
+        // The unclosed header is reported by its own rule; what matters here is that the value is
+        // the scalar's text and not the rest of the document.
+        var header = FrontMatter.Parse("---\npurpose: >-\n  the text\n\n# Body\n\nText.\n");
+
+        header.Closed.Should().BeFalse();
+        header.Find("purpose")!.Value.Should().Be("the text");
+    }
+
+    [Fact]
+    public void Metadata_renders_a_multi_line_value_on_one_line()
+    {
+        // A display pair lands in a Markdown brief and in one-line-per-key listings, so a literal
+        // scalar's breaks would split the line it sits on. The entry itself keeps them.
+        var header = FrontMatter.Parse("---\nnotes: |\n  first line\n  second line\n---\n");
+
+        header.Metadata.Single().Value.Should().Be("first line second line");
+        header.Find("notes")!.Value.Should().Be("first line\nsecond line");
+    }
 }

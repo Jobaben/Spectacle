@@ -54,13 +54,11 @@ public sealed record ArtifactContextView(
 /// <summary>
 /// Reads the <c>artifact_context</c> namespace out of a document's front matter.
 ///
-/// It works on the raw header lines rather than on <see cref="FrontMatterEntry"/> values, because
-/// the front-matter parser is a deliberate YAML subset with no block-scalar support: a
-/// <c>history: &gt;</c> section parses to the literal value <c>"&gt;"</c> with its continuation
-/// lines dropped, and a sequence of mappings — the shape <c>decisions</c> uses — parses its second
-/// line as a nested key. Teaching the parser those constructs would change what every existing
-/// document's metadata card and required-key template see, for no gain here: this reader needs
-/// structure, not values.
+/// It works on the raw header lines rather than on <see cref="FrontMatterEntry"/> values because
+/// what it needs is structure, not values: which sections a capsule declares, whether the
+/// namespace is declared twice, whether the header is closed. The parser resolves a block scalar's
+/// text and a sequence of mappings' elements, so the values are there — they just answer a
+/// different question than this reader asks.
 /// </summary>
 public static class ArtifactContext
 {

@@ -230,6 +230,25 @@ public class PreviewGatePipelineTests : IDisposable
     }
 
     [Fact]
+    public void A_context_capsule_reaches_the_card_as_its_text_not_as_a_scalar_indicator()
+    {
+        var path = Write("capsule.md",
+            "---\nartifact_context:\n  purpose: >-\n    Collects reviewer feedback so a later\n    session can answer it.\n  decisions:\n    - decision: Anchor answers under their question heading.\n      reason: The heading is the stable identity.\n---\n\n# Feedback\n\nText.\n");
+        var sink = new RecordingSink();
+
+        using var pipeline = Open(path, sink);
+        pipeline.Start();
+
+        var metadata = GatePayload(sink.Last).GetProperty("metadata").EnumerateArray().ToList();
+        metadata.Select(m => m.GetProperty("key").GetString())
+            .Should().Equal("artifact_context.purpose", "artifact_context.decisions");
+        metadata[0].GetProperty("value").GetString()
+            .Should().Be("Collects reviewer feedback so a later session can answer it.");
+        metadata[1].GetProperty("value").GetString()
+            .Should().Be("decision: Anchor answers under their question heading.; reason: The heading is the stable identity.");
+    }
+
+    [Fact]
     public void A_broken_config_degrades_the_badge_without_taking_down_the_render()
     {
         Write(ConfigLocator.FileName, "{ not json at all");
